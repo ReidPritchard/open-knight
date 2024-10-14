@@ -3,7 +3,7 @@ name = "open-knight"
 version = "0.1.0"
 description = "An open source chess db and analysis app"
 authors = ["Reid Pritchard"]
-edition = "2024"
+edition = "2021"
 
 [lib]
 name = "open_knight_lib"
