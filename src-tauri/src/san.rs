@@ -22,8 +22,11 @@ pub struct Disambiguation {
     pub rank: Option<u8>,
 }
 
+/// A single move in chess
+///
+/// Not called "move" as that name is taken by the std lib
 #[derive(Debug, PartialEq)]
-pub struct Move {
+pub struct ChessMove {
     pub piece: Piece,
     pub from: Option<Disambiguation>,
     pub to: Square,
@@ -65,7 +68,27 @@ impl FromStr for Piece {
             "R" => Ok(Piece::Rook),
             "B" => Ok(Piece::Bishop),
             "N" => Ok(Piece::Knight),
-            "" => Ok(Piece::Pawn), // Pawn moves don't typically include a piece letter
+            "P" => Ok(Piece::Pawn), // Can technically be included but nearly always omitted
+            "" => Ok(Piece::Pawn),  // Pawn moves don't typically include a piece letter
+            _ => Err(ParseError::InvalidPiece),
+        }
+    }
+}
+
+/// Unsure if it's better to just convert chars to string and use FromStr
+/// or to implement a TryFrom for char. I'd think this is better for readability
+/// and efficiency, but it's also more code and kinda redundant.
+impl TryFrom<char> for Piece {
+    type Error = ParseError;
+
+    fn try_from(c: char) -> Result<Self, Self::Error> {
+        match c {
+            'K' => Ok(Piece::King),
+            'Q' => Ok(Piece::Queen),
+            'R' => Ok(Piece::Rook),
+            'B' => Ok(Piece::Bishop),
+            'N' => Ok(Piece::Knight),
+            'P' => Ok(Piece::Pawn), // Can technically be included but nearly always omitted
             _ => Err(ParseError::InvalidPiece),
         }
     }
@@ -92,10 +115,11 @@ impl FromStr for Square {
 }
 
 /// Parse SAN notation into a Move
-pub fn parse_san(san: &str) -> Result<Move, ParseError> {
+#[allow(dead_code)]
+pub fn parse_san(san: &str) -> Result<ChessMove, ParseError> {
     // let mut san = san.trim();
 
-    let san: String = san.to_string();
+    let mut san = san.to_string();
 
     // Initialize flags
     let mut check = false;
@@ -104,15 +128,15 @@ pub fn parse_san(san: &str) -> Result<Move, ParseError> {
     // Check for check '+' or checkmate '#'
     if san.ends_with('#') {
         checkmate = true;
-        san = &san[..san.len() - 1];
+        san.pop();
     } else if san.ends_with('+') {
         check = true;
-        san = &san[..san.len() - 1];
+        san.pop();
     }
 
     // Handle castling
     if san == "O-O" || san == "0-0" {
-        return Ok(Move {
+        return Ok(ChessMove {
             piece: Piece::King,
             from: None,
             to: Square {
@@ -125,7 +149,7 @@ pub fn parse_san(san: &str) -> Result<Move, ParseError> {
             checkmate,
         });
     } else if san == "O-O-O" || san == "0-0-0" {
-        return Ok(Move {
+        return Ok(ChessMove {
             piece: Piece::King,
             from: None,
             to: Square {
@@ -147,43 +171,52 @@ pub fn parse_san(san: &str) -> Result<Move, ParseError> {
                 "Missing promotion piece after '='".to_string(),
             ));
         }
-        let promo_char = &san[eq_idx + 1..eq_idx + 2];
+
+        // Get the promotion piece
+        let promo_char = san.remove(eq_idx + 1);
+        // not sure if I should implement a FromStr for char
         promotion = Some(
             promo_char
-                .parse()
+                .try_into()
                 .map_err(|_| ParseError::InvalidPromotionPiece)?,
         );
-        san = &san[..eq_idx]; // Remove promotion part from SAN
+        // Remove promotion part from SAN (should already be removed)
+        san.truncate(eq_idx);
     }
 
     // The last two characters should be the destination square
     if san.len() < 2 {
         return Err(ParseError::InvalidSAN("Notation too short".to_string()));
     }
-    let dest_square_str = &san[san.len() - 2..];
+    let dest_square_str = san.get(san.len() - 2..).unwrap();
     let to = dest_square_str
         .parse::<Square>()
         .map_err(|_| ParseError::InvalidSquare)?;
 
-    // Remove destination square from SAN
-    san = &san[..san.len() - 2];
+    // Remove destination square from SAN (last two characters)
+    san.truncate(san.len() - 2);
 
     // Capture indicator
     let mut capture = false;
-    if let Some(pos) = san.rfind('x') {
+    if let Some(_pos) = san.rfind('x') {
         capture = true;
-        // Remove the 'x' from SAN
-        // san = [&san[..pos], &san[pos + 1..]].concat();
-        san = san.split_at(pos).
+        // Remove the 'x' from SAN (I think always the last character...right?)
+        assert!(san.ends_with('x'));
+        san.pop();
     }
+
+    // At this point `san` should be something like `"Nb"` or `"K"` since
+    // captures, checks, promotions, and the destination square have been removed
+    // so we are left with the optional piece moved and the optional disambiguation
 
     let mut chars = san.chars().peekable();
 
-    // Piece moved (if any)
+    // Parse the piece moved (optional)
+    // Defaults to pawn if not specified
     let mut piece = Piece::Pawn;
     if let Some(&c) = chars.peek() {
-        if c.is_uppercase() && "KQRBN".contains(c) {
-            piece = c.to_string().parse()?;
+        if let Ok(p) = Piece::try_from(c) {
+            piece = p;
             chars.next();
         }
     }
@@ -226,7 +259,7 @@ pub fn parse_san(san: &str) -> Result<Move, ParseError> {
         None
     };
 
-    Ok(Move {
+    Ok(ChessMove {
         piece,
         from,
         to,
@@ -235,6 +268,13 @@ pub fn parse_san(san: &str) -> Result<Move, ParseError> {
         check,
         checkmate,
     })
+}
+
+/// Generate SAN notation from a ChessMove
+///
+#[allow(dead_code)]
+pub fn generate_san(chess_move: &ChessMove) -> String {
+    todo!()
 }
 
 #[cfg(test)]
@@ -269,7 +309,7 @@ mod tests {
     fn test_parse_san_positive() {
         assert_eq!(
             parse_san("e4"),
-            Ok(Move {
+            Ok(ChessMove {
                 piece: Piece::Pawn,
                 from: None,
                 to: Square { file: 'e', rank: 4 },
@@ -282,7 +322,7 @@ mod tests {
 
         assert_eq!(
             parse_san("Nf3"),
-            Ok(Move {
+            Ok(ChessMove {
                 piece: Piece::Knight,
                 from: None,
                 to: Square { file: 'f', rank: 3 },
@@ -295,7 +335,7 @@ mod tests {
 
         assert_eq!(
             parse_san("exd5"),
-            Ok(Move {
+            Ok(ChessMove {
                 piece: Piece::Pawn,
                 from: Some(Disambiguation {
                     file: Some('e'),
@@ -311,7 +351,7 @@ mod tests {
 
         assert_eq!(
             parse_san("Nbd7"),
-            Ok(Move {
+            Ok(ChessMove {
                 piece: Piece::Knight,
                 from: Some(Disambiguation {
                     file: Some('b'),
@@ -327,7 +367,7 @@ mod tests {
 
         assert_eq!(
             parse_san("R1e2"),
-            Ok(Move {
+            Ok(ChessMove {
                 piece: Piece::Rook,
                 from: Some(Disambiguation {
                     file: None,
@@ -343,7 +383,7 @@ mod tests {
 
         assert_eq!(
             parse_san("e8=Q+"),
-            Ok(Move {
+            Ok(ChessMove {
                 piece: Piece::Pawn,
                 from: None,
                 to: Square { file: 'e', rank: 8 },
@@ -356,7 +396,7 @@ mod tests {
 
         assert_eq!(
             parse_san("O-O"),
-            Ok(Move {
+            Ok(ChessMove {
                 piece: Piece::King,
                 from: None,
                 to: Square { file: 'g', rank: 1 },
@@ -369,7 +409,7 @@ mod tests {
 
         assert_eq!(
             parse_san("O-O-O#"),
-            Ok(Move {
+            Ok(ChessMove {
                 piece: Piece::King,
                 from: None,
                 to: Square { file: 'c', rank: 1 },
@@ -382,7 +422,7 @@ mod tests {
 
         assert_eq!(
             parse_san("Rxh8=Q"),
-            Ok(Move {
+            Ok(ChessMove {
                 piece: Piece::Rook,
                 from: None,
                 to: Square { file: 'h', rank: 8 },
@@ -412,9 +452,7 @@ mod tests {
 
         assert_eq!(
             parse_san("RNBQKB1R w KQkq - 0 1"),
-            Err(ParseError::InvalidSAN(
-                "Unexpected character ' ' in disambiguation".to_string()
-            ))
+            Err(ParseError::InvalidSquare)
         );
 
         assert_eq!(
@@ -426,7 +464,8 @@ mod tests {
 
         assert_eq!(parse_san("e8=Z"), Err(ParseError::InvalidPromotionPiece));
 
-        assert_eq!(parse_san("e4e5"), Err(ParseError::InvalidSquare));
+        assert_eq!(parse_san("e4t5"), Err(ParseError::InvalidSquare));
+        assert_eq!(parse_san("e4e9"), Err(ParseError::InvalidSquare));
 
         assert_eq!(parse_san("Pe4"), Err(ParseError::InvalidPiece));
     }
