@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use std::str::FromStr;
 
 #[derive(Debug, PartialEq)]
@@ -116,72 +117,131 @@ impl FromStr for Square {
 
 /// Parse SAN notation into a Move
 #[allow(dead_code)]
-pub fn parse_san(san: &str) -> Result<ChessMove, ParseError> {
-    // let mut san = san.trim();
+pub fn parse_san(san: &str, is_white: Option<bool>) -> Result<ChessMove, ParseError> {
+    let san = san.trim();
 
-    let mut san = san.to_string();
-
-    // Initialize flags
-    let mut check = false;
-    let mut checkmate = false;
-
-    // Check for check '+' or checkmate '#'
-    if san.ends_with('#') {
-        checkmate = true;
-        san.pop();
-    } else if san.ends_with('+') {
-        check = true;
-        san.pop();
+    // First handle the empty case for sanity
+    if san.is_empty() {
+        return Err(ParseError::InvalidSAN("Empty input".to_string()));
     }
 
+    // Setup our iterators
+    // // There isn't a peekable double ended iterator so we will use two and
+    // // just use next_back() to fake it
+    // let mut chars = san.chars().peekable();
+    // let mut rev_chars = san.chars().rev().peekable();
+    let mut chars = san.chars().multipeek();
+
+    // Check for check '+' or checkmate '#'
+    // do this first so it works for castling
+    let (check, checkmate) = match rev_chars.peek() {
+        Some('+') => {
+            // Remove the '+'
+            rev_chars.next();
+            chars.next_back();
+            (true, false)
+        }
+        Some('#') => {
+            // Remove the '#'
+            rev_chars.next();
+            chars.next_back();
+            (false, true)
+        }
+        Some(c) => (false, false),
+        None => return Err(ParseError::InvalidSAN("Empty input".to_string())),
+    };
+
     // Handle castling
-    if san == "O-O" || san == "0-0" {
-        return Ok(ChessMove {
-            piece: Piece::King,
-            from: None,
-            to: Square {
-                file: 'g',
-                rank: 1, // Adjust rank for black if needed
-            },
-            capture: false,
-            promotion: None,
-            check,
-            checkmate,
-        });
-    } else if san == "O-O-O" || san == "0-0-0" {
-        return Ok(ChessMove {
-            piece: Piece::King,
-            from: None,
-            to: Square {
-                file: 'c',
-                rank: 1, // Adjust rank for black if needed
-            },
-            capture: false,
-            promotion: None,
-            check,
-            checkmate,
-        });
+    // Check for 'O' or '0'
+    if let Some(&first_char) = chars.peek() {
+        if first_char == 'O' || first_char == '0' {
+            // Remove the 'O'
+            chars.next();
+            rev_chars.next_back();
+
+            // At this point we can assume it's a castling move
+            // if the syntax is invalid, we should return an error
+            // Meaning we don't need to peek and instead use next()
+            // We also won't update the rev_chars iterator as we no longer need it
+            if chars.next() != Some('-') {
+                return Err(ParseError::InvalidSAN(
+                    "Invalid castling syntax".to_string(),
+                ));
+            }
+
+            // Check for next char 'O' or '0'
+            if let Some(next_char) = chars.next() {
+                if next_char != 'O' && next_char != '0' {
+                    return Err(ParseError::InvalidSAN(
+                        "Invalid castling syntax".to_string(),
+                    ));
+                }
+            }
+
+            // At this point we have a valid king side castling move
+            // If the iterator is at the end, we can return the move
+            let is_white = is_white.unwrap_or(true);
+            let rank = if is_white { 1 } else { 8 };
+            if chars.peek().is_none() {
+                // kingside castling is always to g1 no matter the color
+                return Ok(ChessMove {
+                    piece: Piece::King,
+                    from: None,
+                    to: Square { file: 'g', rank },
+                    capture: false,
+                    promotion: None,
+                    check,
+                    checkmate,
+                });
+            }
+
+            // Otherwise, we need to check for queenside castling
+
+            // look for the '-'
+            if chars.next() != Some('-') {
+                return Err(ParseError::InvalidSAN(
+                    "Invalid castling syntax".to_string(),
+                ));
+            }
+
+            // Check for next char 'O' or '0'
+            if let Some(next_char) = chars.next() {
+                if next_char != 'O' && next_char != '0' {
+                    return Err(ParseError::InvalidSAN(
+                        "Invalid castling syntax".to_string(),
+                    ));
+                }
+            }
+
+            // Now, given there are no more chars, we can return the move
+            if chars.peek().is_none() {
+                return Ok(ChessMove {
+                    piece: Piece::King,
+                    from: None,
+                    to: Square { file: 'c', rank },
+                    capture: false,
+                    promotion: None,
+                    check,
+                    checkmate,
+                });
+            }
+
+            // If we reach this point, the syntax is invalid
+            return Err(ParseError::InvalidSAN(
+                "Invalid castling syntax".to_string(),
+            ));
+        }
     }
 
     // Handle promotion (e.g., "=Q")
+    // if present, this will be the next characters in the reversed iterator
     let mut promotion = None;
-    if let Some(eq_idx) = san.find('=') {
-        if eq_idx + 1 >= san.len() {
-            return Err(ParseError::InvalidSAN(
-                "Missing promotion piece after '='".to_string(),
-            ));
+    if let Some(&promo_char) = rev_chars.peek() {
+        if let Ok(p) = Piece::try_from(promo_char) {
+            promotion = Some(p);
+            rev_chars.next();
+            chars.next_back();
         }
-
-        // Get the promotion piece
-        let promo_char = san.remove(eq_idx + 1);
-        // not sure if I should implement a FromStr for char
-        promotion = Some(
-            promo_char
-                .try_into()
-                .map_err(|_| ParseError::InvalidPromotionPiece)?,
-        );
-        // Remove promotion part from SAN (should already be removed)
-        san.truncate(eq_idx);
     }
 
     // The last two characters should be the destination square
