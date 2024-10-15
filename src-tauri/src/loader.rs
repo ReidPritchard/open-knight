@@ -11,10 +11,10 @@ pub struct LoadResult {
 
 /// Simple type for a single game+headers+errors result from the pgn loader
 #[derive(Debug, Clone)]
-pub struct GameResult<'a> {
-    pub headers: &'a Vec<(String, String)>,
-    pub game: &'a Chess,
-    pub errors: &'a Vec<String>,
+pub struct GameResult {
+    pub headers: Vec<(String, String)>,
+    pub game: Chess,
+    pub errors: Vec<String>,
 }
 
 impl LoadResult {
@@ -36,22 +36,23 @@ impl LoadResult {
         let headers = self.headers.get(index).unwrap();
         let errors = self.errors.get(index).unwrap();
         Some(GameResult {
-            headers,
-            game,
-            errors,
+            headers: headers.clone(),
+            game: game.clone(),
+            errors: errors.clone(),
         })
     }
 
+    /// Returns a vector of GameResults
     pub fn get_game_results(&self) -> Vec<GameResult> {
         self.games
             .iter()
             .enumerate()
             .map(|(i, game)| {
-                let headers = self.headers.get(i).unwrap();
-                let errors = self.errors.get(i).unwrap();
+                let headers = self.headers.get(i).unwrap().clone();
+                let errors = self.errors.get(i).unwrap().clone();
                 GameResult {
                     headers,
-                    game,
+                    game: game.clone(),
                     errors,
                 }
             })

@@ -2,9 +2,9 @@ use crate::loader::GameResult;
 use std::sync::Mutex;
 
 #[derive(Debug)]
-pub struct AppState<'a> {
+pub struct AppState {
     // Each "view" will be a separate struct
-    pub explorer: Mutex<ExplorerState<'a>>,
+    pub explorer: Mutex<ExplorerState>,
 }
 
 /// Represents the state of the Explorer view
@@ -14,28 +14,28 @@ pub struct AppState<'a> {
 /// and the selected game(s) can be used in other views
 /// (like a game viewer, analysis tools, etc.)
 #[derive(Debug, Clone)]
-pub struct ExplorerState<'a> {
-    pub games: Vec<GameResult<'a>>,
+pub struct ExplorerState {
+    pub games: Vec<GameResult>,
     // TODO: add search/filter/sort state
 }
 
-impl<'a> ExplorerState<'a> {
+impl ExplorerState {
     pub fn new() -> Self {
         ExplorerState { games: Vec::new() }
     }
 
-    pub fn extend(&mut self, games: Vec<GameResult<'a>>) {
-        self.games.extend(games);
+    pub fn extend(&mut self, games: &Vec<GameResult>) {
+        self.games.extend(games.iter().cloned());
     }
 }
 
-impl<'a> Default for ExplorerState<'a> {
+impl Default for ExplorerState {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> AppState<'a> {
+impl AppState {
     pub fn new() -> Self {
         AppState {
             explorer: Mutex::new(ExplorerState::new()),
@@ -43,7 +43,7 @@ impl<'a> AppState<'a> {
     }
 }
 
-impl<'a> Default for AppState<'a> {
+impl Default for AppState {
     fn default() -> Self {
         Self::new()
     }

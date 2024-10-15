@@ -25,15 +25,12 @@ fn san_to_move(san: &str) -> String {
 #[tauri::command]
 fn parse_pgn(pgn: &str, state: tauri::State<AppState>) -> String {
     let load_result = load_pgn(pgn);
+    let game_results = load_result.get_game_results();
 
-    if load_result.success {
-        let game_results = load_result.get_game_results();
+    // Save the result to the app state
+    state.explorer.lock().unwrap().extend(&game_results);
 
-        // Save the result to the app state
-        state.explorer.lock().unwrap().extend(game_results);
-    }
-
-    format!("{:?}", load_result.success)
+    format!("{:?}", game_results)
 }
 
 #[tauri::command]
