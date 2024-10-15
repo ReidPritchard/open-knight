@@ -1,19 +1,24 @@
 use pgn_reader::{BufferedReader, RawHeader, SanPlus, Skip, Visitor};
+use serde::Serialize;
 use shakmaty::{fen::Fen, san::SanError, CastlingMode, Chess, Move, Position};
 
 #[derive(Debug, Clone)]
 pub struct LoadResult {
     pub headers: Vec<Vec<(String, String)>>,
     pub games: Vec<Chess>,
+    pub pgns: Vec<String>, // The PGN of each game, in order
     pub errors: Vec<Vec<String>>,
     pub success: bool,
 }
 
 /// Simple type for a single game+headers+errors result from the pgn loader
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct GameResult {
     pub headers: Vec<(String, String)>,
+    #[serde(skip)]
+    #[allow(dead_code)]
     pub game: Chess,
+    pub pgn: String,
     pub errors: Vec<String>,
 }
 
@@ -22,11 +27,13 @@ impl LoadResult {
         LoadResult {
             headers: Vec::new(),
             games: Vec::new(),
+            pgns: Vec::new(),
             errors: Vec::new(),
             success: true,
         }
     }
 
+    #[allow(dead_code)]
     pub fn get(&self, index: usize) -> Option<GameResult> {
         if index >= self.games.len() {
             return None;
@@ -35,10 +42,12 @@ impl LoadResult {
         let game = self.games.get(index).unwrap();
         let headers = self.headers.get(index).unwrap();
         let errors = self.errors.get(index).unwrap();
+        let pgn = self.pgns.get(index).unwrap();
         Some(GameResult {
             headers: headers.clone(),
             game: game.clone(),
             errors: errors.clone(),
+            pgn: pgn.clone(),
         })
     }
 
@@ -50,9 +59,11 @@ impl LoadResult {
             .map(|(i, game)| {
                 let headers = self.headers.get(i).unwrap().clone();
                 let errors = self.errors.get(i).unwrap().clone();
+                let pgn = self.pgns.get(i).unwrap().clone();
                 GameResult {
                     headers,
                     game: game.clone(),
+                    pgn,
                     errors,
                 }
             })
@@ -64,6 +75,7 @@ impl Visitor for LoadResult {
     type Result = LoadResult;
 
     fn begin_game(&mut self) {
+        self.pgns.push(String::new());
         self.games.push(Chess::new());
         self.headers.push(vec![]);
         self.errors.push(vec![]);
@@ -81,7 +93,8 @@ impl Visitor for LoadResult {
             panic!("Game headers vector not found");
         }
 
-        self.headers[game_index].push((key, value));
+        self.headers[game_index].push((key.clone(), value.clone()));
+        self.pgns[game_index].push_str(&format!("[{} \"{}\"]\n", key, value));
 
         // TODO: Support games from a non-standard starting position.
     }
@@ -127,6 +140,9 @@ impl Visitor for LoadResult {
             }
             // Play the move
             current_game.play_unchecked(&move_result);
+
+            // Update the PGN string
+            self.pgns[game_index].push_str(&format!("{} ", move_result.to_string()));
         }
     }
 

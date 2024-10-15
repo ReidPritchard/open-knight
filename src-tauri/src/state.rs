@@ -1,7 +1,8 @@
 use crate::loader::GameResult;
+use serde::Serialize;
 use std::sync::Mutex;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct AppState {
     // Each "view" will be a separate struct
     pub explorer: Mutex<ExplorerState>,
@@ -13,7 +14,7 @@ pub struct AppState {
 /// can be filtered or sorted in various ways
 /// and the selected game(s) can be used in other views
 /// (like a game viewer, analysis tools, etc.)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ExplorerState {
     pub games: Vec<GameResult>,
     // TODO: add search/filter/sort state

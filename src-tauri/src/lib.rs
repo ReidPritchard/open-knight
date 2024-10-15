@@ -30,13 +30,16 @@ fn parse_pgn(pgn: &str, state: tauri::State<AppState>) -> String {
     // Save the result to the app state
     state.explorer.lock().unwrap().extend(&game_results);
 
-    format!("{:?}", game_results)
+    serde_json::to_string(&game_results).unwrap()
 }
 
 #[tauri::command]
-fn get_games(pgn: &str) -> String {
-    let load_result = load_pgn(pgn);
-    format!("{:?}", load_result.games)
+fn get_explorer_state(state: tauri::State<AppState>) -> String {
+    let explorer = state.explorer.lock().unwrap().clone();
+
+    let explorer_json = serde_json::to_string_pretty(&explorer).unwrap();
+
+    explorer_json
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -44,7 +47,12 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(AppState::default())
-        .invoke_handler(tauri::generate_handler![greet, san_to_move])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            san_to_move,
+            parse_pgn,
+            get_explorer_state
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
