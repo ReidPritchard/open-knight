@@ -1,29 +1,44 @@
 <script setup lang="ts">
-// This starter template is using Vue 3 <script setup> SFCs
-// Check out https://vuejs.org/api/sfc-script-setup.html#script-setup
 import GameExplorer from "./components/GameExplorer.vue";
+import GameBoard from "./components/GameBoard.vue";
+import { ref, watch } from "vue";
+import { Chess } from "chess.js";
+
+export type Game = {
+  id: string;
+  headers: Record<string, string>;
+  game: Chess;
+  pgn: string;
+  errors: string[];
+}
+
+export type ExplorerState = {
+  games: Game[];
+}
+
+export type GameBoardGame = Omit<Game, 'game'>;
+const selectedGame = ref<GameBoardGame | null>(null);
+
+async function updateSelectedGame(newGame: GameBoardGame) {
+  selectedGame.value = newGame;
+  console.log(selectedGame.value);
+}
+
 </script>
 
 <template>
   <div class="container">
     <h1>Welcome to Open Knight 🐴</h1>
 
-    <GameExplorer />
+    <GameExplorer @update:selectedGame="updateSelectedGame" />
+    <GameBoard v-if="selectedGame" />
   </div>
 </template>
 
 <style scoped>
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
-
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #249b73);
-}
-
 :root {
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 24px;
   font-weight: 400;
 
@@ -39,27 +54,11 @@ import GameExplorer from "./components/GameExplorer.vue";
 
 .container {
   margin: 0;
-  padding-top: 10vh;
+  padding-top: 5vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
   text-align: center;
-}
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
-}
-
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
-}
-
-.row {
-  display: flex;
-  justify-content: center;
 }
 
 a {
@@ -97,6 +96,7 @@ button {
 button:hover {
   border-color: #396cd8;
 }
+
 button:active {
   border-color: #396cd8;
   background-color: #e8e8e8;
@@ -126,9 +126,9 @@ button {
     color: #ffffff;
     background-color: #0f0f0f98;
   }
+
   button:active {
     background-color: #0f0f0f69;
   }
 }
-
 </style>

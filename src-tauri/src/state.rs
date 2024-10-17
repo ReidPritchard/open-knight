@@ -4,6 +4,9 @@ use std::sync::Mutex;
 
 #[derive(Debug, Serialize)]
 pub struct AppState {
+    /// The currently selected game
+    pub selected_game: Mutex<Option<GameResult>>,
+
     // Each "view" will be a separate struct
     pub explorer: Mutex<ExplorerState>,
 }
@@ -28,6 +31,10 @@ impl ExplorerState {
     pub fn extend(&mut self, games: &Vec<GameResult>) {
         self.games.extend(games.iter().cloned());
     }
+
+    pub fn get_game_by_id(&self, id: &str) -> Option<GameResult> {
+        self.games.iter().find(|game| game.id == id).cloned()
+    }
 }
 
 impl Default for ExplorerState {
@@ -40,7 +47,16 @@ impl AppState {
     pub fn new() -> Self {
         AppState {
             explorer: Mutex::new(ExplorerState::new()),
+            selected_game: Mutex::new(None),
         }
+    }
+
+    pub fn set_selected_game(&self, game: Option<GameResult>) {
+        *self.selected_game.lock().unwrap() = game;
+    }
+
+    pub fn get_selected_game(&self) -> Option<GameResult> {
+        self.selected_game.lock().unwrap().clone()
     }
 }
 

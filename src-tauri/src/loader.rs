@@ -1,12 +1,13 @@
 use pgn_reader::{BufferedReader, RawHeader, SanPlus, Skip, Visitor};
 use serde::Serialize;
-use shakmaty::{fen::Fen, san::SanError, CastlingMode, Chess, Move, Position};
+use shakmaty::{san::SanError, Chess, Move, Position};
 
 #[derive(Debug, Clone)]
 pub struct LoadResult {
     pub headers: Vec<Vec<(String, String)>>,
     pub games: Vec<Chess>,
-    pub pgns: Vec<String>, // The PGN of each game, in order
+    pub pgns: Vec<String>, // The PGN of each game
+    pub ids: Vec<String>,  // The ID of each game
     pub errors: Vec<Vec<String>>,
     pub success: bool,
 }
@@ -14,6 +15,7 @@ pub struct LoadResult {
 /// Simple type for a single game+headers+errors result from the pgn loader
 #[derive(Debug, Clone, Serialize)]
 pub struct GameResult {
+    pub id: String,
     pub headers: Vec<(String, String)>,
     #[serde(skip)]
     #[allow(dead_code)]
@@ -25,6 +27,7 @@ pub struct GameResult {
 impl LoadResult {
     pub fn new() -> Self {
         LoadResult {
+            ids: Vec::new(),
             headers: Vec::new(),
             games: Vec::new(),
             pgns: Vec::new(),
@@ -39,11 +42,13 @@ impl LoadResult {
             return None;
         }
 
+        let id = self.ids.get(index).unwrap();
         let game = self.games.get(index).unwrap();
         let headers = self.headers.get(index).unwrap();
         let errors = self.errors.get(index).unwrap();
         let pgn = self.pgns.get(index).unwrap();
         Some(GameResult {
+            id: id.clone(),
             headers: headers.clone(),
             game: game.clone(),
             errors: errors.clone(),
@@ -57,10 +62,12 @@ impl LoadResult {
             .iter()
             .enumerate()
             .map(|(i, game)| {
+                let id = self.ids.get(i).unwrap().clone();
                 let headers = self.headers.get(i).unwrap().clone();
                 let errors = self.errors.get(i).unwrap().clone();
                 let pgn = self.pgns.get(i).unwrap().clone();
                 GameResult {
+                    id,
                     headers,
                     game: game.clone(),
                     pgn,
@@ -75,6 +82,10 @@ impl Visitor for LoadResult {
     type Result = LoadResult;
 
     fn begin_game(&mut self) {
+        // Use sequential ids for each game
+        let id = self.ids.len();
+        self.ids.push(id.to_string());
+
         self.pgns.push(String::new());
         self.games.push(Chess::new());
         self.headers.push(vec![]);
@@ -97,6 +108,11 @@ impl Visitor for LoadResult {
         self.pgns[game_index].push_str(&format!("[{} \"{}\"]\n", key, value));
 
         // TODO: Support games from a non-standard starting position.
+    }
+
+    fn end_headers(&mut self) -> Skip {
+        self.pgns[self.games.len() - 1].push_str("\n");
+        Skip(true)
     }
 
     fn begin_variation(&mut self) -> Skip {
@@ -142,7 +158,22 @@ impl Visitor for LoadResult {
             current_game.play_unchecked(&move_result);
 
             // Update the PGN string
-            self.pgns[game_index].push_str(&format!("{} ", move_result.to_string()));
+            let full_move_number = current_game.fullmoves().get();
+
+            // If the move number is odd, it's a black move
+            // if even, it's a white move and we need to add the move number
+            // to the PGN string
+            let pgn_move_string = if full_move_number % 2 == 1 {
+                // This move is by white (since the move count is now odd)
+                // So we need to prepend the move number to the PGN string
+                format!("{} {}", full_move_number, move_result.to_string())
+            } else {
+                // This move is by black (since the move count is now even)
+                // So we shouldn't prepend the move number to the PGN string
+                move_result.to_string()
+            };
+
+            self.pgns[game_index].push_str(&format!("{} ", pgn_move_string));
         }
     }
 

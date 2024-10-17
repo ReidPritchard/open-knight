@@ -1,4 +1,4 @@
-use loader::load_pgn;
+use loader::{load_pgn, GameResult};
 use shakmaty::san::San;
 use state::AppState;
 
@@ -42,6 +42,20 @@ fn get_explorer_state(state: tauri::State<AppState>) -> String {
     explorer_json
 }
 
+#[tauri::command]
+fn set_selected_game(game_id: String, state: tauri::State<AppState>) {
+    let game_result = state.explorer.lock().unwrap().get_game_by_id(&game_id);
+    state.set_selected_game(game_result);
+}
+
+#[tauri::command]
+fn get_selected_game(state: tauri::State<AppState>) -> String {
+    let selected_game = state.selected_game.lock().unwrap().clone();
+    let selected_game_json = serde_json::to_string_pretty(&selected_game).unwrap();
+
+    selected_game_json
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -51,7 +65,9 @@ pub fn run() {
             greet,
             san_to_move,
             parse_pgn,
-            get_explorer_state
+            get_explorer_state,
+            set_selected_game,
+            get_selected_game,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
