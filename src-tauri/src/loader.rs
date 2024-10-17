@@ -172,6 +172,7 @@ impl Visitor for LoadResult {
                 // So we shouldn't prepend the move number to the PGN string
                 move_result.to_string()
             };
+            println!("Adding move: {}", pgn_move_string);
 
             self.pgns[game_index].push_str(&format!("{} ", pgn_move_string));
         }

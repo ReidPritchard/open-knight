@@ -1,5 +1,6 @@
 import { Chess } from "chess.js";
-import { ExplorerState, Game } from "../App.vue";
+import { assertExplorerState, assertGameBoardGame, assertGame, IExplorerState, IGameBoardGame, IGame } from "./types";
+
 
 /**
  * This is an intermediate type that matches the raw json response from the tauri api
@@ -18,8 +19,9 @@ type PartialExplorerState = {
 /**
  * Convert an incoming "GameResult" (as defined in src-tauri/src/state.rs) to a "Game" (as defined in src/App.vue)
  */
-export const gameResultToGame = (game: PartialExplorerState['games'][number]): Game => {
+export const gameResultToGame = (game: PartialExplorerState['games'][number]): IGame => {
     const loaded_game = new Chess();
+    console.log("Game pgn:", game.pgn);
     loaded_game.loadPgn(game.pgn);
 
 
@@ -30,31 +32,30 @@ export const gameResultToGame = (game: PartialExplorerState['games'][number]): G
         const [key, value] = headers[header_index];
         parsed_headers[key.toLowerCase()] = value;
     }
+    const pgn = loaded_game.pgn();
 
-    return {
+    return assertGame({
         id: game.id,
         headers: parsed_headers,
         game: loaded_game,
-        pgn: game.pgn,
+        pgn: pgn,
         errors: game.errors,
-    }
+    });
 }
 
 /**
  * Convert an api response "get_explorer_state" (JSON string) to an ExplorerState (as defined in src/App.vue)
  */
-export const apiExplorerStateToExplorerState = (apiExplorerState: string): ExplorerState => {
-    const parsedState: PartialExplorerState = JSON.parse(apiExplorerState);
-    return {
-        games: parsedState.games.map(gameResultToGame),
-    }
+export function apiExplorerStateToExplorerState(apiExplorerState: string): IExplorerState {
+    const parsed = JSON.parse(apiExplorerState);
+    return assertExplorerState(parsed);
 }
 
 /**
  * Api response "get_selected_game" (JSON string) to a Game (as defined in src/App.vue)
  */
-export const apiSelectedGameToGame = (apiSelectedGame: string): Game => {
-    const parsedGame: PartialExplorerState['games'][number] = JSON.parse(apiSelectedGame);
-    return gameResultToGame(parsedGame);
+export function apiSelectedGameToGame(apiSelectedGame: string): IGameBoardGame {
+    const parsed = JSON.parse(apiSelectedGame);
+    return assertGameBoardGame(gameResultToGame(parsed));
 }
 

@@ -1,75 +1,50 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import Card from 'primevue/card';
+import Button from 'primevue/button';
+import InputText from 'primevue/inputtext';
+import FloatLabel from 'primevue/floatlabel';
 import DataTable, { DataTableRowSelectEvent, DataTableRowUnselectEvent } from 'primevue/datatable';
 import Column from 'primevue/column';
-import { ExplorerState, Game, GameBoardGame } from "../App.vue";
-import { apiExplorerStateToExplorerState, apiSelectedGameToGame } from "../shared/api-conversions";
+import { IGameBoardGame } from "../shared/types";
+import { ref } from 'vue';
 
-const emit = defineEmits(['update:selectedGame']);
+const props = defineProps<{
+  games: IGameBoardGame[];
+  selectedGame: IGameBoardGame | null;
+  pgn: string;
+}>();
 
-const selectedGame = defineModel<GameBoardGame | null>('selectedGame');
+const emit = defineEmits(['update:selectedGame', 'update:pgn', 'parse-pgn']);
 
-const games = ref<Game[]>([]);
-const pgn = ref("");
-
-async function updateGames() {
-  const state: string = await invoke("get_explorer_state");
-  const parsedState: ExplorerState = apiExplorerStateToExplorerState(state);
-  games.value = parsedState.games;
-}
-
-async function getSelectedGame() {
-  const game: string = await invoke("get_selected_game");
-  const parsedGame: GameBoardGame = apiSelectedGameToGame(game);
-  selectedGame.value = parsedGame;
-}
-
-async function parsePgn() {
-  await invoke("parse_pgn", { pgn: pgn.value });
-  await updateGames();
-  await getSelectedGame();
-}
-
-async function gameSelectionChanged(event: DataTableRowUnselectEvent | DataTableRowSelectEvent) {
-  const rowSelection = event.data;
-
-  selectedGame.value = rowSelection;
+function gameSelectionChanged(event: DataTableRowUnselectEvent | DataTableRowSelectEvent) {
+  const rowSelection = event.data as IGameBoardGame;
   emit('update:selectedGame', rowSelection);
-
-  if (rowSelection) {
-    await invoke("set_selected_game", { gameId: rowSelection.id });
-  }
 }
 
-
-onMounted(async () => {
-  await updateGames();
-  await getSelectedGame();
-});
-
+let pgnInput = ref("");
 </script>
 
 <template>
   <Card style="width: 100%;">
-
     <template #title>
-      Explorer
+      <h3>Explorer</h3>
     </template>
 
     <template #content>
-
-      <!-- If no games are loaded, prompt user to paste a PGN file -->
-      <div v-if="games.length === 0">
+      <div v-if="props.games.length === 0">
         <p>No games loaded. Please load a PGN file.</p>
 
-        <input id="pgn-input" v-model="pgn" placeholder="Enter PGN..." />
-        <button type="submit" @click="parsePgn">Parse</button>
+        <div style="display: flex; flex-direction: row; gap: 1rem;">
+          <FloatLabel variant="on">
+            <InputText id="pgn-input" v-model="pgnInput" @input="emit('update:pgn', pgnInput)" />
+            <label for="pgn-input">PGN</label>
+          </FloatLabel>
+          <Button type="submit" @click="emit('parse-pgn')">Parse</Button>
+        </div>
       </div>
 
       <div v-else style="display: flex; flex-direction: column; gap: 1rem;">
-        <DataTable v-model:selection="selectedGame" :value="games" tableStyle="min-width: 50rem" stripedRows
+        <DataTable :value="props.games" v-model:selection="props.selectedGame" tableStyle="min-width: 50rem" stripedRows
           showGridlines selectionMode="single" dataKey="id" @row-select="gameSelectionChanged"
           @row-unselect="gameSelectionChanged" sortField="headers.date" sortMode="multiple">
           <Column field="headers.date" header="Date" sortable></Column>
@@ -82,6 +57,5 @@ onMounted(async () => {
         </DataTable>
       </div>
     </template>
-
   </Card>
 </template>
