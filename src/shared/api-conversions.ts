@@ -1,5 +1,5 @@
 import typia from "typia";
-import { assertGame, IExplorerState, IGame, IMove, parseGame } from "./types";
+import { assertGame, IExplorerState, IGame, IMove } from "./types";
 
 /**
  * This is an intermediate type that matches the raw json response from the tauri api
@@ -17,6 +17,8 @@ interface PartialExplorerState {
 }
 const parsePartialExplorerState =
   typia.json.createValidateParse<PartialExplorerState>();
+const parsePartialGame =
+  typia.json.createValidateParse<PartialExplorerState["games"][number]>();
 
 /**
  * Convert an incoming "GameResult" (as defined in src-tauri/src/state.rs) to a "Game" (as defined in src/App.vue)
@@ -82,9 +84,9 @@ export function apiSelectedGameToGame(
 ): IGame | null {
   console.log("Parsing API Selected Game"); // Log the start of parsing
   if (apiSelectedGame !== null) {
-    const parsed = parseGame(apiSelectedGame);
+    const parsed = parsePartialGame(apiSelectedGame);
     if (parsed.success) {
-      return parsed.data;
+      return gameResultToGame(parsed.data);
     } else {
       // TODO: Better error handling
       console.error(JSON.stringify(parsed.errors, null, 2));
