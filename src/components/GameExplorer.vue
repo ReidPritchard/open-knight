@@ -14,7 +14,6 @@ import { IGame } from "../shared/types";
 const props = defineProps<{
   games: IGame[];
   selectedGame: IGame | null;
-  pgn: string;
 }>();
 
 const emit = defineEmits(["update:selectedGame", "update:pgn", "parse-pgn"]);
@@ -66,6 +65,7 @@ let pgnInput = ref("");
           sortField="headers.date"
           sortMode="multiple"
         >
+          <Column field="id" header="ID" sortable></Column>
           <Column field="headers.date" header="Date" sortable></Column>
           <Column field="headers.event" header="Event" sortable></Column>
           <Column field="headers.site" header="Site" sortable></Column>

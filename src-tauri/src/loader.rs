@@ -1,19 +1,15 @@
-use std::vec;
-
-use pgn_reader::{BufferedReader, RawHeader, San, SanPlus, Skip, Visitor};
+use pgn_reader::{BufferedReader, RawHeader, SanPlus, Skip, Visitor};
 use serde::Serialize;
-use shakmaty::{san::SanError, Chess, Position};
+use shakmaty::{Chess, Position};
 
 use crate::models::Move;
 
+/// A result from loading a PGN file
+///
+/// Can contain multiple games, moves, and headers
 #[derive(Debug, Clone)]
 pub struct LoadResult {
-    pub headers: Vec<Vec<(String, String)>>,
-    pub games: Vec<Chess>,
-    pub moves: Vec<Vec<San>>,
-    pub pgns: Vec<String>, // The PGN of each game
-    pub ids: Vec<i32>,     // The ID of each game
-    pub errors: Vec<Vec<String>>,
+    pub games: Vec<GameResult>,
     pub success: bool,
 }
 
@@ -23,8 +19,7 @@ pub struct GameResult {
     pub id: i32,
     pub headers: Vec<(String, String)>,
     #[serde(skip)]
-    #[allow(dead_code)]
-    pub game: Chess,
+    pub game: Option<Chess>,
     pub moves: Vec<Move>,
     pub pgn: String,
     pub errors: Vec<String>,
@@ -33,101 +28,52 @@ pub struct GameResult {
 impl LoadResult {
     pub fn new() -> Self {
         LoadResult {
-            ids: Vec::new(),
-            headers: Vec::new(),
             games: Vec::new(),
-            moves: Vec::new(),
-            pgns: Vec::new(),
-            errors: Vec::new(),
             success: true,
         }
     }
 
-    #[allow(dead_code)]
-    pub fn get(&self, index: usize) -> Option<GameResult> {
-        if index >= self.games.len() {
-            return None;
-        }
-
-        let id = self.ids.get(index).unwrap();
-        let game = self.games.get(index).unwrap();
-        let headers = self.headers.get(index).unwrap();
-        let errors = self.errors.get(index).unwrap();
-        let moves = self.moves.get(index).unwrap();
-        let pgn = self.pgns.get(index).unwrap();
-        Some(GameResult {
-            id: id.clone(),
-            headers: headers.clone(),
-            game: game.clone(),
-            moves: moves
-                .iter()
-                .map(|san| san.to_move(&game).unwrap())
-                .collect(),
-            errors: errors.clone(),
-            pgn: pgn.clone(),
-        })
+    pub fn get(&self, index: usize) -> Option<&GameResult> {
+        self.games.get(index)
     }
 
-    /// Returns a vector of GameResults
-    pub fn get_game_results(&self) -> Vec<GameResult> {
-        self.games
-            .iter()
-            .enumerate()
-            .map(|(i, game)| {
-                let id = self.ids.get(i).unwrap().clone();
-                let headers = self.headers.get(i).unwrap().clone();
-                let moves = self.moves.get(i).unwrap();
-                let errors = self.errors.get(i).unwrap().clone();
-                let pgn = self.pgns.get(i).unwrap().clone();
-                GameResult {
-                    id,
-                    headers,
-                    game: game.clone(),
-                    moves,
-                    pgn,
-                    errors,
-                }
-            })
-            .collect()
+    pub fn get_game_results(&self) -> &Vec<GameResult> {
+        &self.games
     }
 }
 
 impl Visitor for LoadResult {
-    type Result = LoadResult;
+    type Result = ();
 
     fn begin_game(&mut self) {
-        // Use sequential ids for each game
-        let id = self.ids.len() as i32;
-        self.ids.push(id);
-
-        self.pgns.push(String::new());
-        self.games.push(Chess::new());
-        self.headers.push(vec![]);
-        self.errors.push(vec![]);
-        self.moves.push(vec![]);
+        let id = self.games.len() as i32;
+        self.games.push(GameResult {
+            id,
+            headers: Vec::new(),
+            game: Some(Chess::new()),
+            moves: Vec::new(),
+            pgn: String::new(),
+            errors: Vec::new(),
+        });
     }
 
     fn header(&mut self, key: &[u8], value: RawHeader<'_>) {
-        let game_index = self.games.len() - 1;
+        if let Some(game_result) = self.games.last_mut() {
+            let key = String::from_utf8_lossy(key).to_string();
+            let value = value.decode_utf8().unwrap().to_string();
 
-        let key = String::from_utf8_lossy(key).to_string();
-        let value = value.decode_utf8().unwrap().to_string();
-
-        // Make sure the game has a headers vector
-        if self.headers.get(game_index).is_none() {
-            // It really should so just panic
-            panic!("Game headers vector not found");
+            game_result.headers.push((key.clone(), value.clone()));
+            game_result
+                .pgn
+                .push_str(&format!("[{} \"{}\"]\n", key, value));
         }
-
-        self.headers[game_index].push((key.clone(), value.clone()));
-        self.pgns[game_index].push_str(&format!("[{} \"{}\"]\n", key, value));
-
-        // TODO: Support games from a non-standard starting position.
     }
 
     fn end_headers(&mut self) -> Skip {
-        self.pgns[self.games.len() - 1].push_str("\n");
-        Skip(true)
+        if let Some(game_result) = self.games.last_mut() {
+            game_result.pgn.push_str("\n");
+        }
+        Skip(false)
     }
 
     fn begin_variation(&mut self) -> Skip {
@@ -136,74 +82,68 @@ impl Visitor for LoadResult {
     }
 
     fn san(&mut self, san_plus: SanPlus) {
-        if self.success {
-            let game_index = self.games.len() - 1;
-            // For some reason, play_unchecked requires the game to be mutable,
-            // but rust doesn't see that as "using" the mutable reference. So ignore the lint
-            #[allow(unused_mut)]
-            let mut current_game = self.games.get_mut(game_index).unwrap();
+        if let Some(game_result) = self.games.last_mut() {
+            let current_turn = game_result.game.as_ref().unwrap().turn();
+            let full_move_number = game_result.game.as_ref().unwrap().fullmoves().get();
 
-            // Convert the SAN to a shakmaty Move
             let san = san_plus.san as shakmaty::san::San;
-            let move_result: Result<shakmaty::Move, SanError> = san.to_move(current_game);
+            match san.to_move(game_result.game.as_ref().unwrap()) {
+                Ok(mv) => {
+                    if !game_result.game.as_ref().unwrap().is_legal(&mv) {
+                        self.success = false;
+                        game_result
+                            .errors
+                            .push(format!("Illegal move: {}", mv.to_string()));
+                        return;
+                    }
+                    game_result.game.as_mut().unwrap().play_unchecked(&mv);
 
-            // if move_result is an error, set self.success to false
-            if move_result.is_err() {
-                self.success = false;
-                self.errors[game_index].push(format!(
-                    "Error parsing move: {}",
-                    move_result.err().unwrap()
-                ));
-                return;
+                    // PGN move string
+                    let pgn_move_string = if current_turn == shakmaty::Color::White {
+                        format!("{}. {} ", full_move_number, san.to_string())
+                    } else {
+                        format!("{} ", san.to_string())
+                    };
+                    game_result.pgn.push_str(&pgn_move_string);
+
+                    // Move object
+                    let fen = game_result
+                        .game
+                        .as_ref()
+                        .unwrap()
+                        .board()
+                        .board_fen(game_result.game.as_ref().unwrap().promoted())
+                        .to_string();
+
+                    let move_object = Move {
+                        id: game_result.moves.len() as i32,
+                        game_id: game_result.id,
+                        annotation: None,
+                        fen: Some(fen),
+                        move_number: full_move_number as i32,
+                        move_san: pgn_move_string,
+                        parent_variation_id: None,
+                        variation_id: Some(0),
+                        ..Default::default()
+                    };
+                    game_result.moves.push(move_object);
+                }
+                Err(err) => {
+                    self.success = false;
+                    game_result
+                        .errors
+                        .push(format!("Error parsing move: {}", err));
+                }
             }
-
-            let move_result = move_result.unwrap();
-
-            // This essentially does what `current_game.play(&move_result)` does, but
-            // it doesn't consume the current game. Meaning we don't have to clone it
-            // to update it.
-
-            // Check if the move is legal
-            if !current_game.is_legal(&move_result) {
-                self.success = false;
-                self.errors[game_index].push(format!("Illegal move: {}", move_result.to_string()));
-                return;
-            }
-            // Play the move
-            current_game.play_unchecked(&move_result);
-
-            // Update the PGN string
-            let full_move_number = current_game.fullmoves().get();
-
-            // If the move number is odd, it's a black move
-            // if even, it's a white move and we need to add the move number
-            // to the PGN string
-            let pgn_move_string = if full_move_number % 2 == 1 {
-                // This move is by white (since the move count is now odd)
-                // So we need to prepend the move number to the PGN string
-                format!("{} {}", full_move_number, move_result.to_string())
-            } else {
-                // This move is by black (since the move count is now even)
-                // So we shouldn't prepend the move number to the PGN string
-                move_result.to_string()
-            };
-            println!("Adding move: {}", pgn_move_string);
-
-            self.pgns[game_index].push_str(&format!("{} ", pgn_move_string));
-
-            // Convert the shakmaty Move to a Move and add it to the moves vector
-            self.moves[game_index].push(Move::from(move_result));
         }
     }
 
-    fn end_game(&mut self) -> LoadResult {
-        self.clone()
-    }
+    fn end_game(&mut self) {}
 }
 
 pub fn load_pgn(pgn: &str) -> LoadResult {
     let mut reader = BufferedReader::new(pgn.as_bytes());
     let mut load_result = LoadResult::new();
-    reader.read_game(&mut load_result).unwrap();
+    reader.read_all(&mut load_result).unwrap();
     load_result
 }

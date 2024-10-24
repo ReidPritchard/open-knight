@@ -1,4 +1,4 @@
-use crate::loader::{GameResult, LoadResult};
+use crate::{convert::convert_to_game_results, database, loader::GameResult};
 use serde::Serialize;
 use std::sync::Mutex;
 
@@ -25,7 +25,11 @@ pub struct ExplorerState {
 
 impl ExplorerState {
     pub fn new() -> Self {
-        ExplorerState { games: Vec::new() }
+        ExplorerState { games: vec![] }
+    }
+
+    pub fn clear(&mut self) {
+        self.games.clear();
     }
 
     pub fn extend(&mut self, games: &Vec<GameResult>) {
@@ -34,6 +38,13 @@ impl ExplorerState {
 
     pub fn get_game_by_id(&self, id: &i32) -> Option<GameResult> {
         self.games.iter().find(|game| game.id == *id).cloned()
+    }
+
+    pub fn load_games_from_db(&mut self) {
+        let games = database::get_all_games();
+        let moves = database::get_all_moves();
+        let game_results = convert_to_game_results(games, moves);
+        self.games.extend(game_results.iter().cloned());
     }
 }
 
@@ -45,18 +56,22 @@ impl Default for ExplorerState {
 
 impl AppState {
     pub fn new() -> Self {
+        let mut explorer = ExplorerState::new();
+        explorer.load_games_from_db();
+
         AppState {
-            explorer: Mutex::new(ExplorerState::new()),
+            explorer: Mutex::new(explorer),
             selected_game: Mutex::new(None),
         }
     }
 
-    pub fn set_selected_game(&self, game: Option<GameResult>) {
-        *self.selected_game.lock().unwrap() = game;
+    pub fn clear(&self) {
+        self.explorer.lock().unwrap().clear();
+        *self.selected_game.lock().unwrap() = None;
     }
 
-    pub fn get_selected_game(&self) -> Option<GameResult> {
-        self.selected_game.lock().unwrap().clone()
+    pub fn set_selected_game(&self, game: Option<GameResult>) {
+        *self.selected_game.lock().unwrap() = game;
     }
 }
 

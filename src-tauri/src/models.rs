@@ -1,10 +1,12 @@
-use diesel::{Identifiable, Queryable, Selectable};
+use diesel::{prelude::Insertable, Identifiable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
 
 /**
  * Represents a Game in the chess database.
  */
-#[derive(Queryable, Identifiable, Serialize, Deserialize, Debug, Selectable, Default, Clone)]
+#[derive(
+    Queryable, Identifiable, Serialize, Deserialize, Debug, Selectable, Default, Clone, Insertable,
+)]
 #[diesel(table_name=crate::schema::games, primary_key(id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Game {
@@ -22,7 +24,9 @@ pub struct Game {
 /**
  * Represents a Move in the chess database.
  */
-#[derive(Queryable, Identifiable, Serialize, Deserialize, Debug, Selectable, Default, Clone)]
+#[derive(
+    Queryable, Identifiable, Serialize, Deserialize, Debug, Selectable, Default, Clone, Insertable,
+)]
 #[diesel(table_name=crate::schema::moves, primary_key(id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Move {
@@ -34,13 +38,4 @@ pub struct Move {
     pub parent_variation_id: Option<i32>,
     pub fen: Option<String>,
     pub annotation: Option<String>,
-}
-
-impl From<shakmaty::Move> for Move {
-    fn from(move: shakmaty::Move) -> Self {
-        Move {
-            move_san: move.to_san().unwrap(),
-            ..Default::default()
-        }
-    }
 }

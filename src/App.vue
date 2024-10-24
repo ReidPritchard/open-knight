@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
+import Badge from "primevue/badge";
 import Menubar from "primevue/menubar";
 import { onMounted, ref } from "vue";
 import GameBoard from "./components/GameBoard.vue";
@@ -17,11 +18,16 @@ const pgn = ref("");
 async function updateGames() {
   const state: string = await invoke("get_explorer_state");
   const parsedState = apiExplorerStateToExplorerState(state);
+  console.log("Parsed state:", parsedState);
   games.value = parsedState.games;
 }
 
 async function getSelectedGame() {
-  const game: string = await invoke("get_selected_game");
+  // Can return "null"
+  const response: string = await invoke("get_selected_game");
+  // Parse "null" to null
+  const game: string | null = response === "null" ? null : response;
+  // Now parse the game (handles null as well)
   const parsedGame = apiSelectedGameToGame(game);
   selectedGame.value = parsedGame;
 }
@@ -30,11 +36,14 @@ async function parsePgn() {
   await invoke("parse_pgn", { pgn: pgn.value });
   await updateGames();
   await getSelectedGame();
+
+  // Clear the pgn input
+  pgn.value = "";
 }
 
 async function setSelectedGame(game: IGame | null) {
+  // Unselect
   if (game === selectedGame.value) {
-    // Unselect
     selectedGame.value = null;
     await invoke("set_selected_game", { gameId: null });
     return;
@@ -75,6 +84,11 @@ let menuItems = ref([
   },
 ]);
 
+async function emptyDb() {
+  await invoke("empty_db");
+  await updateGames();
+}
+
 const toggleTheme = () => {
   document.documentElement.classList.toggle("dark");
 };
@@ -112,14 +126,28 @@ const toggleTheme = () => {
 
       <template #end>
         <!-- Theme Toggle -->
-        <Button label="Toggle theme" @click="toggleTheme" />
+        <div
+          style="
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+          "
+        >
+          <Button label="Toggle theme" @click="toggleTheme" />
+          <Button
+            label="Empty DB"
+            @click="emptyDb"
+            icon="pi pi-trash"
+            severity="danger"
+          />
+        </div>
       </template>
     </Menubar>
 
     <GameExplorer
       :games="games"
       :selectedGame="selectedGame"
-      :pgn="pgn"
       @update:pgn="pgn = $event"
       @parse-pgn="parsePgn"
       @update:selectedGame="setSelectedGame"

@@ -1,23 +1,22 @@
-import {
-  IExplorerState,
-  IGame,
-  assertExplorerState,
-  assertGame,
-} from "./types";
+import typia from "typia";
+import { assertGame, IExplorerState, IGame, IMove, parseGame } from "./types";
 
 /**
  * This is an intermediate type that matches the raw json response from the tauri api
  * It should not be used outside of this file as it's difficult to work with
  */
-type PartialExplorerState = {
+interface PartialExplorerState {
   games: {
-    id: string;
+    id: number;
     // ex. [["Event", "Casual Game"], ["Result", "1-0"], ["White", "Thanos"], ["Black", "Thanos"]]
     headers: [string, string][];
     pgn: string;
+    moves: IMove[];
     errors: string[];
   }[];
-};
+}
+const parsePartialExplorerState =
+  typia.json.createValidateParse<PartialExplorerState>();
 
 /**
  * Convert an incoming "GameResult" (as defined in src-tauri/src/state.rs) to a "Game" (as defined in src/App.vue)
@@ -25,6 +24,9 @@ type PartialExplorerState = {
 export const gameResultToGame = (
   game: PartialExplorerState["games"][number]
 ): IGame => {
+  console.log("Converting game result to game:", game.id); // Log the game ID being processed
+
+  console.log("Parsing headers");
   const parsed_headers: Record<string, string> = {};
   const headers = game.headers;
   for (const header_index in headers) {
@@ -33,12 +35,16 @@ export const gameResultToGame = (
     parsed_headers[key.toLowerCase()] = value;
   }
 
-  return assertGame({
+  console.log("Asserting game");
+  const gameResult = assertGame({
     id: game.id,
     headers: parsed_headers,
     pgn: game.pgn,
+    moves: game.moves,
     errors: game.errors,
   });
+  console.log("Game result:", gameResult);
+  return gameResult;
 };
 
 /**
@@ -47,18 +53,46 @@ export const gameResultToGame = (
 export function apiExplorerStateToExplorerState(
   apiExplorerState: string
 ): IExplorerState {
-  const parsed = JSON.parse(apiExplorerState) as PartialExplorerState;
-  // Convert each game to a IGame
-  const games = parsed.games.map(gameResultToGame);
+  console.log("Parsing API Explorer State"); // Log the start of parsing
+  const parsed = parsePartialExplorerState(apiExplorerState);
 
-  const explorerState = { games };
-  return assertExplorerState(explorerState);
+  console.log("Checking success");
+  if (parsed.success) {
+    console.log("Converting games");
+    // Convert each game to a IGame
+    const games = parsed.data.games.map(gameResultToGame);
+    const explorerState: IExplorerState = { games };
+    console.log("Returning explorer state:", explorerState);
+    return explorerState;
+  } else {
+    console.error(
+      "Error parsing explorer state:",
+      JSON.stringify(parsed.errors, null, 2)
+    );
+    // TODO: Better error handling, maybe a toast?
+    throw new Error(parsed.errors.join("\n"));
+  }
 }
 
 /**
  * Api response "get_selected_game" (JSON string) to a Game (as defined in src/App.vue)
  */
-export function apiSelectedGameToGame(apiSelectedGame: string): IGame {
-  const parsed = JSON.parse(apiSelectedGame);
-  return gameResultToGame(parsed);
+export function apiSelectedGameToGame(
+  apiSelectedGame: string | null
+): IGame | null {
+  console.log("Parsing API Selected Game"); // Log the start of parsing
+  if (apiSelectedGame !== null) {
+    const parsed = parseGame(apiSelectedGame);
+    if (parsed.success) {
+      return parsed.data;
+    } else {
+      // TODO: Better error handling
+      console.error(JSON.stringify(parsed.errors, null, 2));
+      console.error("Error parsing selected game:", apiSelectedGame);
+      return null;
+    }
+  }
+
+  // If no game is selected, return null
+  return null;
 }

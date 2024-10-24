@@ -1,4 +1,5 @@
-use loader::{load_pgn, GameResult};
+use convert::convert_to_games;
+use loader::load_pgn;
 use shakmaty::san::San;
 use state::AppState;
 
@@ -10,8 +11,11 @@ mod schema;
 mod state;
 
 #[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
+fn empty_db(state: tauri::State<AppState>) {
+    database::empty_db();
+
+    // Reset the app state
+    state.clear();
 }
 
 #[tauri::command]
@@ -34,6 +38,13 @@ fn parse_pgn(pgn: &str, state: tauri::State<AppState>) -> String {
     // Save the result to the app state
     state.explorer.lock().unwrap().extend(&game_results);
 
+    // Convert to games and moves (for database insertion)
+    let (games, moves) = convert_to_games(game_results.clone());
+
+    // Insert into the database
+    database::insert_games(&games);
+    database::insert_moves(&moves);
+
     serde_json::to_string(&game_results).unwrap()
 }
 
@@ -43,17 +54,15 @@ fn get_explorer_state(state: tauri::State<AppState>) -> String {
 
     let explorer_json = serde_json::to_string_pretty(&explorer).unwrap();
 
+    println!("Explorer state: {}", explorer_json);
+
     explorer_json
 }
 
 #[tauri::command]
-fn set_selected_game(game_id: String, state: tauri::State<AppState>) {
+fn set_selected_game(game_id: i32, state: tauri::State<AppState>) {
     println!("Setting selected game: {}", game_id);
-    let game_result = state
-        .explorer
-        .lock()
-        .unwrap()
-        .get_game_by_id(&game_id.parse().unwrap());
+    let game_result = state.explorer.lock().unwrap().get_game_by_id(&game_id);
     state.set_selected_game(game_result);
 }
 
@@ -71,12 +80,12 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
-            greet,
             san_to_move,
             parse_pgn,
             get_explorer_state,
             set_selected_game,
             get_selected_game,
+            empty_db,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import Select from "primevue/select";
 import Toolbar from "primevue/toolbar";
-import { ref, watch } from "vue";
+import { ref } from "vue";
 import { IGame } from "../shared/types";
 import AspectRatio from "./AspectRatio.vue";
 import ChessBoard from "./ChessBoard/ChessBoard.vue";
@@ -10,19 +10,12 @@ import {
   CoordinatesStyleType,
   Orientation,
 } from "./ChessBoard/types";
+
 const props = defineProps<{
   selectedGame: IGame | null;
 }>();
 
 const moveHistory = ref<string[]>([]);
-
-watch(
-  () => props.selectedGame,
-  (game) => {
-    console.log("Game changed:", game);
-  },
-  { immediate: true }
-);
 
 const showCoordinates = ref<CoordinatesStyleType>(CoordinatesStyle.none);
 const coordinatesOptions = Object.values(CoordinatesStyle);
@@ -35,7 +28,7 @@ const toggleOrientation = () => {
 
 <template>
   <div
-    v-if="selectedGame"
+    v-if="props.selectedGame"
     style="
       display: flex;
       flex-direction: column;
