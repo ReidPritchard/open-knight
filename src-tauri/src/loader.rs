@@ -1,13 +1,18 @@
-use pgn_reader::{BufferedReader, RawHeader, SanPlus, Skip, Visitor};
+use std::vec;
+
+use pgn_reader::{BufferedReader, RawHeader, San, SanPlus, Skip, Visitor};
 use serde::Serialize;
-use shakmaty::{san::SanError, Chess, Move, Position};
+use shakmaty::{san::SanError, Chess, Position};
+
+use crate::models::Move;
 
 #[derive(Debug, Clone)]
 pub struct LoadResult {
     pub headers: Vec<Vec<(String, String)>>,
     pub games: Vec<Chess>,
+    pub moves: Vec<Vec<San>>,
     pub pgns: Vec<String>, // The PGN of each game
-    pub ids: Vec<String>,  // The ID of each game
+    pub ids: Vec<i32>,     // The ID of each game
     pub errors: Vec<Vec<String>>,
     pub success: bool,
 }
@@ -15,11 +20,12 @@ pub struct LoadResult {
 /// Simple type for a single game+headers+errors result from the pgn loader
 #[derive(Debug, Clone, Serialize)]
 pub struct GameResult {
-    pub id: String,
+    pub id: i32,
     pub headers: Vec<(String, String)>,
     #[serde(skip)]
     #[allow(dead_code)]
     pub game: Chess,
+    pub moves: Vec<Move>,
     pub pgn: String,
     pub errors: Vec<String>,
 }
@@ -30,6 +36,7 @@ impl LoadResult {
             ids: Vec::new(),
             headers: Vec::new(),
             games: Vec::new(),
+            moves: Vec::new(),
             pgns: Vec::new(),
             errors: Vec::new(),
             success: true,
@@ -46,11 +53,16 @@ impl LoadResult {
         let game = self.games.get(index).unwrap();
         let headers = self.headers.get(index).unwrap();
         let errors = self.errors.get(index).unwrap();
+        let moves = self.moves.get(index).unwrap();
         let pgn = self.pgns.get(index).unwrap();
         Some(GameResult {
             id: id.clone(),
             headers: headers.clone(),
             game: game.clone(),
+            moves: moves
+                .iter()
+                .map(|san| san.to_move(&game).unwrap())
+                .collect(),
             errors: errors.clone(),
             pgn: pgn.clone(),
         })
@@ -64,12 +76,14 @@ impl LoadResult {
             .map(|(i, game)| {
                 let id = self.ids.get(i).unwrap().clone();
                 let headers = self.headers.get(i).unwrap().clone();
+                let moves = self.moves.get(i).unwrap();
                 let errors = self.errors.get(i).unwrap().clone();
                 let pgn = self.pgns.get(i).unwrap().clone();
                 GameResult {
                     id,
                     headers,
                     game: game.clone(),
+                    moves,
                     pgn,
                     errors,
                 }
@@ -83,13 +97,14 @@ impl Visitor for LoadResult {
 
     fn begin_game(&mut self) {
         // Use sequential ids for each game
-        let id = self.ids.len();
-        self.ids.push(id.to_string());
+        let id = self.ids.len() as i32;
+        self.ids.push(id);
 
         self.pgns.push(String::new());
         self.games.push(Chess::new());
         self.headers.push(vec![]);
         self.errors.push(vec![]);
+        self.moves.push(vec![]);
     }
 
     fn header(&mut self, key: &[u8], value: RawHeader<'_>) {
@@ -128,9 +143,9 @@ impl Visitor for LoadResult {
             #[allow(unused_mut)]
             let mut current_game = self.games.get_mut(game_index).unwrap();
 
-            // Convert the SAN to a Move
+            // Convert the SAN to a shakmaty Move
             let san = san_plus.san as shakmaty::san::San;
-            let move_result: Result<Move, SanError> = san.to_move(current_game);
+            let move_result: Result<shakmaty::Move, SanError> = san.to_move(current_game);
 
             // if move_result is an error, set self.success to false
             if move_result.is_err() {
@@ -175,6 +190,9 @@ impl Visitor for LoadResult {
             println!("Adding move: {}", pgn_move_string);
 
             self.pgns[game_index].push_str(&format!("{} ", pgn_move_string));
+
+            // Convert the shakmaty Move to a Move and add it to the moves vector
+            self.moves[game_index].push(Move::from(move_result));
         }
     }
 

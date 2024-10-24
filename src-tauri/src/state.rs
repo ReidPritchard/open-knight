@@ -1,4 +1,4 @@
-use crate::loader::GameResult;
+use crate::loader::{GameResult, LoadResult};
 use serde::Serialize;
 use std::sync::Mutex;
 
@@ -32,8 +32,8 @@ impl ExplorerState {
         self.games.extend(games.iter().cloned());
     }
 
-    pub fn get_game_by_id(&self, id: &str) -> Option<GameResult> {
-        self.games.iter().find(|game| game.id == id).cloned()
+    pub fn get_game_by_id(&self, id: &i32) -> Option<GameResult> {
+        self.games.iter().find(|game| game.id == *id).cloned()
     }
 }
 

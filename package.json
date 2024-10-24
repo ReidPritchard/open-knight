@@ -19,8 +19,7 @@
     "chessground": "^9.1.1",
     "primevue": "^4.1.1",
     "typia": "^6.11.2",
-    "vue": "^3.3.4",
-    "vue3-chessboard": "^1.3.3"
+    "vue": "^3.3.4"
   },
   "devDependencies": {
     "@ryoppippi/unplugin-typia": "npm:@jsr/ryoppippi__unplugin-typia@^1.0.6",

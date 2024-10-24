@@ -1,50 +1,94 @@
 <script setup lang="ts">
-import { TheChessboard, type BoardApi } from 'vue3-chessboard';
-import 'vue3-chessboard/style.css';
-import Toolbar from 'primevue/toolbar';
-import Button from 'primevue/button';
-import { watch, ref } from 'vue';
-import { IGameBoardGame } from '../shared/types';
-
+import Select from "primevue/select";
+import Toolbar from "primevue/toolbar";
+import { ref, watch } from "vue";
+import { IGame } from "../shared/types";
+import AspectRatio from "./AspectRatio.vue";
+import ChessBoard from "./ChessBoard/ChessBoard.vue";
+import {
+  CoordinatesStyle,
+  CoordinatesStyleType,
+  Orientation,
+} from "./ChessBoard/types";
 const props = defineProps<{
-    selectedGame: IGameBoardGame | null;
+  selectedGame: IGame | null;
 }>();
 
-const boardAPI = ref<BoardApi | undefined>(undefined);
 const moveHistory = ref<string[]>([]);
 
-watch(() => props.selectedGame, (game) => {
+watch(
+  () => props.selectedGame,
+  (game) => {
     console.log("Game changed:", game);
-    boardAPI.value?.loadPgn(game?.pgn ?? '');
-}, { immediate: true });
+  },
+  { immediate: true }
+);
+
+const showCoordinates = ref<CoordinatesStyleType>(CoordinatesStyle.none);
+const coordinatesOptions = Object.values(CoordinatesStyle);
+
+const orientation = ref<Orientation>("black");
+const toggleOrientation = () => {
+  orientation.value = orientation.value === "black" ? "white" : "black";
+};
 </script>
 
 <template>
-    <div v-if="selectedGame" style="display: flex; flex-direction: column; gap: 1rem;">
-        <TheChessboard @board-created="(api) => (boardAPI = api)" />
+  <div
+    v-if="selectedGame"
+    style="
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      width: 100%;
+      padding: 1rem;
+    "
+    id="game-board-container"
+  >
+    <AspectRatio :ratio="1">
+      <ChessBoard
+        initial-position="start"
+        :orientation="orientation"
+        :show-coordinates="showCoordinates"
+        :draggable="true"
+      />
+    </AspectRatio>
 
-        <Toolbar>
-            <template #start>
-                <!-- Game navigation buttons -->
-                <Button icon="pi pi-step-backward" @click="boardAPI?.viewPrevious()" />
-                <Button icon="pi pi-backward" @click="boardAPI?.undoLastMove()" />
-                <Button icon="pi pi-step-forward" @click="boardAPI?.viewNext()" />
-                <Button icon="pi pi-forward" @click="boardAPI?.viewPrevious()" />
-            </template>
+    <Toolbar>
+      <template #start>
+        <!-- Debugging (display coordinates style) -->
+        <div>Coordinates style: {{ showCoordinates }}</div>
+        <Select v-model="showCoordinates" :options="coordinatesOptions" />
+        <!-- Button to toggle orientation -->
+        <Button label="Toggle orientation" @click="toggleOrientation" />
 
-            <template #center>
-                <!-- Display the move history -->
-                <div v-for="move in moveHistory" :key="move">
-                    {{ move }}
-                </div>
-            </template>
+        <!-- Game navigation buttons -->
+      </template>
 
-            <template #end>
-                <!-- Game toolbar buttons -->
-            </template>
-        </Toolbar>
-    </div>
-    <div v-else>
+      <template #center>
+        <!-- Display the move history -->
+        <div v-for="move in moveHistory" :key="move">
+          {{ move }}
+        </div>
+      </template>
 
-    </div>
+      <template #end>
+        <!-- Game toolbar buttons -->
+      </template>
+    </Toolbar>
+  </div>
+  <div v-else>
+    <h3>No game selected</h3>
+  </div>
 </template>
+
+<style scoped>
+#game-board-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
+  color: var(--p-primary-color);
+  background-color: var(--p-content-background);
+}
+</style>
