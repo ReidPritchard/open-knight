@@ -1,15 +1,24 @@
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
+import "primeicons/primeicons.css";
 import Badge from "primevue/badge";
 import Menubar from "primevue/menubar";
 import { onMounted, ref } from "vue";
+import AppLayout from "./components/AppLayout/AppLayout.vue";
 import GameBoard from "./components/GameBoard.vue";
 import GameExplorer from "./components/GameExplorer.vue";
 import {
   apiExplorerStateToExplorerState,
   apiSelectedGameToGame,
 } from "./shared/api-conversions";
-import { IGame } from "./shared/types";
+import {
+  IGame,
+  ILayout,
+  IWindowContainer,
+  validateWindowContainer,
+  WindowDirection,
+  WindowDisplay,
+} from "./shared/types";
 
 const games = ref<IGame[]>([]);
 const selectedGame = ref<IGame | null>(null);
@@ -39,21 +48,6 @@ async function parsePgn() {
 
   // Clear the pgn input
   pgn.value = "";
-}
-
-async function setSelectedGame(game: IGame | null) {
-  // Unselect
-  if (game === selectedGame.value) {
-    selectedGame.value = null;
-    await invoke("set_selected_game", { gameId: null });
-    return;
-  }
-
-  selectedGame.value = game;
-  if (selectedGame.value) {
-    console.log("Setting selected game:", selectedGame.value);
-    await invoke("set_selected_game", { gameId: selectedGame.value.id });
-  }
 }
 
 onMounted(async () => {
@@ -92,68 +86,175 @@ async function emptyDb() {
 const toggleTheme = () => {
   document.documentElement.classList.toggle("dark");
 };
+
+const defaultLayout: ILayout = {
+  id: "root",
+  direction: WindowDirection.Horizontal,
+  display: WindowDisplay.Split,
+  size: 100,
+  children: [
+    // Left sidebar
+    {
+      id: "side-bar",
+      direction: WindowDirection.Vertical,
+      display: WindowDisplay.Accordion,
+      size: 256,
+      children: [
+        // Game explorer
+        {
+          id: "game-explorer",
+          size: 256,
+          resizable: true,
+          collapsed: false,
+        },
+      ],
+    },
+    // Center pane
+    {
+      id: "center-pane",
+      direction: WindowDirection.Vertical,
+      display: WindowDisplay.Tabs,
+      size: 100,
+      children: [
+        // Menu bar
+        {
+          id: "menu-bar",
+          size: 50,
+          resizable: false,
+          collapsed: false,
+        },
+        // Game board
+        {
+          id: "game-board",
+          size: 500,
+          resizable: true,
+          collapsed: false,
+        },
+      ],
+    },
+    // Right sidebar
+    {
+      id: "right-sidebar",
+      direction: WindowDirection.Vertical,
+      display: WindowDisplay.Accordion,
+      size: 256,
+      children: [
+        // Game notes
+        {
+          id: "game-notes",
+          size: 256,
+          resizable: true,
+          collapsed: false,
+        },
+      ],
+    },
+  ],
+};
+
+const layout = ref<ILayout>(defaultLayout);
+
+// Helper to find a window in the layout by its id
+// searches recursively through all children
+function findWindowInLayout(windowId: string): ILayout | null {
+  const isContainer = validateWindowContainer(layout.value);
+  if (!isContainer.success) {
+    return null;
+  }
+  for (const child of (layout.value as IWindowContainer).children) {
+    if (child.id === windowId) {
+      return child;
+    }
+  }
+  return null;
+}
+
+function collapseWindow(windowId: string) {
+  console.log("Collapsing window:", windowId);
+  // Find the window in the layout
+  const window = findWindowInLayout(windowId);
+  if (window && validateWindowContainer(window).success) {
+    (window as IWindowContainer).collapsed = !window.collapsed;
+  }
+}
 </script>
 
 <template>
-  <div class="container">
-    <Menubar :model="menuItems" v-model:visible="menuVisible">
-      <template #start>
-        <h1>Open Knight</h1>
-      </template>
+  <AppLayout
+    :layout="layout"
+    @update:layout="layout = $event"
+    @update:toggle-collapse="collapseWindow"
+  >
+    <template #menu-bar>
+      <Menubar :model="menuItems" v-model:visible="menuVisible">
+        <template #start>
+          <h1>Open Knight</h1>
+        </template>
 
-      <template #item="{ item, props, hasSubmenu, root }">
-        <a v-ripple class="flex items-center" v-bind="props.action">
-          <span>{{ item.label }}</span>
-          <Badge
-            v-if="item.badge"
-            :class="{ 'ml-auto': !root, 'ml-2': root }"
-            :value="item.badge"
-          />
-          <span
-            v-if="item.shortcut"
-            class="ml-auto border border-surface rounded bg-emphasis text-muted-color text-xs p-1"
-            >{{ item.shortcut }}</span
+        <template #item="{ item, props, hasSubmenu, root }">
+          <a v-ripple class="flex items-center" v-bind="props.action">
+            <span>{{ item.label }}</span>
+            <Badge
+              v-if="item.badge"
+              :class="{ 'ml-auto': !root, 'ml-2': root }"
+              :value="item.badge"
+            />
+            <span
+              v-if="item.shortcut"
+              class="ml-auto border border-surface rounded bg-emphasis text-muted-color text-xs p-1"
+              >{{ item.shortcut }}</span
+            >
+            <i
+              v-if="hasSubmenu"
+              :class="[
+                'pi pi-angle-down ml-auto',
+                { 'pi-angle-down': root, 'pi-angle-right': !root },
+              ]"
+            ></i>
+          </a>
+        </template>
+
+        <template #end>
+          <!-- Theme Toggle -->
+          <div
+            style="
+              display: flex;
+              gap: 10px;
+              align-items: center;
+              justify-content: center;
+            "
           >
-          <i
-            v-if="hasSubmenu"
-            :class="[
-              'pi pi-angle-down ml-auto',
-              { 'pi-angle-down': root, 'pi-angle-right': !root },
-            ]"
-          ></i>
-        </a>
-      </template>
+            <Button label="Toggle theme" @click="toggleTheme" />
+            <Button
+              label="Empty DB"
+              @click="emptyDb"
+              icon="pi pi-trash"
+              severity="danger"
+            />
+          </div>
+        </template>
+      </Menubar>
+    </template>
 
-      <template #end>
-        <!-- Theme Toggle -->
-        <div
-          style="
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            justify-content: center;
-          "
-        >
-          <Button label="Toggle theme" @click="toggleTheme" />
-          <Button
-            label="Empty DB"
-            @click="emptyDb"
-            icon="pi pi-trash"
-            severity="danger"
-          />
-        </div>
-      </template>
-    </Menubar>
+    <template #game-explorer>
+      <GameExplorer
+        :games="games"
+        :selectedGame="selectedGame"
+        @update:pgn="pgn = $event"
+        @parse-pgn="parsePgn"
+        @update:selectedGame="selectedGame = $event"
+      />
+    </template>
 
-    <GameExplorer
-      :games="games"
-      :selectedGame="selectedGame"
-      @update:pgn="pgn = $event"
-      @parse-pgn="parsePgn"
-      @update:selectedGame="setSelectedGame"
-    />
-    <GameBoard :selectedGame="selectedGame" />
-  </div>
+    <template #game-board>
+      <GameBoard :selectedGame="selectedGame" />
+    </template>
+
+    <template #game-notes>
+      <div class="flex flex-col">
+        <h1>Game Notes</h1>
+      </div>
+    </template>
+  </AppLayout>
 </template>
 
 <style>
@@ -177,5 +278,12 @@ const toggleTheme = () => {
 html {
   color: var(--p-primary-color);
   background-color: var(--p-content-background);
+
+  padding: 0;
+  margin: 0;
+  border: 0;
+
+  width: 100%;
+  height: 100%;
 }
 </style>

@@ -60,10 +60,14 @@ fn get_explorer_state(state: tauri::State<AppState>) -> String {
 }
 
 #[tauri::command]
-fn set_selected_game(game_id: i32, state: tauri::State<AppState>) {
-    println!("Setting selected game: {}", game_id);
-    let game_result = state.explorer.lock().unwrap().get_game_by_id(&game_id);
-    state.set_selected_game(game_result);
+fn set_selected_game(game_id: Option<i32>, state: tauri::State<AppState>) {
+    println!("Setting selected game: {}", game_id.unwrap_or(-1));
+    if let Some(game_id) = game_id {
+        let game_result = state.explorer.lock().unwrap().get_game_by_id(&game_id);
+        state.set_selected_game(game_result);
+    } else {
+        state.set_selected_game(None);
+    }
 }
 
 #[tauri::command]

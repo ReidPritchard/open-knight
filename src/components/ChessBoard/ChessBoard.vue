@@ -29,18 +29,24 @@
         @drop="onDrop(square)"
       >
         <AspectRatio :ratio="1">
-          <div
-            class="piece"
-            :draggable="draggable && square.piece !== null"
-            @dragstart="onDragStart($event, square)"
-            @click="
-              square.piece !== null
-                ? onPieceClick(square)
-                : onSquareClick(square)
-            "
+          <UseDraggable
+            v-if="draggable && square.piece !== null"
+            storage-type="session"
+            :storage-key="`draggable-${square.row}-${square.col}`"
           >
-            {{ square.piece ? pieceUnicode[square.piece] : "" }}
-          </div>
+            <div
+              class="piece"
+              :draggable="draggable && square.piece !== null"
+              @dragstart="onDragStart($event, square)"
+              @click="
+                square.piece !== null
+                  ? onPieceClick(square)
+                  : onSquareClick(square)
+              "
+            >
+              {{ square.piece ? pieceUnicode[square.piece] : "" }}
+            </div>
+          </UseDraggable>
         </AspectRatio>
       </div>
     </div>
@@ -48,7 +54,9 @@
 </template>
 
 <script lang="ts">
+import { UseDraggable } from "@vueuse/components";
 import { defineComponent, PropType } from "vue";
+import AspectRatio from "../AspectRatio.vue";
 import {
   Animation,
   Arrows,
@@ -156,6 +164,10 @@ export default defineComponent({
         return classes;
       };
     },
+  },
+  components: {
+    AspectRatio,
+    UseDraggable,
   },
 });
 </script>

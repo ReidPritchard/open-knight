@@ -1,6 +1,3 @@
-use shakmaty::Chess;
-
-use crate::database;
 use crate::loader::GameResult;
 use crate::models::{Game, Move};
 

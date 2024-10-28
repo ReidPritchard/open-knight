@@ -29,10 +29,8 @@ let pgnInput = ref("");
 </script>
 
 <template>
-  <Card style="width: 100%">
-    <template #title>
-      <h3>Explorer</h3>
-    </template>
+  <Card style="width: 100%" class="game-explorer">
+    <template #title> Explorer </template>
 
     <template #content>
       <div v-if="props.games.length === 0">
@@ -65,7 +63,6 @@ let pgnInput = ref("");
           sortField="headers.date"
           sortMode="multiple"
         >
-          <Column field="id" header="ID" sortable></Column>
           <Column field="headers.date" header="Date" sortable></Column>
           <Column field="headers.event" header="Event" sortable></Column>
           <Column field="headers.site" header="Site" sortable></Column>
@@ -78,3 +75,9 @@ let pgnInput = ref("");
     </template>
   </Card>
 </template>
+
+<style scoped>
+.game-explorer {
+  user-select: none;
+}
+</style>
