@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import "primeicons/primeicons.css";
 import Badge from "primevue/badge";
 import Menubar from "primevue/menubar";
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
 import AppLayout from "./components/AppLayout/AppLayout.vue";
 import GameBoard from "./components/GameBoard.vue";
 import GameExplorer from "./components/GameExplorer.vue";
@@ -18,6 +18,7 @@ import {
   validateWindowContainer,
   WindowDirection,
   WindowDisplay,
+  PanelPosition,
 } from "./shared/types";
 
 const games = ref<IGame[]>([]);
@@ -53,6 +54,11 @@ async function parsePgn() {
 onMounted(async () => {
   await updateGames();
   await getSelectedGame();
+
+  const savedLayout = localStorage.getItem('app-layout');
+  if (savedLayout) {
+    layout.value = JSON.parse(savedLayout);
+  }
 });
 
 let menuVisible = ref(false);
@@ -93,12 +99,14 @@ const defaultLayout: ILayout = {
   display: WindowDisplay.Split,
   size: 100,
   children: [
-    // Left sidebar
+    // Left sidebar as a panel
     {
       id: "side-bar",
       direction: WindowDirection.Vertical,
-      display: WindowDisplay.Accordion,
+      display: WindowDisplay.Panel,
+      panelPosition: PanelPosition.Left,
       size: 256,
+      collapsed: false,
       children: [
         // Game explorer
         {
@@ -132,12 +140,14 @@ const defaultLayout: ILayout = {
         },
       ],
     },
-    // Right sidebar
+    // Right sidebar as a panel
     {
       id: "right-sidebar",
       direction: WindowDirection.Vertical,
-      display: WindowDisplay.Accordion,
+      display: WindowDisplay.Panel,
+      panelPosition: PanelPosition.Right,
       size: 256,
+      collapsed: false,
       children: [
         // Game notes
         {
@@ -176,14 +186,18 @@ function collapseWindow(windowId: string) {
     (window as IWindowContainer).collapsed = !window.collapsed;
   }
 }
+
+watch(
+  layout,
+  (newLayout) => {
+    localStorage.setItem('app-layout', JSON.stringify(newLayout));
+  },
+  { deep: true }
+);
 </script>
 
 <template>
-  <AppLayout
-    :layout="layout"
-    @update:layout="layout = $event"
-    @update:toggle-collapse="collapseWindow"
-  >
+  <AppLayout :layout="layout" @update:layout="layout = $event" @update:toggle-collapse="collapseWindow">
     <template #menu-bar>
       <Menubar :model="menuItems" v-model:visible="menuVisible">
         <template #start>
@@ -193,56 +207,35 @@ function collapseWindow(windowId: string) {
         <template #item="{ item, props, hasSubmenu, root }">
           <a v-ripple class="flex items-center" v-bind="props.action">
             <span>{{ item.label }}</span>
-            <Badge
-              v-if="item.badge"
-              :class="{ 'ml-auto': !root, 'ml-2': root }"
-              :value="item.badge"
-            />
-            <span
-              v-if="item.shortcut"
-              class="ml-auto border border-surface rounded bg-emphasis text-muted-color text-xs p-1"
-              >{{ item.shortcut }}</span
-            >
-            <i
-              v-if="hasSubmenu"
-              :class="[
-                'pi pi-angle-down ml-auto',
-                { 'pi-angle-down': root, 'pi-angle-right': !root },
-              ]"
-            ></i>
+            <Badge v-if="item.badge" :class="{ 'ml-auto': !root, 'ml-2': root }" :value="item.badge" />
+            <span v-if="item.shortcut"
+              class="ml-auto border border-surface rounded bg-emphasis text-muted-color text-xs p-1">{{ item.shortcut
+              }}</span>
+            <i v-if="hasSubmenu" :class="[
+              'pi pi-angle-down ml-auto',
+              { 'pi-angle-down': root, 'pi-angle-right': !root },
+            ]"></i>
           </a>
         </template>
 
         <template #end>
           <!-- Theme Toggle -->
-          <div
-            style="
+          <div style="
               display: flex;
               gap: 10px;
               align-items: center;
               justify-content: center;
-            "
-          >
+            ">
             <Button label="Toggle theme" @click="toggleTheme" />
-            <Button
-              label="Empty DB"
-              @click="emptyDb"
-              icon="pi pi-trash"
-              severity="danger"
-            />
+            <Button label="Empty DB" @click="emptyDb" icon="pi pi-trash" severity="danger" />
           </div>
         </template>
       </Menubar>
     </template>
 
     <template #game-explorer>
-      <GameExplorer
-        :games="games"
-        :selectedGame="selectedGame"
-        @update:pgn="pgn = $event"
-        @parse-pgn="parsePgn"
-        @update:selectedGame="selectedGame = $event"
-      />
+      <GameExplorer :games="games" :selectedGame="selectedGame" @update:pgn="pgn = $event" @parse-pgn="parsePgn"
+        @update:selectedGame="selectedGame = $event" />
     </template>
 
     <template #game-board>

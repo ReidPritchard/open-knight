@@ -13,14 +13,39 @@ export const assertWindow = typia.createAssert<IWindow>();
 export const validateWindow = typia.createValidate<IWindow>();
 
 export enum WindowDisplay {
+  /**
+   * Displays one tab at a time and has a tab bar at the top
+   */
   Tabs = "tabs",
+  /**
+   * Displays multiple panes at a time with a splitter bar between them
+   * Can be resized
+   * TODO: Prevent overflow
+   * TODO: If horizontal, when collapsed, display a vertical "section" bar (opposite if vertical)
+   */
   Split = "split",
+  /**
+   * Displays one section at a time but all section headers are visible and collapsible
+   */
   Accordion = "accordion",
+  /**
+   * Attach a window to the side of the current window
+   * When collapsed, displays a thin bar on the opposite side
+   * Should not be displayed as a direct child of another window
+   */
+  Panel = "panel",
 }
 
 export enum WindowDirection {
   Horizontal = "horizontal",
   Vertical = "vertical",
+}
+
+export enum PanelPosition {
+  Left = "left",
+  Right = "right",
+  Top = "top",
+  Bottom = "bottom"
 }
 
 export interface IWindowContainer extends IWindow {
@@ -32,6 +57,7 @@ export interface IWindowContainer extends IWindow {
    */
   display: WindowDisplay;
   direction: WindowDirection;
+  panelPosition?: PanelPosition;
   minSize?: number;
   maxSize?: number;
   children: ILayout[];
