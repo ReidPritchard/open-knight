@@ -178,12 +178,13 @@ function findWindowInLayout(windowId: string): ILayout | null {
   return null;
 }
 
-function collapseWindow(windowId: string) {
-  console.log("Collapsing window:", windowId);
+function collapseWindow(windowId: string, collapsed: boolean) {
+  console.log("Collapsing window:", windowId, collapsed);
+
   // Find the window in the layout
   const window = findWindowInLayout(windowId);
   if (window && validateWindowContainer(window).success) {
-    (window as IWindowContainer).collapsed = !window.collapsed;
+    (window as IWindowContainer).collapsed = !window.collapsed; 
   }
 }
 
@@ -268,7 +269,9 @@ watch(
   -webkit-text-size-adjust: 100%;
 }
 
-html {
+html,
+#app,
+body {
   color: var(--p-primary-color);
   background-color: var(--p-content-background);
 

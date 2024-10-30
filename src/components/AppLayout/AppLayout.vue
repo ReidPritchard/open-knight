@@ -44,11 +44,41 @@ onUnmounted(() => {
 <style scoped>
 .app-layout {
   position: relative;
+  display: flex; /* Add flex display */
+  flex-direction: column; /* Stack children vertically */
 
   padding: 0;
   margin: 0;
 
   width: 100%;
   height: 100%;
+  max-width: 100vw; /* Use viewport units */
+  max-height: 100vh;
+
+  overflow: hidden; /* Prevent scrolling at this level */
+}
+
+/* Ensure the root window item fills the available space
+and doesn't overflow the layout
+ */
+.app-layout #root .app-layout__window-content {
+  width: 100%;
+  height: 100%;
+  max-width: 100vw; /* Use viewport units */
+  max-height: 100vh;
+
+  overflow: hidden; /* Prevent scrolling at this level */
+}
+
+/* Add this to ensure child WindowItem fills available space */
+.app-layout :deep(.app-layout__window) {
+  flex: 1;
+  min-height: 0; /* Important for Firefox */
+  min-width: 0; /* Important for Firefox */
+}
+
+/* Add this to ensure content can scroll if needed */
+.app-layout :deep(.app-layout__window-content) {
+  overflow: auto;
 }
 </style>

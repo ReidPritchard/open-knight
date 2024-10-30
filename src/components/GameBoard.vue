@@ -34,7 +34,7 @@ const toggleMoveTree = () => {
 </script>
 
 <template>
-  <Card style="width: 100%" class="game-explorer">
+  <Card style="width: 100%" class="game-board">
     <div
       v-if="props.selectedGame"
       style="

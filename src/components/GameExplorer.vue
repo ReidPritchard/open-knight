@@ -30,8 +30,6 @@ let pgnInput = ref("");
 
 <template>
   <Card style="width: 100%" class="game-explorer">
-    <template #title> Explorer </template>
-
     <template #content>
       <div v-if="props.games.length === 0">
         <p>No games loaded. Please load a PGN file.</p>

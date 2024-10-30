@@ -166,6 +166,11 @@ const contextMenuItems = computed(() => [
   user-select: none;
 }
 
+.window-item {
+  width: 100%;
+  height: 100%;
+}
+
 .app-layout__window {
   width: 100%;
   height: 100%;
