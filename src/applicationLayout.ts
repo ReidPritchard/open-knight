@@ -1,4 +1,4 @@
-import { IFlexibleContainer, WindowDisplayMode, LayoutDirection, IWindow, ITabContainer } from "./shared/types";
+import { IFlexibleContainer, WindowDisplayMode, LayoutDirection, IWindow, ITabContainer, ISimpleContainer } from "./shared/types";
 
 
 /**
@@ -63,14 +63,13 @@ export const applicationLayout: IFlexibleContainer = {
                 // Content Area
                 {
                     id: 'content-area',
-                    display: WindowDisplayMode.Flexible,
-                    orientation: LayoutDirection.Horizontal,
+                    display: WindowDisplayMode.Simple,
                     collapsible: false,
                     collapsed: false,
                     resizable: true,
                     visible: true,
                     closable: false,
-                    children: [
+                    left:
                         // Left Sidebar
                         {
                             id: 'left-sidebar',
@@ -105,31 +104,7 @@ export const applicationLayout: IFlexibleContainer = {
                                 } as IWindow,
                             ],
                         } as IFlexibleContainer,
-                        // Center Pane
-                        {
-                            id: 'center-pane',
-                            display: WindowDisplayMode.Tabs,
-                            collapsible: false,
-                            collapsed: false,
-                            resizable: true,
-                            visible: true,
-                            closable: false,
-                            size: 2,
-                            activeTabId: 'game-board-1',
-                            children: [
-                                {
-                                    id: 'game-board-1',
-                                    title: 'Game Board 1',
-                                    contentComponent: 'GameBoard',
-                                    collapsible: false,
-                                    collapsed: false,
-                                    resizable: true,
-                                    visible: true,
-                                    closable: true,
-                                } as IWindow,
-                                // Additional game boards can be added here
-                            ],
-                        } as ITabContainer,
+                    right:
                         // Right Sidebar
                         {
                             id: 'right-sidebar',
@@ -164,43 +139,79 @@ export const applicationLayout: IFlexibleContainer = {
                                 } as IWindow,
                             ],
                         } as IFlexibleContainer,
-                    ],
-                } as IFlexibleContainer,
-                // Bottom Bar
-                {
-                    id: 'bottom-bar',
-                    title: '',
-                    display: WindowDisplayMode.Flexible,
-                    orientation: LayoutDirection.Horizontal,
-                    collapsible: true,
-                    collapsed: false,
-                    resizable: true,
-                    visible: true,
-                    closable: true,
-                    fixedSize: 200, // Fixed height in pixels
+                    bottom:
+                        // Bottom Bar
+                        {
+                            id: 'bottom-bar',
+                            title: '',
+                            display: WindowDisplayMode.Flexible,
+                            orientation: LayoutDirection.Horizontal,
+                            collapsible: true,
+                            collapsed: false,
+                            resizable: true,
+                            visible: true,
+                            closable: true,
+                            fixedSize: 200, // Fixed height in pixels
+                            children: [
+                                {
+                                    id: 'move-tree',
+                                    title: 'Move Tree',
+                                    contentComponent: 'MoveTree',
+                                    collapsible: true,
+                                    collapsed: false,
+                                    resizable: true,
+                                    visible: true,
+                                    closable: true,
+                                } as IWindow,
+                                {
+                                    id: 'engine-evaluation',
+                                    title: 'Engine Evaluation',
+                                    contentComponent: 'EngineEvaluation',
+                                    collapsible: true,
+                                    collapsed: false,
+                                    resizable: true,
+                                    visible: true,
+                                    closable: true,
+                                } as IWindow,
+                            ],
+                        } as IFlexibleContainer,
                     children: [
+                        // Center Pane
                         {
-                            id: 'move-tree',
-                            title: 'Move Tree',
-                            contentComponent: 'MoveTree',
-                            collapsible: true,
+                            id: 'center-pane',
+                            display: WindowDisplayMode.Tabs,
+                            collapsible: false,
                             collapsed: false,
                             resizable: true,
                             visible: true,
-                            closable: true,
-                        } as IWindow,
-                        {
-                            id: 'engine-evaluation',
-                            title: 'Engine Evaluation',
-                            contentComponent: 'EngineEvaluation',
-                            collapsible: true,
-                            collapsed: false,
-                            resizable: true,
-                            visible: true,
-                            closable: true,
-                        } as IWindow,
+                            closable: false,
+                            size: 2,
+                            activeTabId: 'game-board-1',
+                            children: [
+                                {
+                                    id: 'game-board-1',
+                                    title: 'Game Board 1',
+                                    contentComponent: 'GameBoard',
+                                    collapsible: false,
+                                    collapsed: false,
+                                    resizable: true,
+                                    visible: true,
+                                    closable: true,
+                                } as IWindow,
+                                {
+                                    id: 'game-board-2',
+                                    title: 'Game Board 2',
+                                    contentComponent: 'GameBoard',
+                                    collapsible: false,
+                                    collapsed: false,
+                                    resizable: true,
+                                    visible: true,
+                                    closable: true,
+                                } as IWindow,
+                            ],
+                        } as ITabContainer,
                     ],
-                } as IFlexibleContainer,
+                } as ISimpleContainer,
             ],
         } as IFlexibleContainer,
         // Status Bar

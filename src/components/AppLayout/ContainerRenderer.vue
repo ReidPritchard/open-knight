@@ -1,56 +1,49 @@
 <template>
-    <div :style="containerStyle">
-        <header class="header">
-            <div v-if="layout.title">
-                {{ layout.title }}
-            </div>
-
-            <div class="actions">
-                <!-- Actions -->
-                <Button v-if="layout.closable" icon="pi pi-close" @click="onClose" />
-                <Button v-if="layout.collapsible" :icon="layout.collapsed ? 'pi pi-chevron-down' : 'pi pi-chevron-up'"
-                    @click="onToggle" />
-            </div>
-        </header>
-
-        <div class="content" v-if="layout.visible && !layout.collapsed">
-            <div v-if="layout.display === 'flexible'" :class="['flex-container', orientationClass]">
-                <template v-for="child in layout.children" :key="child.id">
+    <Panel :header="props.layout.title" :toggleable="props.layout.collapsible" :collapsed="props.layout.collapsed"
+        :style="{
+            transformOrigin: 'bottom right',
+            rotate: props.layout.collapsed ? '-90deg' : '0deg',
+            width: props.layout.collapsed ? '40px' : 'auto',
+        }" @update:collapsed="props.layout.collapsed = $event">
+        <div :style="containerStyle">
+            <div v-if="props.layout.display === 'flexible'" :class="['flex-container', orientationClass]">
+                <template v-for="child in props.layout.children" :key="child.id">
                     <LayoutRenderer :layout="child" />
                 </template>
             </div>
 
-            <div v-else-if="layout.display === 'tabs'">
+            <div v-else-if="props.layout.display === 'tabs'">
                 <Tabs v-model:activeIndex="activeTabIndex">
-                    <TabPanel v-for="(child) in layout.children" :header="child.title || child.id" :key="child.id">
+                    <TabPanel v-for="(child) in props.layout.children" :header="child.title || child.id"
+                        :key="child.id">
                         <LayoutRenderer :layout="child" />
                     </TabPanel>
                 </Tabs>
             </div>
 
-            <div v-else-if="layout.display === 'simple'" class="simple-container">
-                <div v-if="layout.top" class="top-panel">
-                    <LayoutRenderer :layout="layout.top" />
+            <div v-else-if="props.layout.display === 'simple'" class="simple-container">
+                <div v-if="props.layout.top" class="top-panel">
+                    <LayoutRenderer :layout="props.layout.top" />
                 </div>
                 <div class="middle-content">
-                    <div v-if="layout.left" class="left-panel">
-                        <LayoutRenderer :layout="layout.left" />
+                    <div v-if="props.layout.left" class="left-panel">
+                        <LayoutRenderer :layout="props.layout.left" />
                     </div>
                     <div class="center-content">
-                        <template v-for="child in layout.children" :key="child.id">
+                        <template v-for="child in props.layout.children" :key="child.id">
                             <LayoutRenderer :layout="child" />
                         </template>
                     </div>
-                    <div v-if="layout.right" class="right-panel">
-                        <LayoutRenderer :layout="layout.right" />
+                    <div v-if="props.layout.right" class="right-panel">
+                        <LayoutRenderer :layout="props.layout.right" />
                     </div>
                 </div>
-                <div v-if="layout.bottom" class="bottom-panel">
-                    <LayoutRenderer :layout="layout.bottom" />
+                <div v-if="props.layout.bottom" class="bottom-panel">
+                    <LayoutRenderer :layout="props.layout.bottom" />
                 </div>
             </div>
         </div>
-    </div>
+    </Panel>
 </template>
 
 <script setup lang="ts">
@@ -59,7 +52,11 @@ import { IWindowContainer, validateFlexibleContainer, validateTabContainer } fro
 import LayoutRenderer from './LayoutRenderer.vue';
 import Tabs from 'primevue/tabs';
 import TabPanel from 'primevue/tabpanel';
-import Button from 'primevue/button';
+import Panel from 'primevue/panel';
+import { useGlobalState } from '../../shared/store';
+
+const { updateWindowProperty } = useGlobalState();
+
 const props = defineProps({
     layout: {
         type: Object as () => IWindowContainer,
@@ -100,32 +97,14 @@ const activeTabIndex = ref(
         }
     )
 );
-
-const onToggle = (event: any) => {
-    props.layout.collapsed = event.value;
-};
-
-const onClose = () => {
-    props.layout.visible = false;
-};
 </script>
 
 <style scoped>
-.header {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-
-    padding: 0.5rem;
-    width: 100%;
+* {
+    --p-panel-content-padding: 0;
+    --p-panel-toggleable-header-padding: 0;
 }
 
-.actions {
-    display: flex;
-    flex-direction: row;
-    gap: 0.5rem;
-}
 
 .content {
     display: flex;
@@ -137,6 +116,8 @@ const onClose = () => {
     display: flex;
     width: 100%;
     height: 100%;
+
+    justify-content: stretch;
 }
 
 .flex-row {
@@ -150,7 +131,6 @@ const onClose = () => {
 .simple-container {
     display: flex;
     flex-direction: column;
-    height: 100%;
 }
 
 .top-panel,
@@ -169,7 +149,7 @@ const onClose = () => {
 }
 
 .center-content {
-    flex: 1;
+    flex: 2;
     display: flex;
     flex-direction: column;
 }

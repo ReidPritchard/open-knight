@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "prepare": "ts-patch install && typia patch"
+    "prepare": "ts-patch install && typia patch",
+    "lint": "eslint --fix --ext .js,.vue .",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@primevue/themes": "^4.1.1",
@@ -28,6 +30,10 @@
     "@ryoppippi/unplugin-typia": "npm:@jsr/ryoppippi__unplugin-typia@^1.0.6",
     "@tauri-apps/cli": ">=2.0.0",
     "@vitejs/plugin-vue": "^5.0.5",
+    "eslint": "^9.13.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-vue": "^9.30.0",
+    "prettier": "3.3.3",
     "ts-patch": "^3.2.1",
     "typescript": "^5.6.3",
     "vite": "^5.3.1",

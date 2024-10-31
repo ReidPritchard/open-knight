@@ -10,7 +10,6 @@
 import Menubar from 'primevue/menubar';
 import { MenuItem, MenuItemCommandEvent } from 'primevue/menuitem';
 import { computed, ref } from 'vue';
-import { IWindowContainer } from '../shared/types';
 import { useGlobalState } from '../shared/store';
 
 // Get the layout from the store

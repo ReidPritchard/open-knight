@@ -30,6 +30,24 @@ function getVisibleWindowsHelper(layout: ILayout): IWindow[] {
     return visibleWindows;
 }
 
+function getWindowById(layout: ILayout, windowId: string): IWindow | null {
+    if (validateWindowContainer(layout).success) {
+        const container = layout as IWindowContainer;
+        // recursively search through the container's children (make sure to include panels)
+        for (const child of container.children) {
+            const result = getWindowById(child, windowId);
+            if (result) {
+                return result;
+            }
+        }
+
+        // TODO: Check the panels (use validateSimpleContainer)
+    }
+
+
+    return null;
+}
+
 export const useGlobalState = createGlobalState(() => {
     // Global state
     const layout = ref<ILayout>(applicationLayout);
@@ -45,9 +63,16 @@ export const useGlobalState = createGlobalState(() => {
         layout.value = newLayout;
     };
 
+    const updateWindowProperty = (windowId: string, property: string, value: any) => {
+        const window = getWindowById(layout.value, windowId);
+        if (window) {
+            (window as any)[property] = value;
+        }
+    };
+
     const setSelectedGame = (newGame: IGame) => {
         selectedGame.value = newGame;
     };
 
-    return { layout, getLayout, getVisibleWindows, getSelectedGame, setLayout, setSelectedGame };
+    return { layout, getLayout, getVisibleWindows, getSelectedGame, setLayout, updateWindowProperty, setSelectedGame };
 });
