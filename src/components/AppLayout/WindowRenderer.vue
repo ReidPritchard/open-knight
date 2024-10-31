@@ -42,6 +42,7 @@ export default defineComponent({
         });
 
         const contentComponent = computed(() => {
+            console.log(props.layout.contentComponent);
             return componentRegistry[props.layout.contentComponent] || null;
         });
 

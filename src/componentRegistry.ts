@@ -7,8 +7,9 @@ import GameNotes from './components/GameNotes.vue';
 import GameHeaders from './components/GameHeaders.vue';
 import MoveTree from './components/MoveTree.vue';
 import EngineEvaluation from './components/EngineEvaluation.vue';
+import { Component } from 'vue';
 
-const componentRegistry: Record<string, any> = {
+const componentRegistry: Record<string, Component> = {
     MenuBar,
     StatusBar,
     GameExplorer,

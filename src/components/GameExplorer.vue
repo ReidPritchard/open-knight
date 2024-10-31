@@ -12,8 +12,8 @@ import { ref } from "vue";
 import { IGame } from "../shared/types";
 
 const props = defineProps<{
-  games: IGame[];
-  selectedGame: IGame | null;
+  games?: IGame[];
+  selectedGame?: IGame | null;
 }>();
 
 const emit = defineEmits(["update:selectedGame", "update:pgn", "parse-pgn"]);
@@ -31,16 +31,12 @@ let pgnInput = ref("");
 <template>
   <Card style="width: 100%" class="game-explorer">
     <template #content>
-      <div v-if="props.games.length === 0">
+      <div v-if="props.games && props.games.length === 0">
         <p>No games loaded. Please load a PGN file.</p>
 
         <div style="display: flex; flex-direction: row; gap: 1rem">
           <FloatLabel variant="on">
-            <InputText
-              id="pgn-input"
-              v-model="pgnInput"
-              @input="emit('update:pgn', pgnInput)"
-            />
+            <InputText id="pgn-input" v-model="pgnInput" @input="emit('update:pgn', pgnInput)" />
             <label for="pgn-input">PGN</label>
           </FloatLabel>
           <Button type="submit" @click="emit('parse-pgn')">Parse</Button>
@@ -48,19 +44,9 @@ let pgnInput = ref("");
       </div>
 
       <div v-else style="display: flex; flex-direction: column; gap: 1rem">
-        <DataTable
-          :value="props.games"
-          v-model:selection="props.selectedGame"
-          tableStyle="min-width: 50rem"
-          stripedRows
-          showGridlines
-          selectionMode="single"
-          dataKey="id"
-          @rowSelect="gameSelectionChanged"
-          @rowUnselect="gameSelectionChanged"
-          sortField="headers.date"
-          sortMode="multiple"
-        >
+        <DataTable :value="props.games" v-model:selection="props.selectedGame" tableStyle="min-width: 50rem" stripedRows
+          showGridlines selectionMode="single" dataKey="id" @rowSelect="gameSelectionChanged"
+          @rowUnselect="gameSelectionChanged" sortField="headers.date" sortMode="multiple">
           <Column field="headers.date" header="Date" sortable></Column>
           <Column field="headers.event" header="Event" sortable></Column>
           <Column field="headers.site" header="Site" sortable></Column>

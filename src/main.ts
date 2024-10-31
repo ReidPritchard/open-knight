@@ -9,6 +9,9 @@ import Row from "primevue/row";
 import Select from "primevue/select";
 import { createApp } from "vue";
 import App from "./App.vue";
+import Panel from "primevue/panel";
+import Tabs from "primevue/tabs";
+import TabPanel from "primevue/tabpanel";
 
 const app = createApp(App);
 app.use(PrimeVue, {
@@ -28,5 +31,8 @@ app.component("DataTable", DataTable);
 app.component("Column", Column);
 app.component("Row", Row);
 app.component("Select", Select);
+app.component("Panel", Panel);
+app.component("Tabs", Tabs);
+app.component("TabPanel", TabPanel);
 
 app.mount("#app");

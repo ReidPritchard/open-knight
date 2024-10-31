@@ -1,7 +1,19 @@
 <template>
     <div :style="containerStyle">
-        <Panel v-if="layout.collapsible" :header="layout.title || layout.id" :collapsed="layout.collapsed" toggleable
-            @toggle="onToggle">
+        <header class="header">
+            <div v-if="layout.title">
+                {{ layout.title }}
+            </div>
+
+            <div class="actions">
+                <!-- Actions -->
+                <Button v-if="layout.closable" icon="pi pi-close" @click="onClose" />
+                <Button v-if="layout.collapsible" :icon="layout.collapsed ? 'pi pi-chevron-down' : 'pi pi-chevron-up'"
+                    @click="onToggle" />
+            </div>
+        </header>
+
+        <div class="content" v-if="layout.visible && !layout.collapsed">
             <div v-if="layout.display === 'flexible'" :class="['flex-container', orientationClass]">
                 <template v-for="child in layout.children" :key="child.id">
                     <LayoutRenderer :layout="child" />
@@ -37,87 +49,90 @@
                     <LayoutRenderer :layout="layout.bottom" />
                 </div>
             </div>
-        </Panel>
-
-        <div v-else>
-            <!-- Same as above but without the Panel wrapper -->
-            <!-- ... -->
         </div>
     </div>
 </template>
 
-<script lang="ts">
-import { defineComponent, computed, ref } from 'vue';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 import { IWindowContainer, validateFlexibleContainer, validateTabContainer } from '../../shared/types';
 import LayoutRenderer from './LayoutRenderer.vue';
-import Panel from 'primevue/panel';
 import Tabs from 'primevue/tabs';
 import TabPanel from 'primevue/tabpanel';
-
-export default defineComponent({
-    name: 'ContainerRenderer',
-    components: {
-        LayoutRenderer,
-        Panel,
-        Tabs,
-        TabPanel,
-    },
-    props: {
-        layout: {
-            type: Object as () => IWindowContainer,
-            required: true,
-        },
-    },
-    setup(props) {
-        const orientationClass = computed(() => {
-            const flexibleContainer = validateFlexibleContainer(props.layout);
-            if (flexibleContainer.success) {
-                return flexibleContainer.data.orientation === 'vertical'
-                    ? 'flex-column'
-                    : 'flex-row';
-            }
-            return '';
-        });
-
-        const containerStyle = computed(() => {
-            const style: any = {
-                display: 'flex',
-                flexDirection: 'column',
-            };
-            if (props.layout.fixedSize) {
-                style.flexBasis = `${props.layout.fixedSize}px`;
-                style.flexShrink = 0;
-                style.flexGrow = 0;
-            } else {
-                style.flexGrow = props.layout.size || 1;
-            }
-            return style;
-        });
-
-        const activeTabIndex = ref(
-            props.layout.children.findIndex(
-                (child) => {
-                    const tabContainer = validateTabContainer(child);
-                    return tabContainer.success && tabContainer.data.activeTabId;
-                }
-            )
-        );
-
-        const onToggle = (event: any) => {
-            props.layout.collapsed = event.value;
-        };
-
-        return {
-            orientationClass,
-            containerStyle,
-            activeTabIndex,
-            onToggle,
-        };
+import Button from 'primevue/button';
+const props = defineProps({
+    layout: {
+        type: Object as () => IWindowContainer,
+        required: true,
     },
 });
+
+const orientationClass = computed(() => {
+    const flexibleContainer = validateFlexibleContainer(props.layout);
+    if (flexibleContainer.success) {
+        return flexibleContainer.data.orientation === 'vertical'
+            ? 'flex-column'
+            : 'flex-row';
+    }
+    return '';
+});
+
+const containerStyle = computed(() => {
+    const style: any = {
+        display: 'flex',
+        flexDirection: 'column',
+    };
+    if (props.layout.fixedSize) {
+        style.flexBasis = `${props.layout.fixedSize}px`;
+        style.flexShrink = 0;
+        style.flexGrow = 0;
+    } else {
+        style.flexGrow = props.layout.size || 1;
+    }
+    return style;
+});
+
+const activeTabIndex = ref(
+    props.layout.children.findIndex(
+        (child) => {
+            const tabContainer = validateTabContainer(child);
+            return tabContainer.success && tabContainer.data.activeTabId;
+        }
+    )
+);
+
+const onToggle = (event: any) => {
+    props.layout.collapsed = event.value;
+};
+
+const onClose = () => {
+    props.layout.visible = false;
+};
 </script>
 
 <style scoped>
+.header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 0.5rem;
+    width: 100%;
+}
+
+.actions {
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
 .flex-container {
     display: flex;
     width: 100%;

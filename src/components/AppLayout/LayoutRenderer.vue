@@ -3,7 +3,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed } from 'vue';
+import { defineComponent, computed, Component } from 'vue';
 import { ILayout } from '../../shared/types';
 import WindowRenderer from './WindowRenderer.vue';
 import ContainerRenderer from './ContainerRenderer.vue';
@@ -13,7 +13,7 @@ export default defineComponent({
     components: {
         WindowRenderer,
         ContainerRenderer,
-    },
+    } satisfies Record<string, Component>,
     props: {
         layout: {
             type: Object as () => ILayout,
@@ -33,3 +33,14 @@ export default defineComponent({
     },
 });
 </script>
+
+<style scoped>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+
+    width: 100%;
+    height: 100%;
+}
+</style>

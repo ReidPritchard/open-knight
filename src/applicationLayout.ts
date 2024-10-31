@@ -40,7 +40,8 @@ export const applicationLayout: IFlexibleContainer = {
         // Menu Bar
         {
             id: 'menu-bar',
-            contentComponent: 'MenuBarComponent',
+            title: 'Menu Bar',
+            contentComponent: 'MenuBar',
             fixedSize: 50, // Fixed height in pixels
             resizable: false,
             collapsible: false,
@@ -84,7 +85,8 @@ export const applicationLayout: IFlexibleContainer = {
                             children: [
                                 {
                                     id: 'game-explorer',
-                                    contentComponent: 'GameExplorerComponent',
+                                    title: 'Game Explorer',
+                                    contentComponent: 'GameExplorer',
                                     collapsible: true,
                                     collapsed: false,
                                     resizable: true,
@@ -93,7 +95,8 @@ export const applicationLayout: IFlexibleContainer = {
                                 } as IWindow,
                                 {
                                     id: 'analysis-lines',
-                                    contentComponent: 'AnalysisLinesComponent',
+                                    title: 'Analysis Lines',
+                                    contentComponent: 'AnalysisLines',
                                     collapsible: true,
                                     collapsed: false,
                                     resizable: true,
@@ -116,7 +119,8 @@ export const applicationLayout: IFlexibleContainer = {
                             children: [
                                 {
                                     id: 'game-board-1',
-                                    contentComponent: 'GameBoardComponent',
+                                    title: 'Game Board 1',
+                                    contentComponent: 'GameBoard',
                                     collapsible: false,
                                     collapsed: false,
                                     resizable: true,
@@ -140,7 +144,8 @@ export const applicationLayout: IFlexibleContainer = {
                             children: [
                                 {
                                     id: 'game-notes',
-                                    contentComponent: 'GameNotesComponent',
+                                    title: 'Game Notes',
+                                    contentComponent: 'GameNotes',
                                     collapsible: true,
                                     collapsed: false,
                                     resizable: true,
@@ -149,7 +154,8 @@ export const applicationLayout: IFlexibleContainer = {
                                 } as IWindow,
                                 {
                                     id: 'game-headers',
-                                    contentComponent: 'GameHeadersComponent',
+                                    title: 'Game Headers',
+                                    contentComponent: 'GameHeaders',
                                     collapsible: true,
                                     collapsed: false,
                                     resizable: true,
@@ -163,6 +169,7 @@ export const applicationLayout: IFlexibleContainer = {
                 // Bottom Bar
                 {
                     id: 'bottom-bar',
+                    title: '',
                     display: WindowDisplayMode.Flexible,
                     orientation: LayoutDirection.Horizontal,
                     collapsible: true,
@@ -174,7 +181,8 @@ export const applicationLayout: IFlexibleContainer = {
                     children: [
                         {
                             id: 'move-tree',
-                            contentComponent: 'MoveTreeComponent',
+                            title: 'Move Tree',
+                            contentComponent: 'MoveTree',
                             collapsible: true,
                             collapsed: false,
                             resizable: true,
@@ -183,7 +191,8 @@ export const applicationLayout: IFlexibleContainer = {
                         } as IWindow,
                         {
                             id: 'engine-evaluation',
-                            contentComponent: 'EngineEvaluationComponent',
+                            title: 'Engine Evaluation',
+                            contentComponent: 'EngineEvaluation',
                             collapsible: true,
                             collapsed: false,
                             resizable: true,
@@ -197,7 +206,7 @@ export const applicationLayout: IFlexibleContainer = {
         // Status Bar
         {
             id: 'status-bar',
-            contentComponent: 'StatusBarComponent',
+            contentComponent: 'StatusBar',
             fixedSize: 30, // Fixed height in pixels
             resizable: false,
             collapsible: false,
