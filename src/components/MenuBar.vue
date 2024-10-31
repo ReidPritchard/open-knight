@@ -1,38 +1,46 @@
 <template>
-    <Menubar :model="items" />
+    <Menubar :model="items">
+        <template #start>
+            <img alt="logo" src="../assets/logo.png" height="40" class="mr-2" />
+        </template>
+    </Menubar>
 </template>
 
 <script setup lang="ts">
 import Menubar from 'primevue/menubar';
 import { MenuItem, MenuItemCommandEvent } from 'primevue/menuitem';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { IWindowContainer } from '../shared/types';
+import { useGlobalState } from '../shared/store';
 
+// Get the layout from the store
+const { getVisibleWindows } = useGlobalState();
 
 const onCommand = (event: MenuItemCommandEvent) => {
     console.log(event);
+
+    switch (event.item.label) {
+        case 'Load PGN':
+            break;
+        case 'Export PGN':
+            break;
+        case 'Quit':
+            // window.close();
+            break;
+    }
 };
 
 const onViewCommand = (event: MenuItemCommandEvent) => {
     console.log(event);
 };
 
-const props = defineProps<{
-    layout?: IWindowContainer;
-}>();
-
-// Check which windows are open
-// TODO: improve this
-const openWindows = ref(
-    props.layout?.children.filter((child) => child.visible)
-);
+const openWindows = computed(() => getVisibleWindows.value);
 
 const items = ref([
     {
         label: 'File',
         icon: 'pi pi-fw pi-file',
         visible: true,
-        command: onCommand,
         items: [
             {
                 label: 'Load PGN',
@@ -55,7 +63,6 @@ const items = ref([
         label: 'View',
         icon: 'pi pi-fw pi-eye',
         visible: true,
-        command: onCommand,
         items: [
             {
                 label: 'Board',
@@ -92,7 +99,6 @@ const items = ref([
 
 <style scoped>
 .menu-bar {
-    background-color: #f5f5f5;
-    padding: 10px;
+    background-color: var(--p-content-background);
 }
 </style>
