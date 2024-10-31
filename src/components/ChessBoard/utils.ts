@@ -40,7 +40,7 @@ export const createBoard = (): Square[][] => {
       col: colIndex,
       piece,
       isTarget: false,
-    }))
+    })),
   );
 };
 

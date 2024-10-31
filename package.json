@@ -11,7 +11,7 @@
     "tauri:dev": "tauri dev",
     "prepare": "ts-patch install && typia patch",
     "lint": "eslint --fix --ext .js,.vue .",
-    "format": "prettier --write ."
+    "format": "prettier --write ./src"
   },
   "dependencies": {
     "@primevue/themes": "^4.1.1",

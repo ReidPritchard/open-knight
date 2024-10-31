@@ -32,7 +32,7 @@ const buildMoveTree = (moves: IMove[]) => {
       moveTree.push({ ...move, children: [] });
     } else if (move.variation_id) {
       const variationMove = moves.find(
-        (m) => m.variation_id === move.variation_id
+        (m) => m.variation_id === move.variation_id,
       );
       if (variationMove) {
         moveTree

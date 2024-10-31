@@ -7,7 +7,10 @@ export function useChessBoard(
     orientation: Orientation;
     draggable: boolean;
   },
-  emit: (event: "move" | "piece-click" | "square-click", ...args: any[]) => void
+  emit: (
+    event: "move" | "piece-click" | "square-click",
+    ...args: any[]
+  ) => void,
 ) {
   const board = ref<Board>([]);
   const draggingPiece = ref<Square | null>(null);

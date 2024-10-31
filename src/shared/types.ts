@@ -1,6 +1,5 @@
 import typia from "typia";
 
-
 /**
  * Mixin interface for collapsible windows/containers (for compositional purposes).
  */
@@ -180,12 +179,16 @@ export interface IFlexibleContainer extends IWindowContainerBase {
   orientation: LayoutDirection;
 }
 export const assertFlexibleContainer = typia.createAssert<IFlexibleContainer>();
-export const validateFlexibleContainer = typia.createValidate<IFlexibleContainer>();
+export const validateFlexibleContainer =
+  typia.createValidate<IFlexibleContainer>();
 
 /**
  * Container interface that can represent different display modes.
  */
-export type IWindowContainer = ISimpleContainer | ITabContainer | IFlexibleContainer;
+export type IWindowContainer =
+  | ISimpleContainer
+  | ITabContainer
+  | IFlexibleContainer;
 
 export const validateWindowContainer = typia.createValidate<IWindowContainer>();
 
@@ -193,7 +196,6 @@ export const validateWindowContainer = typia.createValidate<IWindowContainer>();
  * Layout type that can be a window or any container.
  */
 export type ILayout = IWindow | IWindowContainer;
-
 
 /**
  * Interface for a chess move.

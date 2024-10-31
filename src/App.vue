@@ -87,7 +87,6 @@ const toggleTheme = () => {
   document.documentElement.classList.toggle("dark");
 };
 
-
 const layout = ref<ILayout>(applicationLayout);
 
 // Helper to find a window in the layout by its id
@@ -124,9 +123,9 @@ function collapseWindow(windowId: string, collapsed: boolean) {
 watch(
   layout,
   (newLayout) => {
-    localStorage.setItem('app-layout', JSON.stringify(newLayout));
+    localStorage.setItem("app-layout", JSON.stringify(newLayout));
   },
-  { deep: true }
+  { deep: true },
 );
 </script>
 

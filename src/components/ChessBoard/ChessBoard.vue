@@ -155,7 +155,7 @@ export default defineComponent({
             "coordinate-top",
             "coordinate-bottom",
             "coordinate-left",
-            "coordinate-right"
+            "coordinate-right",
           );
         }
 

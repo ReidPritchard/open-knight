@@ -24,7 +24,7 @@ const parsePartialGame =
  * Convert an incoming "GameResult" (as defined in src-tauri/src/state.rs) to a "Game" (as defined in src/App.vue)
  */
 export const gameResultToGame = (
-  game: PartialExplorerState["games"][number]
+  game: PartialExplorerState["games"][number],
 ): IGame => {
   console.log("Converting game result to game:", game.id); // Log the game ID being processed
 
@@ -53,7 +53,7 @@ export const gameResultToGame = (
  * Convert an api response "get_explorer_state" (JSON string) to an ExplorerState (as defined in src/App.vue)
  */
 export function apiExplorerStateToExplorerState(
-  apiExplorerState: string
+  apiExplorerState: string,
 ): IExplorerState {
   console.log("Parsing API Explorer State"); // Log the start of parsing
   const parsed = parsePartialExplorerState(apiExplorerState);
@@ -69,7 +69,7 @@ export function apiExplorerStateToExplorerState(
   } else {
     console.error(
       "Error parsing explorer state:",
-      JSON.stringify(parsed.errors, null, 2)
+      JSON.stringify(parsed.errors, null, 2),
     );
     // TODO: Better error handling, maybe a toast?
     throw new Error(parsed.errors.join("\n"));
@@ -80,7 +80,7 @@ export function apiExplorerStateToExplorerState(
  * Api response "get_selected_game" (JSON string) to a Game (as defined in src/App.vue)
  */
 export function apiSelectedGameToGame(
-  apiSelectedGame: string | null
+  apiSelectedGame: string | null,
 ): IGame | null {
   console.log("Parsing API Selected Game"); // Log the start of parsing
   if (apiSelectedGame !== null) {
