@@ -9,6 +9,11 @@ import {
   IWindow,
   IGame,
 } from "./types";
+import { invoke } from "@tauri-apps/api/core";
+import {
+  apiExplorerStateToExplorerState,
+  apiSelectedGameToGame,
+} from "./api-conversions";
 
 // Helper to get the visible windows from the layout and its children
 function getVisibleWindowsHelper(layout: ILayout): IWindow[] {
@@ -58,6 +63,8 @@ export const useGlobalState = createGlobalState(() => {
   // Global state
   const layout = ref<ILayout>(applicationLayout);
   const selectedGame = ref<IGame | null>(null);
+  const games = ref<IGame[]>([]);
+  const selectedGameLocation = ref<number | null>(0); // The move number of the selected game
 
   // Getters
   const getLayout = computed(() => layout.value);
@@ -65,6 +72,7 @@ export const useGlobalState = createGlobalState(() => {
     getVisibleWindowsHelper(layout.value),
   );
   const getSelectedGame = computed(() => selectedGame.value);
+  const getGames = computed(() => games.value);
 
   // Actions
   const setLayout = (newLayout: ILayout) => {
@@ -82,17 +90,60 @@ export const useGlobalState = createGlobalState(() => {
     }
   };
 
-  const setSelectedGame = (newGame: IGame) => {
+  const setSelectedGame = (newGame: IGame | null) => {
     selectedGame.value = newGame;
+    selectedGameLocation.value = 0;
+  };
+
+  const setSelectedGameLocation = (newLocation: number) => {
+    selectedGameLocation.value = newLocation;
+  };
+
+  // API Actions
+  const updateGames = async () => {
+    const state: string = await invoke("get_explorer_state");
+    const parsedState = apiExplorerStateToExplorerState(state);
+    games.value = parsedState.games;
+  };
+
+  const fetchSelectedGame = async () => {
+    const response: string = await invoke("get_selected_game");
+    const game: string | null = response === "null" ? null : response;
+    const parsedGame = apiSelectedGameToGame(game);
+    selectedGame.value = parsedGame;
+  };
+
+  const parsePgnText = async (pgnText: string) => {
+    await invoke("parse_pgn", { pgn: pgnText });
+    await updateGames();
+    await fetchSelectedGame();
+  };
+
+  const emptyDatabase = async () => {
+    await invoke("empty_db");
+    await updateGames();
   };
 
   return {
+    // State
     layout,
+    selectedGame,
+    games,
+    selectedGameLocation,
+    // Getters
     getLayout,
     getVisibleWindows,
     getSelectedGame,
+    getGames,
+    // Actions
     setLayout,
     updateWindowProperty,
     setSelectedGame,
+    setSelectedGameLocation,
+    // API Actions
+    updateGames,
+    fetchSelectedGame,
+    parsePgnText,
+    emptyDatabase,
   };
 });

@@ -14,10 +14,10 @@ import {
   Orientation,
 } from "./ChessBoard/types";
 import ChessMoveTree from "./ChessMoveTree/ChessMoveTree.vue";
+import { useGlobalState } from "../shared/store";
 
-const props = defineProps<{
-  selectedGame: IGame | null;
-}>();
+const { selectedGame, selectedGameLocation, setSelectedGameLocation } =
+  useGlobalState();
 
 const showCoordinates = ref<CoordinatesStyleType>(CoordinatesStyle.outside);
 const coordinatesOptions = Object.values(CoordinatesStyle);
@@ -27,69 +27,58 @@ const toggleOrientation = () => {
   orientation.value = orientation.value === "black" ? "white" : "black";
 };
 
-const showMoveTree = ref(false);
-const toggleMoveTree = () => {
-  showMoveTree.value = !showMoveTree.value;
+const previousMove = () => {
+  setSelectedGameLocation((selectedGameLocation.value ?? 0) - 1);
+};
+
+const nextMove = () => {
+  setSelectedGameLocation((selectedGameLocation.value ?? 0) + 1);
 };
 </script>
 
 <template>
   <Card style="width: 100%" class="game-board">
-    <div
-      v-if="props.selectedGame"
-      style="
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-        width: 100%;
-        padding: 1rem;
-      "
-      id="game-board-container"
-    >
-      <AspectRatio :ratio="1">
-        <ChessBoard
-          initial-position="start"
-          :orientation="orientation"
-          :show-coordinates="showCoordinates"
-          :draggable="true"
-        />
-      </AspectRatio>
+    <template #content>
+      <div v-if="selectedGame" id="game-board-container">
+        <AspectRatio :ratio="1">
+          <ChessBoard
+            initial-position="start"
+            :orientation="orientation"
+            :show-coordinates="showCoordinates"
+            :draggable="true"
+          />
+        </AspectRatio>
 
-      <Toolbar>
-        <template #start>
-          <!-- Debugging (display coordinates style) -->
-          <div>Coordinates style: {{ showCoordinates }}</div>
-          <Select v-model="showCoordinates" :options="coordinatesOptions" />
-          <!-- Button to toggle orientation -->
-          <Button label="Toggle orientation" @click="toggleOrientation" />
+        <Toolbar>
+          <template #start>
+            <!-- Debugging (display coordinates style) -->
+            <Select v-model="showCoordinates" :options="coordinatesOptions" />
 
-          <!-- Game navigation buttons -->
-        </template>
+            <!-- Button to toggle orientation -->
+            <Button label="Toggle orientation" @click="toggleOrientation" />
 
-        <template #center>
-          <!-- Display the move history -->
-        </template>
+            <!-- Game navigation buttons -->
+          </template>
 
-        <template #end>
-          <!-- Game toolbar buttons -->
+          <template #center>
+            <Button label="Previous move" @click="previousMove" />
+            <span>{{ selectedGameLocation }}</span>
+            <span> / </span>
+            <span>{{ selectedGame?.moves?.length }}</span>
+            <Button label="Next move" @click="nextMove" />
 
-          <!-- Toggle Move Tree -->
-          <Button label="Toggle Move Tree" @click="toggleMoveTree" />
-          <!-- Display the move tree in a dialog -->
-          <Dialog
-            v-model="showMoveTree"
-            :header="`Move Tree for ${props.selectedGame?.id}`"
-            :content-style="{ width: '100%' }"
-            :visible="showMoveTree"
-            :modal="true"
-            @hide="toggleMoveTree"
-          >
-            <ChessMoveTree :moves="props.selectedGame?.moves || []" />
-          </Dialog>
-        </template>
-      </Toolbar>
-    </div>
-    <template #subtitle> No game selected </template>
+            <span>
+              {{ selectedGame?.moves?.[selectedGameLocation ?? 0]?.move_san }}
+            </span>
+          </template>
+
+          <template #end>
+            <!-- Game toolbar buttons -->
+          </template>
+        </Toolbar>
+      </div>
+    </template>
+    <template #subtitle v-if="!selectedGame"> No game selected </template>
   </Card>
 </template>
 
@@ -101,5 +90,9 @@ const toggleMoveTree = () => {
 
   color: var(--p-card-color);
   background-color: var(--p-card-background);
+
+  margin: auto;
+  width: 100%;
+  max-width: 800px;
 }
 </style>
