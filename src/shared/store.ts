@@ -103,6 +103,7 @@ export const useGlobalState = createGlobalState(() => {
   const updateGames = async () => {
     const state: string = await invoke("get_explorer_state");
     const parsedState = apiExplorerStateToExplorerState(state);
+    console.log(parsedState);
     games.value = parsedState.games;
   };
 

@@ -54,7 +54,7 @@ fn get_explorer_state(state: tauri::State<AppState>) -> String {
 
     let explorer_json = serde_json::to_string_pretty(&explorer).unwrap();
 
-    println!("Explorer state: {}", explorer_json);
+    // println!("Explorer state: {}", explorer_json);
 
     explorer_json
 }

@@ -1,6 +1,6 @@
 use pgn_reader::{BufferedReader, RawHeader, SanPlus, Skip, Visitor};
 use serde::Serialize;
-use shakmaty::{Chess, Position};
+use shakmaty::{Chess, Outcome, Position};
 
 use crate::models::Move;
 
@@ -46,6 +46,7 @@ impl Visitor for LoadResult {
     type Result = ();
 
     fn begin_game(&mut self) {
+        println!("BEGIN GAME ------------------------------");
         let id = self.games.len() as i32;
         self.games.push(GameResult {
             id,
@@ -55,6 +56,10 @@ impl Visitor for LoadResult {
             pgn: String::new(),
             errors: Vec::new(),
         });
+    }
+
+    fn begin_headers(&mut self) {
+        println!("BEGIN HEADERS ------------------------------");
     }
 
     fn header(&mut self, key: &[u8], value: RawHeader<'_>) {
@@ -73,15 +78,18 @@ impl Visitor for LoadResult {
         if let Some(game_result) = self.games.last_mut() {
             game_result.pgn.push_str("\n");
         }
+        println!("END HEADERS ------------------------------");
         Skip(false)
     }
 
     fn begin_variation(&mut self) -> Skip {
+        println!("BEGIN VARIATION ------------------------------");
         // TODO: Support variations
         Skip(true)
     }
 
     fn san(&mut self, san_plus: SanPlus) {
+        println!("SAN: {}", san_plus.san);
         if let Some(game_result) = self.games.last_mut() {
             let current_turn = game_result.game.as_ref().unwrap().turn();
             let full_move_number = game_result.game.as_ref().unwrap().fullmoves().get();
@@ -130,20 +138,42 @@ impl Visitor for LoadResult {
                 }
                 Err(err) => {
                     self.success = false;
-                    game_result
-                        .errors
-                        .push(format!("Error parsing move: {}", err));
+                    game_result.errors.push(format!(
+                        "Error parsing move: {}\n{}",
+                        err,
+                        san.to_string()
+                    ));
+                    println!("Error parsing move: {}", err);
                 }
             }
         }
     }
 
-    fn end_game(&mut self) {}
+    fn end_game(&mut self) {
+        println!("END GAME ------------------------------");
+    }
+
+    fn comment(&mut self, _comment: pgn_reader::RawComment<'_>) {
+        println!("COMMENT ------------------------------");
+    }
+
+    fn outcome(&mut self, _outcome: Option<Outcome>) {
+        println!("OUTCOME ------------------------------");
+        //
+    }
+
+    fn end_variation(&mut self) {
+        println!("END VARIATION ------------------------------");
+    }
 }
 
 pub fn load_pgn(pgn: &str) -> LoadResult {
     let mut reader = BufferedReader::new(pgn.as_bytes());
     let mut load_result = LoadResult::new();
-    reader.read_all(&mut load_result).unwrap();
+
+    while let Ok(Some(_)) = reader.read_game(&mut load_result) {
+        // Continue reading games until None is returned
+    }
+
     load_result
 }
