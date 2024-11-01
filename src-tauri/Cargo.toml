@@ -18,7 +18,7 @@ tauri-plugin-shell = "2.0.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 shakmaty = "0.27.2"
-pgn-reader = "0.26.0"
+chumsky = "0.9.0"
 diesel = { version = "2.2.0", features = [
     "sqlite",
     "returning_clauses_for_sqlite_3_35",

@@ -7,6 +7,7 @@ mod convert;
 mod database;
 mod loader;
 mod models;
+mod parser;
 mod schema;
 mod state;
 
