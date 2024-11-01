@@ -1,6 +1,8 @@
 // Module for parsing PGN files
 use chumsky::prelude::*;
 
+use crate::loader::GameResult;
+
 #[derive(Debug, Clone)]
 pub enum PgnToken {
     MoveNumber(u32),          // Move numbers like "1."

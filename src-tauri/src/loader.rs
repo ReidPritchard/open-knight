@@ -1,7 +1,7 @@
 use serde::Serialize;
 use shakmaty::{Chess, Outcome, Position};
 
-use crate::{models::Move, parser};
+use crate::{database, models::Move, parser};
 
 /// A result from loading a PGN file
 ///
@@ -24,16 +24,25 @@ pub struct GameResult {
     pub errors: Vec<String>,
 }
 
+impl GameResult {
+    pub fn new() -> Self {
+        GameResult {
+            id: 0,
+            headers: Vec::new(),
+            game: None,
+            moves: Vec::new(),
+            pgn: String::new(),
+            errors: Vec::new(),
+        }
+    }
+}
+
 impl LoadResult {
     pub fn new() -> Self {
         LoadResult {
             games: Vec::new(),
             success: true,
         }
-    }
-
-    pub fn get(&self, index: usize) -> Option<&GameResult> {
-        self.games.get(index)
     }
 
     pub fn get_game_results(&self) -> &Vec<GameResult> {
@@ -167,10 +176,47 @@ impl LoadResult {
 // }
 
 pub fn load_pgn(pgn: &str) -> LoadResult {
+    // Setup the result object
+    let mut load_result = LoadResult::new();
+
+    // Parse the pgn (returns a vector of tokens or errors)
     let tokens = parser::parse_pgn(pgn);
 
-    println!("TOKENS: {:?}", tokens);
+    // Convert the tokens into a game result object
+    let mut game_result = GameResult::new();
+    game_result.id = (database::get_game_id_count() + 1) as i32;
 
-    // load_result
-    LoadResult::new()
+    if let Ok(tokens) = tokens {
+        tokens.iter().for_each(|token| {
+            match token {
+                parser::PgnToken::Tag(key, value) => {
+                    println!("TAG: {} = {}", key, value);
+                    game_result
+                        .headers
+                        .push((key.to_string(), value.to_string()));
+                }
+                parser::PgnToken::Move(mv) => {
+                    println!("MOVE: {}", mv);
+                    // Convert the move token string into a move object
+                    let move_object = Move {
+                        id: game_result.moves.len() as i32,
+                        game_id: game_result.id,
+                        move_san: mv.to_string(),
+                        ..Default::default()
+                    };
+                    game_result.moves.push(move_object);
+                }
+                parser::PgnToken::MoveNumber(num) => {
+                    println!("MOVE NUMBER: {}", num);
+                }
+                parser::PgnToken::Comment(comment) => {
+                    println!("COMMENT: {}", comment);
+                }
+                _ => {}
+            }
+        });
+    }
+
+    load_result.games.push(game_result);
+    load_result
 }

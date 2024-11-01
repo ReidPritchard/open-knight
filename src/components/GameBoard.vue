@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import Button from "primevue/button";
 import Card from "primevue/card";
-import Dialog from "primevue/dialog";
-import Select from "primevue/select";
 import Toolbar from "primevue/toolbar";
 import { ref } from "vue";
-import { IGame } from "../shared/types";
+import { useGlobalState } from "../shared/store";
 import AspectRatio from "./AspectRatio.vue";
 import ChessBoard from "./ChessBoard/ChessBoard.vue";
 import {
@@ -13,26 +11,24 @@ import {
   CoordinatesStyleType,
   Orientation,
 } from "./ChessBoard/types";
-import ChessMoveTree from "./ChessMoveTree/ChessMoveTree.vue";
-import { useGlobalState } from "../shared/store";
 
 const { selectedGame, selectedGameLocation, setSelectedGameLocation } =
   useGlobalState();
 
-const showCoordinates = ref<CoordinatesStyleType>(CoordinatesStyle.outside);
-const coordinatesOptions = Object.values(CoordinatesStyle);
+const showCoordinates = ref<CoordinatesStyleType>(CoordinatesStyle.none);
 
-const orientation = ref<Orientation>("black");
-const toggleOrientation = () => {
-  orientation.value = orientation.value === "black" ? "white" : "black";
-};
+const orientation = ref<Orientation>("white");
 
 const previousMove = () => {
-  setSelectedGameLocation((selectedGameLocation.value ?? 0) - 1);
+  const newLocation = (selectedGameLocation.value ?? 0) - 1;
+  setSelectedGameLocation(Math.max(newLocation, 0));
 };
 
 const nextMove = () => {
-  setSelectedGameLocation((selectedGameLocation.value ?? 0) + 1);
+  const newLocation = (selectedGameLocation.value ?? 0) + 1;
+  setSelectedGameLocation(
+    Math.min(newLocation, (selectedGame.value?.moves?.length ?? 0) - 1),
+  );
 };
 </script>
 
@@ -52,24 +48,25 @@ const nextMove = () => {
         <Toolbar>
           <template #start>
             <!-- Debugging (display coordinates style) -->
-            <Select v-model="showCoordinates" :options="coordinatesOptions" />
+            <!-- <Select v-model="showCoordinates" :options="coordinatesOptions" /> -->
 
             <!-- Button to toggle orientation -->
-            <Button label="Toggle orientation" @click="toggleOrientation" />
+            <!-- <Button label="Toggle orientation" @click="toggleOrientation" /> -->
 
             <!-- Game navigation buttons -->
           </template>
 
           <template #center>
-            <Button label="Previous move" @click="previousMove" />
-            <span>{{ selectedGameLocation }}</span>
-            <span> / </span>
-            <span>{{ selectedGame?.moves?.length }}</span>
-            <Button label="Next move" @click="nextMove" />
-
-            <span>
-              {{ selectedGame?.moves?.[selectedGameLocation ?? 0]?.move_san }}
-            </span>
+            <div class="game-board-move-number">
+              <Button icon="pi pi-chevron-left" @click="previousMove" />
+              <span>{{ selectedGameLocation }}</span>
+              <span> / </span>
+              <span>{{ selectedGame?.moves?.length }}</span>
+              <Button icon="pi pi-chevron-right" @click="nextMove" />
+              <span>
+                {{ selectedGame?.moves?.[selectedGameLocation ?? 0]?.move_san }}
+              </span>
+            </div>
           </template>
 
           <template #end>
@@ -94,5 +91,11 @@ const nextMove = () => {
   margin: auto;
   width: 100%;
   max-width: 800px;
+}
+
+.game-board-move-number {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 </style>
