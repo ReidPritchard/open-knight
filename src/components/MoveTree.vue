@@ -1,46 +1,53 @@
 <template>
   <div class="move-tree">
-    <!-- Move tree content -->
-    <p>Move Tree</p>
-    <div v-for="move in moves" :key="move.id">
-      <p>{{ move.move_san }}</p>
-    </div>
+    <OrganizationChart :value="moves">
+      <template #default="slotProps">
+        <span>{{ slotProps.node.label }}</span>
+      </template>
+    </OrganizationChart>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from "vue";
 import { useGlobalState } from "../shared/store";
+import OrganizationChart, {
+  OrganizationChartNode,
+} from "primevue/organizationchart";
 
 const { selectedGame } = useGlobalState();
 
-const moves = computed(() => selectedGame.value?.moves);
+const moves = computed(() => {
+  const gameMoves = selectedGame.value?.moves ?? [];
+  const moveTree: OrganizationChartNode = {
+    key: "root",
+    label: "Root",
+    children: [],
+  };
+
+  let currentNode = moveTree;
+
+  for (const move of gameMoves) {
+    currentNode.children = currentNode.children ?? [];
+    currentNode.children.push({
+      key: move.id,
+      label: move.move_san,
+      children: [],
+    });
+    currentNode = currentNode.children[currentNode.children.length - 1];
+  }
+
+  return moveTree;
+});
 </script>
 
 <style scoped>
 .move-tree {
-  background-color: #f5f5f5;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  background-color: var(--p-surface-color);
+  padding: 0.5rem;
+
+  max-height: 500px;
 
   overflow-y: scroll;
-}
-
-.move-tree p {
-  margin: 0;
-}
-
-.move-tree div {
-  margin-left: 1rem;
-}
-
-.move-tree div:nth-child(even) {
-  background-color: #e0e0e0;
-}
-
-.move-tree div:nth-child(odd) {
-  background-color: #f5f5f5;
 }
 </style>
