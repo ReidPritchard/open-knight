@@ -40,6 +40,14 @@ pub fn get_all_moves() -> Vec<Move> {
     crate::schema::moves::table.load(&mut conn).unwrap()
 }
 
+pub fn get_move_id_count() -> i64 {
+    let mut conn = establish_connection();
+    crate::schema::moves::table
+        .count()
+        .get_result(&mut conn)
+        .unwrap()
+}
+
 pub fn insert_games(games: &Vec<Game>) {
     let mut conn = establish_connection();
 

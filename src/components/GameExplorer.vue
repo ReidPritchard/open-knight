@@ -9,8 +9,8 @@ import DataTable, {
 import FloatLabel from "primevue/floatlabel";
 import InputText from "primevue/inputtext";
 import { ref } from "vue";
-import { IGame } from "../shared/types";
 import { useGlobalState } from "../shared/store";
+import { IGame } from "../shared/types";
 
 const { games, selectedGame } = useGlobalState();
 
@@ -54,16 +54,18 @@ const parsePgn = () => {
           dataKey="id"
           @rowSelect="gameSelectionChanged"
           @rowUnselect="gameSelectionChanged"
-          sortField="headers.date"
           sortMode="multiple"
         >
-          <Column field="headers.date" header="Date" sortable></Column>
-          <Column field="headers.event" header="Event" sortable></Column>
-          <Column field="headers.site" header="Site" sortable></Column>
-          <Column field="headers.round" header="Round" sortable></Column>
-          <Column field="headers.white" header="White" sortable></Column>
-          <Column field="headers.black" header="Black" sortable></Column>
-          <Column field="headers.result" header="Result" sortable></Column>
+          <Column
+            v-for="col of Object.keys(games[0].headers)"
+            :key="col"
+            :field="col"
+            :header="col"
+          >
+            <template #body="slotProps">
+              {{ slotProps.data.headers[col] }}
+            </template>
+          </Column>
         </DataTable>
       </div>
     </template>

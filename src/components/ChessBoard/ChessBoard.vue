@@ -4,7 +4,6 @@
     :style="{
       flexDirection: orientation === 'white' ? 'column-reverse' : 'column',
     }"
-    @mousedown.prevent
   >
     <div
       v-for="(row, rowIndex) in board"
@@ -71,6 +70,10 @@ export default defineComponent({
   name: "Chessboard",
   props: {
     initialPosition: {
+      type: String,
+      default: "start",
+    },
+    currentPosition: {
       type: String,
       default: "start",
     },

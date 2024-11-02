@@ -1,8 +1,6 @@
 // Module for parsing PGN files
 use chumsky::prelude::*;
 
-use crate::loader::GameResult;
-
 #[derive(Debug, Clone)]
 pub enum PgnToken {
     MoveNumber(u32),          // Move numbers like "1."
@@ -39,8 +37,7 @@ fn parser() -> impl Parser<char, Vec<PgnToken>, Error = Simple<char>> {
         .ignore_then(tag_name)
         .then(tag_value)
         .then_ignore(just(']'))
-        .map(|(name, value)| PgnToken::Tag(name, value))
-        .recover_with(skip_then_retry_until([']']));
+        .map(|(name, value)| PgnToken::Tag(name, value));
 
     // Parse a move number (e.g., "1.")
     let move_number = text::int(10)
@@ -48,7 +45,7 @@ fn parser() -> impl Parser<char, Vec<PgnToken>, Error = Simple<char>> {
         .map(|num: String| PgnToken::MoveNumber(num.parse().unwrap()));
 
     // Parse a chess move (standard PGN format)
-    let chess_move = filter(|&c: &char| c.is_alphanumeric() || "+#=x".contains(c))
+    let chess_move = filter(|&c: &char| c.is_alphanumeric() || "+#=x-".contains(c))
         .repeated()
         .at_least(1)
         .collect::<String>()
@@ -57,7 +54,6 @@ fn parser() -> impl Parser<char, Vec<PgnToken>, Error = Simple<char>> {
     // Parse a game result
     let game_result = choice((just("1-0"), just("0-1"), just("1/2-1/2"), just("*")))
         .map(|s: &str| PgnToken::Result(s.to_string()));
-
     // Parse comments in curly braces
     let comment = just('{')
         .ignore_then(filter(|&c| c != '}').repeated().collect::<String>())
@@ -82,9 +78,9 @@ fn parser() -> impl Parser<char, Vec<PgnToken>, Error = Simple<char>> {
     // Combine all parsers
     choice((
         tag,
+        game_result,
         move_number,
         chess_move,
-        game_result,
         comment,
         variation,
     ))

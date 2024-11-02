@@ -1,5 +1,5 @@
 use serde::Serialize;
-use shakmaty::{Chess, Outcome, Position};
+use shakmaty::Chess;
 
 use crate::{database, models::Move, parser};
 
@@ -50,135 +50,7 @@ impl LoadResult {
     }
 }
 
-// impl Visitor for LoadResult {
-//     type Result = ();
-
-//     fn begin_game(&mut self) {
-//         println!("BEGIN GAME ------------------------------");
-//         let id = self.games.len() as i32;
-//         self.games.push(GameResult {
-//             id,
-//             headers: Vec::new(),
-//             game: Some(Chess::new()),
-//             moves: Vec::new(),
-//             pgn: String::new(),
-//             errors: Vec::new(),
-//         });
-//     }
-
-//     fn begin_headers(&mut self) {
-//         println!("BEGIN HEADERS ------------------------------");
-//     }
-
-//     fn header(&mut self, key: &[u8], value: RawHeader<'_>) {
-//         if let Some(game_result) = self.games.last_mut() {
-//             let key = String::from_utf8_lossy(key).to_string();
-//             let value = value.decode_utf8().unwrap().to_string();
-
-//             game_result.headers.push((key.clone(), value.clone()));
-//             game_result
-//                 .pgn
-//                 .push_str(&format!("[{} \"{}\"]\n", key, value));
-//         }
-//     }
-
-//     fn end_headers(&mut self) -> Skip {
-//         if let Some(game_result) = self.games.last_mut() {
-//             game_result.pgn.push_str("\n");
-//         }
-//         println!("END HEADERS ------------------------------");
-//         Skip(false)
-//     }
-
-//     fn begin_variation(&mut self) -> Skip {
-//         println!("BEGIN VARIATION ------------------------------");
-//         // TODO: Support variations
-//         Skip(true)
-//     }
-
-//     fn san(&mut self, san_plus: SanPlus) {
-//         println!("SAN: {}", san_plus.san);
-//         if let Some(game_result) = self.games.last_mut() {
-//             let current_turn = game_result.game.as_ref().unwrap().turn();
-//             let full_move_number = game_result.game.as_ref().unwrap().fullmoves().get();
-
-//             let san = san_plus.san as shakmaty::san::San;
-//             match san.to_move(game_result.game.as_ref().unwrap()) {
-//                 Ok(mv) => {
-//                     if !game_result.game.as_ref().unwrap().is_legal(&mv) {
-//                         self.success = false;
-//                         game_result
-//                             .errors
-//                             .push(format!("Illegal move: {}", mv.to_string()));
-//                         return;
-//                     }
-//                     game_result.game.as_mut().unwrap().play_unchecked(&mv);
-
-//                     // PGN move string
-//                     let pgn_move_string = if current_turn == shakmaty::Color::White {
-//                         format!("{}. {} ", full_move_number, san.to_string())
-//                     } else {
-//                         format!("{} ", san.to_string())
-//                     };
-//                     game_result.pgn.push_str(&pgn_move_string);
-
-//                     // Move object
-//                     let fen = game_result
-//                         .game
-//                         .as_ref()
-//                         .unwrap()
-//                         .board()
-//                         .board_fen(game_result.game.as_ref().unwrap().promoted())
-//                         .to_string();
-
-//                     let move_object = Move {
-//                         id: game_result.moves.len() as i32,
-//                         game_id: game_result.id,
-//                         annotation: None,
-//                         fen: Some(fen),
-//                         move_number: full_move_number as i32,
-//                         move_san: pgn_move_string,
-//                         parent_variation_id: None,
-//                         variation_id: Some(0),
-//                         ..Default::default()
-//                     };
-//                     game_result.moves.push(move_object);
-//                 }
-//                 Err(err) => {
-//                     self.success = false;
-//                     game_result.errors.push(format!(
-//                         "Error parsing move: {}\n{}",
-//                         err,
-//                         san.to_string()
-//                     ));
-//                     println!("Error parsing move: {}", err);
-//                 }
-//             }
-//         }
-//     }
-
-//     fn end_game(&mut self) {
-//         println!("END GAME ------------------------------");
-//     }
-
-//     fn comment(&mut self, _comment: pgn_reader::RawComment<'_>) {
-//         println!("COMMENT ------------------------------");
-//     }
-
-//     fn outcome(&mut self, _outcome: Option<Outcome>) {
-//         println!("OUTCOME ------------------------------");
-//         //
-//     }
-
-//     fn end_variation(&mut self) {
-//         println!("END VARIATION ------------------------------");
-//     }
-// }
-
 pub fn load_pgn(pgn: &str) -> LoadResult {
-    // Setup the result object
-    let mut load_result = LoadResult::new();
-
     // Parse the pgn (returns a vector of tokens or errors)
     let tokens = parser::parse_pgn(pgn);
 
@@ -186,20 +58,39 @@ pub fn load_pgn(pgn: &str) -> LoadResult {
     let mut game_result = GameResult::new();
     game_result.id = (database::get_game_id_count() + 1) as i32;
 
+    // Tokens can contain multiple games, so we need to loop through them
+    // and determine where each game starts and ends while parsing
+    let mut games: Vec<GameResult> = Vec::new();
     if let Ok(tokens) = tokens {
+        let mut game_id_move_count = 0;
+        let mut game_started = false;
         tokens.iter().for_each(|token| {
             match token {
                 parser::PgnToken::Tag(key, value) => {
+                    // If we've already seen a game's moves, we should consider this a new game
+                    if game_started {
+                        println!("Pushing game to vector");
+                        games.push(game_result.clone());
+                        game_result = GameResult::new();
+                        game_result.id = ((database::get_game_id_count() as i64
+                            + games.len() as i64)
+                            + 1) as i32;
+                        game_started = false;
+                    }
+
                     println!("TAG: {} = {}", key, value);
                     game_result
                         .headers
                         .push((key.to_string(), value.to_string()));
                 }
                 parser::PgnToken::Move(mv) => {
+                    game_id_move_count += 1;
+                    game_started = true;
                     println!("MOVE: {}", mv);
                     // Convert the move token string into a move object
                     let move_object = Move {
-                        id: game_result.moves.len() as i32,
+                        // Generate a new id for the move (move db count + number of moves in games loaded so far)
+                        id: (database::get_move_id_count() + game_id_move_count + 1) as i32,
                         game_id: game_result.id,
                         move_san: mv.to_string(),
                         ..Default::default()
@@ -212,11 +103,21 @@ pub fn load_pgn(pgn: &str) -> LoadResult {
                 parser::PgnToken::Comment(comment) => {
                     println!("COMMENT: {}", comment);
                 }
-                _ => {}
+                parser::PgnToken::Result(result) => {
+                    println!("RESULT: {}", result);
+                }
+                _ => {
+                    println!("UNKNOWN TOKEN: {:?}", token);
+                    game_result
+                        .errors
+                        .push(format!("Unknown token: {:?}", token));
+                }
             }
         });
     }
 
-    load_result.games.push(game_result);
-    load_result
+    LoadResult {
+        games,
+        success: true,
+    }
 }

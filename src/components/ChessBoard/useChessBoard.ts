@@ -4,6 +4,8 @@ import { createBoard } from "./utils";
 
 export function useChessBoard(
   props: {
+    initialPosition: string;
+    currentPosition: string;
     orientation: Orientation;
     draggable: boolean;
   },
@@ -17,7 +19,9 @@ export function useChessBoard(
   const dragImage = ref<HTMLDivElement | null>(null);
 
   const initBoard = () => {
-    board.value = createBoard();
+    if (props.initialPosition === "start") {
+      board.value = createBoard();
+    }
   };
 
   const onDragStart = (event: DragEvent, square: Square) => {
