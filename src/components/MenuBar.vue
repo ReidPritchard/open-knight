@@ -13,7 +13,7 @@ import { computed, ref } from "vue";
 import { useGlobalState } from "../shared/store";
 
 // Get the layout from the store
-const { getVisibleWindows } = useGlobalState();
+const { value: visibleWindows } = useGlobalState().visibleWindows;
 
 const onCommand = (event: MenuItemCommandEvent) => {
   console.log(event);
@@ -33,7 +33,7 @@ const onViewCommand = (event: MenuItemCommandEvent) => {
   console.log(event);
 };
 
-const openWindows = computed(() => getVisibleWindows.value);
+const openWindows = computed(() => visibleWindows);
 
 const items = ref([
   {

@@ -219,6 +219,7 @@ export interface IGame {
   headers: Record<string, string>;
   pgn: string;
   moves: IMove[];
+  // annotations: string | null;
   errors: string[];
 }
 export const assertGame = typia.createAssert<IGame>();

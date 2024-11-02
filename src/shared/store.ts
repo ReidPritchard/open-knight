@@ -66,13 +66,14 @@ export const useGlobalState = createGlobalState(() => {
   const games = ref<IGame[]>([]);
   const selectedGameLocation = ref<number | null>(0); // The move number of the selected game
 
-  // Getters
-  const getLayout = computed(() => layout.value);
-  const getVisibleWindows = computed(() =>
-    getVisibleWindowsHelper(layout.value),
-  );
-  const getSelectedGame = computed(() => selectedGame.value);
-  const getGames = computed(() => games.value);
+  const UIState = ref<{
+    visibleGameHeaders: string[];
+  }>({
+    visibleGameHeaders: [],
+  });
+
+  // Getters (used to compute derived state for specific components)
+  const visibleWindows = computed(() => getVisibleWindowsHelper(layout.value));
 
   // Actions
   const setLayout = (newLayout: ILayout) => {
@@ -105,6 +106,17 @@ export const useGlobalState = createGlobalState(() => {
     const parsedState = apiExplorerStateToExplorerState(state);
     console.log(parsedState);
     games.value = parsedState.games;
+
+    const defaultHeaders = () => {
+      const headers =
+        selectedGame.value?.headers ?? games.value[0]?.headers ?? {};
+      return Object.keys(headers).filter(
+        (key) => headers[key] !== "" && !headers[key].includes("?"),
+      );
+    };
+    if (UIState.value.visibleGameHeaders.length === 0) {
+      UIState.value.visibleGameHeaders = defaultHeaders();
+    }
   };
 
   const fetchSelectedGame = async () => {
@@ -131,11 +143,9 @@ export const useGlobalState = createGlobalState(() => {
     selectedGame,
     games,
     selectedGameLocation,
+    UIState,
     // Getters
-    getLayout,
-    getVisibleWindows,
-    getSelectedGame,
-    getGames,
+    visibleWindows,
     // Actions
     setLayout,
     updateWindowProperty,

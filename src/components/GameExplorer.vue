@@ -12,7 +12,9 @@ import { ref } from "vue";
 import { useGlobalState } from "../shared/store";
 import { IGame } from "../shared/types";
 
-const { games, selectedGame } = useGlobalState();
+const { games, selectedGame, UIState } = useGlobalState();
+
+let pgnInput = ref("");
 
 function gameSelectionChanged(
   event: DataTableRowUnselectEvent | DataTableRowSelectEvent,
@@ -20,8 +22,6 @@ function gameSelectionChanged(
   const rowSelection = event.data as IGame;
   useGlobalState().setSelectedGame(rowSelection);
 }
-
-let pgnInput = ref("");
 
 const parsePgn = () => {
   useGlobalState().parsePgnText(pgnInput.value);
@@ -57,7 +57,7 @@ const parsePgn = () => {
           sortMode="multiple"
         >
           <Column
-            v-for="col of Object.keys(games[0].headers)"
+            v-for="col of UIState.visibleGameHeaders"
             :key="col"
             :field="col"
             :header="col"
