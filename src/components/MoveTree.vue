@@ -1,43 +1,19 @@
 <template>
   <div class="move-tree">
-    <OrganizationChart :value="moves">
-      <template #default="slotProps">
-        <span>{{ slotProps.node.label }}</span>
-      </template>
-    </OrganizationChart>
+    <ChessMoveTree :moves="moves" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from "vue";
 import { useGlobalState } from "../shared/store";
-import OrganizationChart, {
-  OrganizationChartNode,
-} from "primevue/organizationchart";
+import { IMove } from "../shared/types";
+import ChessMoveTree from "./ChessMoveTree/ChessMoveTree.vue";
 
 const { selectedGame } = useGlobalState();
 
-const moves = computed(() => {
-  const gameMoves = selectedGame.value?.moves ?? [];
-  const moveTree: OrganizationChartNode = {
-    key: "root",
-    label: "Root",
-    children: [],
-  };
-
-  let currentNode = moveTree;
-
-  for (const move of gameMoves) {
-    currentNode.children = currentNode.children ?? [];
-    currentNode.children.push({
-      key: move.id,
-      label: move.move_san,
-      children: [],
-    });
-    currentNode = currentNode.children[currentNode.children.length - 1];
-  }
-
-  return moveTree;
+const moves = computed<IMove[]>(() => {
+  return selectedGame.value?.moves ?? [];
 });
 </script>
 
@@ -46,7 +22,7 @@ const moves = computed(() => {
   background-color: var(--p-surface-color);
   padding: 0.5rem;
 
-  max-height: 500px;
+  max-height: 150px;
 
   overflow-y: scroll;
 }

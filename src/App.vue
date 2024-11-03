@@ -3,19 +3,13 @@ import "primeicons/primeicons.css";
 import { onMounted, watch } from "vue";
 import { useGlobalState } from "./shared/store";
 import LayoutRenderer from "./components/AppLayout/LayoutRenderer.vue";
-import Button from "primevue/button";
 
-const { layout, emptyDatabase, updateGames, fetchSelectedGame } =
-  useGlobalState();
+const { layout, updateGames, fetchSelectedGame } = useGlobalState();
 
 onMounted(async () => {
   await updateGames();
   await fetchSelectedGame();
 });
-
-const toggleTheme = () => {
-  document.documentElement.classList.toggle("dark");
-};
 
 watch(
   layout,
@@ -27,7 +21,6 @@ watch(
 </script>
 
 <template>
-  <Button @click="emptyDatabase">Empty DB</Button>
   <LayoutRenderer :layout="layout" />
 </template>
 

@@ -68,8 +68,10 @@ export const useGlobalState = createGlobalState(() => {
 
   const UIState = ref<{
     visibleGameHeaders: string[];
+    theme: "light" | "dark";
   }>({
     visibleGameHeaders: [],
+    theme: "light",
   });
 
   // Getters (used to compute derived state for specific components)
@@ -98,6 +100,11 @@ export const useGlobalState = createGlobalState(() => {
 
   const setSelectedGameLocation = (newLocation: number) => {
     selectedGameLocation.value = newLocation;
+  };
+
+  const toggleTheme = () => {
+    document.documentElement.classList.toggle("dark");
+    UIState.value.theme = UIState.value.theme === "light" ? "dark" : "light";
   };
 
   // API Actions
@@ -151,6 +158,7 @@ export const useGlobalState = createGlobalState(() => {
     updateWindowProperty,
     setSelectedGame,
     setSelectedGameLocation,
+    toggleTheme,
     // API Actions
     updateGames,
     fetchSelectedGame,

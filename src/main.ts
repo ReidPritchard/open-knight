@@ -1,5 +1,3 @@
-import Aura from "@primevue/themes/aura";
-
 import Button from "primevue/button";
 import Column from "primevue/column";
 import PrimeVue from "primevue/config";
@@ -12,6 +10,8 @@ import Panel from "primevue/panel";
 import Tabs from "primevue/tabs";
 import TabPanel from "primevue/tabpanel";
 
+import CustomTheme from "./theme";
+
 import { createApp } from "vue";
 import App from "./App.vue";
 
@@ -19,7 +19,7 @@ const app = createApp(App);
 
 app.use(PrimeVue, {
   theme: {
-    preset: Aura,
+    preset: CustomTheme,
     options: {
       prefix: "p",
       darkModeSelector: ".dark",

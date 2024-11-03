@@ -13,7 +13,8 @@ import { computed, ref } from "vue";
 import { useGlobalState } from "../shared/store";
 
 // Get the layout from the store
-const { value: visibleWindows } = useGlobalState().visibleWindows;
+const { visibleWindows, emptyDatabase, toggleTheme, UIState } =
+  useGlobalState();
 
 const onCommand = (event: MenuItemCommandEvent) => {
   console.log(event);
@@ -23,6 +24,9 @@ const onCommand = (event: MenuItemCommandEvent) => {
       break;
     case "Export PGN":
       break;
+    case "Empty DB":
+      emptyDatabase();
+      break;
     case "Quit":
       // window.close();
       break;
@@ -31,9 +35,23 @@ const onCommand = (event: MenuItemCommandEvent) => {
 
 const onViewCommand = (event: MenuItemCommandEvent) => {
   console.log(event);
+
+  switch (event.item.label) {
+    case themeLabel.value:
+      toggleTheme();
+      break;
+  }
 };
 
-const openWindows = computed(() => visibleWindows);
+const theme = computed(() => UIState.value.theme);
+const themeLabel = computed(() =>
+  theme.value === "light" ? "Dark Mode" : "Light Mode",
+);
+const themeIcon = computed(() =>
+  theme.value === "light" ? "pi pi-fw pi-moon" : "pi pi-fw pi-sun",
+);
+
+const openWindows = computed(() => visibleWindows.value);
 
 const items = ref([
   {
@@ -52,6 +70,11 @@ const items = ref([
         command: onCommand,
       },
       {
+        label: "Empty DB",
+        icon: "pi pi-fw pi-database",
+        command: onCommand,
+      },
+      {
         label: "Quit",
         icon: "pi pi-fw pi-power-off",
         command: onCommand,
@@ -63,6 +86,11 @@ const items = ref([
     icon: "pi pi-fw pi-eye",
     visible: true,
     items: [
+      {
+        label: themeLabel.value,
+        icon: themeIcon.value,
+        command: onViewCommand,
+      },
       {
         label: "Board",
         icon:
