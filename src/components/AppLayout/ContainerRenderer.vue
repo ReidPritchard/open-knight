@@ -1,13 +1,9 @@
 <template>
-  <Panel
+  <LayoutPanel
     :header="props.layout.title"
     :toggleable="props.layout.collapsible"
     :collapsed="props.layout.collapsed"
-    :style="{
-      transformOrigin: 'bottom right',
-      rotate: props.layout.collapsed ? '-90deg' : '0deg',
-      width: props.layout.collapsed ? '40px' : 'auto',
-    }"
+    :collapse-orientation="'vertical'"
     @update:collapsed="props.layout.collapsed = $event"
   >
     <div :style="containerStyle">
@@ -28,7 +24,9 @@
               :header="child.title || child.id"
               :key="child.id"
               :value="child.id"
-            />
+            >
+              {{ child.title || child.id }}
+            </Tab>
           </TabList>
           <TabPanels>
             <TabPanel
@@ -68,11 +66,11 @@
         </div>
       </div>
     </div>
-  </Panel>
+  </LayoutPanel>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import {
   IWindowContainer,
   validateFlexibleContainer,
@@ -80,19 +78,18 @@ import {
 } from "../../shared/types";
 import LayoutRenderer from "./LayoutRenderer.vue";
 import Tabs from "primevue/tabs";
-import TabPanel from "primevue/tabpanel";
 import TabList from "primevue/tablist";
-import Panel from "primevue/panel";
+import Tab from "primevue/tab";
+import TabPanels from "primevue/tabpanels";
+import TabPanel from "primevue/tabpanel";
+import LayoutPanel from "../LayoutPanel.vue";
 import { useGlobalState } from "../../shared/store";
 
 const { updateWindowProperty } = useGlobalState();
 
-const props = defineProps({
-  layout: {
-    type: Object as () => IWindowContainer,
-    required: true,
-  },
-});
+const props = defineProps<{
+  layout: IWindowContainer;
+}>();
 
 const orientationClass = computed(() => {
   const flexibleContainer = validateFlexibleContainer(props.layout);
@@ -119,18 +116,20 @@ const containerStyle = computed(() => {
   return style;
 });
 
-const activeTabIndex = ref(
-  props.layout.children.findIndex((child) => {
-    const tabContainer = validateTabContainer(child);
-    return tabContainer.success && tabContainer.data.activeTabId;
-  }),
-);
+const activeTabIndex = computed(() => {
+  return (
+    props.layout.children.findIndex((child) => {
+      const tabContainer = validateTabContainer(child);
+      return tabContainer.success && tabContainer.data.activeTabId;
+    }) || 0
+  );
+});
 </script>
 
 <style scoped>
 * {
-  --p-panel-content-padding: 0;
-  --p-panel-toggleable-header-padding: 0;
+  --p-panel-content-padding: 0rem;
+  --p-panel-toggleable-header-padding: 0.5rem;
 }
 
 .content {

@@ -79,6 +79,7 @@ export const applicationLayout: IFlexibleContainer = {
             // Left Sidebar
             {
               id: "left-sidebar",
+              title: "Left Sidebar",
               display: WindowDisplayMode.Flexible,
               orientation: LayoutDirection.Vertical,
               collapsible: true,
@@ -114,6 +115,7 @@ export const applicationLayout: IFlexibleContainer = {
             // Right Sidebar
             {
               id: "right-sidebar",
+              title: "Right Sidebar",
               display: WindowDisplayMode.Flexible,
               orientation: LayoutDirection.Vertical,
               collapsible: true,
