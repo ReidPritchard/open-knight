@@ -1,38 +1,28 @@
 <script setup lang="ts">
-import { computed } from "vue";
-
 const props = defineProps<{
-  ratio: number;
+  ratio?: number | string;
 }>();
-
-const outerStyle = computed(() => ({
-  width: "100%",
-}));
-
-const innerStyle = computed(() => ({
-  paddingTop: `${props.ratio * 100}%`,
-}));
 </script>
 
 <template>
-  <!-- Outer container -->
-  <div class="outer-container" :style="outerStyle">
-    <!-- Inner container -->
-    <div class="inner-container" :style="innerStyle">
-      <!-- Content -->
-      <div class="content">
-        <slot />
-      </div>
+  <div
+    class="aspect-ratio-box"
+    :style="{ aspectRatio: props.ratio || '16 / 9' }"
+  >
+    <div class="content-wrapper">
+      <slot />
     </div>
   </div>
 </template>
 
 <style scoped>
-.inner-container {
+.aspect-ratio-box {
+  width: 100%;
   position: relative;
+  overflow: hidden;
 }
 
-.content {
+.content-wrapper {
   position: absolute;
   top: 0;
   left: 0;

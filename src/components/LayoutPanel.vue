@@ -76,6 +76,17 @@ const toggleableIcon = computed(() => {
 
   border: 1px solid var(--p-panel-header-border-color);
   border-radius: 0.5rem;
+
+  max-height: 100vh;
+  max-width: 100vw;
+
+  height: 100%;
+  width: 100%;
+}
+
+.layout-panel-content {
+  height: 100%;
+  width: 100%;
 }
 
 .layout-panel-header {
@@ -96,7 +107,6 @@ const toggleableIcon = computed(() => {
 .layout-panel-header-collapsed {
   flex-direction: column-reverse;
   align-items: flex-end;
-  /* padding: 0.5rem; */
   gap: 0.5rem;
 }
 

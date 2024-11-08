@@ -1,21 +1,32 @@
 <template>
   <div class="status-bar">
-    <!-- Status bar content -->
     <p>Status Bar</p>
+    <p>{{ theme }}</p>
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent } from "vue";
+<script setup lang="ts">
+import { computed } from "vue";
+import { useGlobalState } from "../shared/store";
 
-export default defineComponent({
-  name: "StatusBarComponent",
-});
+const { UIState } = useGlobalState();
+
+const theme = computed(() => UIState.value.theme);
 </script>
 
 <style scoped>
 .status-bar {
-  background-color: #f5f5f5;
-  padding: 10px;
+  background-color: var(--p-content-background);
+
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+
+  border: 1px solid var(--p-panel-header-border-color);
+  border-radius: 0.5rem;
+}
+
+.status-bar > * {
+  margin: 0.5rem;
 }
 </style>

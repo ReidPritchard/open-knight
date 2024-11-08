@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import "primeicons/primeicons.css";
 import { onMounted, watch } from "vue";
-import { useGlobalState } from "./shared/store";
 import LayoutRenderer from "./components/AppLayout/LayoutRenderer.vue";
+import { useGlobalState } from "./shared/store";
 
 const { layout, updateGames, fetchSelectedGame } = useGlobalState();
 
@@ -43,16 +43,18 @@ watch(
 }
 
 html,
-#app,
-body {
-  color: var(--p-primary-color);
-  background-color: var(--p-content-background);
+body,
+#app {
+  height: 100vh;
+  width: 100vw;
 
-  padding: 0;
+  max-height: 100vh;
+  max-width: 100vw;
+
   margin: 0;
-  border: 0;
+  padding: 0;
 
-  width: 100%;
-  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 </style>

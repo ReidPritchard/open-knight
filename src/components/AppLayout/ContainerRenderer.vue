@@ -6,7 +6,7 @@
     :collapse-orientation="'vertical'"
     @update:collapsed="props.layout.collapsed = $event"
   >
-    <div :style="containerStyle">
+    <div :style="containerStyle" class="content">
       <div
         v-if="props.layout.display === 'flexible'"
         :class="['flex-container', orientationClass]"
@@ -70,20 +70,20 @@
 </template>
 
 <script setup lang="ts">
+import Tab from "primevue/tab";
+import TabList from "primevue/tablist";
+import TabPanel from "primevue/tabpanel";
+import TabPanels from "primevue/tabpanels";
+import Tabs from "primevue/tabs";
 import { computed } from "vue";
+import { useGlobalState } from "../../shared/store";
 import {
   IWindowContainer,
   validateFlexibleContainer,
   validateTabContainer,
 } from "../../shared/types";
-import LayoutRenderer from "./LayoutRenderer.vue";
-import Tabs from "primevue/tabs";
-import TabList from "primevue/tablist";
-import Tab from "primevue/tab";
-import TabPanels from "primevue/tabpanels";
-import TabPanel from "primevue/tabpanel";
 import LayoutPanel from "../LayoutPanel.vue";
-import { useGlobalState } from "../../shared/store";
+import LayoutRenderer from "./LayoutRenderer.vue";
 
 const { updateWindowProperty } = useGlobalState();
 
@@ -130,20 +130,32 @@ const activeTabIndex = computed(() => {
 * {
   --p-panel-content-padding: 0rem;
   --p-panel-toggleable-header-padding: 0.5rem;
+
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .content {
   display: flex;
   flex-direction: column;
-  flex: 1;
+
+  border: 1px solid red;
+
+  max-width: 100%;
+  max-height: 100%;
+
+  height: 100%;
+  width: 100%;
 }
 
 .flex-container {
   display: flex;
-  width: 100%;
-  height: 100%;
 
-  justify-content: stretch;
+  max-height: 100%;
+  max-width: 100%;
+
+  height: 100%;
+  width: 100%;
 }
 
 .flex-row {
@@ -157,25 +169,31 @@ const activeTabIndex = computed(() => {
 .simple-container {
   display: flex;
   flex-direction: column;
+
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .top-panel,
 .bottom-panel {
   flex-shrink: 0;
+
+  max-width: 100%;
 }
 
 .middle-content {
   display: flex;
-  flex: 1;
 }
 
 .left-panel,
 .right-panel {
   flex-shrink: 0;
+  max-width: 50%;
+  max-height: 100%;
 }
 
 .center-content {
-  flex: 2;
+  flex: 1;
   display: flex;
   flex-direction: column;
 }

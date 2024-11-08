@@ -180,9 +180,6 @@ export default defineComponent({
   display: flex;
   flex-direction: column-reverse;
 
-  width: 100%;
-  height: 100%;
-
   border: 2px solid var(--p-content-color);
 
   user-select: none;

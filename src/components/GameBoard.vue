@@ -88,9 +88,8 @@ const nextMove = () => {
   color: var(--p-card-color);
   background-color: var(--p-card-background);
 
-  margin: auto;
-  width: 100%;
-  max-width: 800px;
+  max-width: 70vw;
+  max-height: 70vh;
 }
 
 .game-board-move-number {

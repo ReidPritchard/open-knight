@@ -29,7 +29,7 @@ const parsePgn = () => {
 </script>
 
 <template>
-  <Card style="width: 100%" class="game-explorer">
+  <Card class="game-explorer">
     <template #content>
       <div v-if="games && games.length === 0">
         <p>No games loaded. Please load a PGN file.</p>
@@ -75,5 +75,8 @@ const parsePgn = () => {
 <style scoped>
 .game-explorer {
   user-select: none;
+
+  max-width: 100%;
+  max-height: 100%;
 }
 </style>

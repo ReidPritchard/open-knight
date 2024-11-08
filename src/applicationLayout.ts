@@ -1,10 +1,10 @@
 import {
   IFlexibleContainer,
-  WindowDisplayMode,
-  LayoutDirection,
-  IWindow,
-  ITabContainer,
   ISimpleContainer,
+  ITabContainer,
+  IWindow,
+  LayoutDirection,
+  WindowDisplayMode,
 } from "./shared/types";
 
 /**
@@ -193,7 +193,7 @@ export const applicationLayout: IFlexibleContainer = {
               resizable: true,
               visible: true,
               closable: false,
-              size: 2,
+              size: 1,
               activeTabId: "game-board-1",
               children: [
                 {
