@@ -1,7 +1,11 @@
 <!-- TODO: add UI option to use icons instead of text for pieces -->
 
 <template>
-  <div class="move" @click="handleClick">
+  <div
+    class="move"
+    :class="{ 'current-move': props.isCurrentMove }"
+    @click="handleClick"
+  >
     <!-- TODO: add syntax highlighting for the move san -->
     <div>{{ props.move.move_san }}</div>
   </div>
@@ -12,6 +16,7 @@ import { IMove } from "../../shared/types";
 
 const props = defineProps<{
   move: IMove;
+  isCurrentMove: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -31,6 +36,10 @@ const handleClick = () => {
   border-radius: var(--p-border-radius-md);
 
   transition: background-color 0.2s ease-in-out;
+}
+
+.move.current-move {
+  background-color: var(--p-primary-200);
 }
 
 .move:hover {

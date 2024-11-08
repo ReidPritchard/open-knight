@@ -21,14 +21,25 @@
       </div>
 
       <div v-else-if="props.layout.display === 'tabs'">
-        <Tabs v-model:activeIndex="activeTabIndex">
-          <TabPanel
-            v-for="child in props.layout.children"
-            :header="child.title || child.id"
-            :key="child.id"
-          >
-            <LayoutRenderer :layout="child" />
-          </TabPanel>
+        <Tabs :value="activeTabIndex">
+          <TabList>
+            <Tab
+              v-for="child in props.layout.children"
+              :header="child.title || child.id"
+              :key="child.id"
+              :value="child.id"
+            />
+          </TabList>
+          <TabPanels>
+            <TabPanel
+              v-for="child in props.layout.children"
+              :header="child.title || child.id"
+              :key="child.id"
+              :value="child.id"
+            >
+              <LayoutRenderer :layout="child" />
+            </TabPanel>
+          </TabPanels>
         </Tabs>
       </div>
 
@@ -70,6 +81,7 @@ import {
 import LayoutRenderer from "./LayoutRenderer.vue";
 import Tabs from "primevue/tabs";
 import TabPanel from "primevue/tabpanel";
+import TabList from "primevue/tablist";
 import Panel from "primevue/panel";
 import { useGlobalState } from "../../shared/store";
 

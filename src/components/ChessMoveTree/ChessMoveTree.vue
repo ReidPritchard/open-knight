@@ -1,9 +1,17 @@
 <template>
   <div class="move-tree">
     <div v-for="(move, index) in moveTree" class="move-tree-item">
-      <ChessMove :key="move.id" :move="move" @move-click="handleMoveClick" />
+      <ChessMove
+        :key="move.id"
+        :move="move"
+        :is-current-move="move.id === props.currentMoveId"
+        @move-click="handleMoveClick"
+      />
       <div v-if="move.variations.length > 0" class="move-tree-item-variations">
-        <ChessMoveTree :moves="move.variations" />
+        <ChessMoveTree
+          :moves="move.variations"
+          :current-move-id="props.currentMoveId"
+        />
       </div>
       <!-- If there is a move after this move, add a separator -->
       <div
@@ -20,8 +28,13 @@ import { computed } from "vue";
 import { IMove } from "../../shared/types";
 import ChessMove from "./ChessMove.vue";
 
+const emit = defineEmits<{
+  (e: "move-click", move: { move: IMove; index: number }): void;
+}>();
+
 const props = defineProps<{
   moves: IMove[];
+  currentMoveId: number;
 }>();
 
 const buildMoveTree = (moves: IMove[]) => {
@@ -42,7 +55,9 @@ const buildMoveTree = (moves: IMove[]) => {
 const moveTree = computed(() => buildMoveTree(props.moves));
 
 const handleMoveClick = (move: IMove) => {
-  console.log(move);
+  // get the index of the move in the moves array
+  const index = props.moves.findIndex((m) => m.id === move.id);
+  emit("move-click", { move, index });
 };
 </script>
 
