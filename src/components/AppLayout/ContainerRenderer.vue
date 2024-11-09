@@ -108,7 +108,6 @@ const containerStyle = computed(() => {
   };
   if (props.layout.fixedSize) {
     style.flexBasis = `${props.layout.fixedSize}px`;
-    style.flexShrink = 0;
     style.flexGrow = 0;
   } else {
     style.flexGrow = props.layout.size || 1;
@@ -139,7 +138,7 @@ const activeTabIndex = computed(() => {
   display: flex;
   flex-direction: column;
 
-  border: 1px solid red;
+  /* border: 1px solid red; */
 
   max-width: 100%;
   max-height: 100%;
@@ -176,7 +175,7 @@ const activeTabIndex = computed(() => {
 
 .top-panel,
 .bottom-panel {
-  flex-shrink: 0;
+  /* flex-shrink: 0; */
 
   max-width: 100%;
 }
@@ -187,7 +186,7 @@ const activeTabIndex = computed(() => {
 
 .left-panel,
 .right-panel {
-  flex-shrink: 0;
+  /* flex-shrink: 0; */
   max-width: 50%;
   max-height: 100%;
 }

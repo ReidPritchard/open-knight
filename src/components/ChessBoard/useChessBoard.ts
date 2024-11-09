@@ -1,6 +1,6 @@
 import { onMounted, ref } from "vue";
 import { Board, Move, Orientation, Square } from "./types";
-import { createBoard } from "./utils";
+import { createBoard, parseFenToBoard } from "./utils";
 
 export function useChessBoard(
   props: {
@@ -21,6 +21,8 @@ export function useChessBoard(
   const initBoard = () => {
     if (props.initialPosition === "start") {
       board.value = createBoard();
+    } else {
+      board.value = parseFenToBoard(props.initialPosition);
     }
   };
 

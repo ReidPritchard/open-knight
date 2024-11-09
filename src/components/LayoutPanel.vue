@@ -16,6 +16,7 @@
         <slot name="header-actions" />
         <Button
           v-if="props.toggleable"
+          size="small"
           :icon="toggleableIcon"
           :severity="isOpen ? 'secondary' : 'warn'"
           @click="toggleOpen"
@@ -85,8 +86,8 @@ const toggleableIcon = computed(() => {
 }
 
 .layout-panel-content {
-  height: 100%;
-  width: 100%;
+  max-height: 100%;
+  max-width: 100%;
 }
 
 .layout-panel-header {

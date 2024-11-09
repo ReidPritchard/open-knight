@@ -9,33 +9,47 @@
 <script setup lang="ts">
 import Menubar from "primevue/menubar";
 import { MenuItem, MenuItemCommandEvent } from "primevue/menuitem";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useGlobalState } from "../shared/store";
+import { useDialog } from "primevue/usedialog";
+import PgnImport from "./PgnImport.vue";
 
 // Get the layout from the store
 const { visibleWindows, emptyDatabase, toggleTheme, UIState } =
   useGlobalState();
 
-const onCommand = (event: MenuItemCommandEvent) => {
-  console.log(event);
+const dialog = useDialog();
 
+const onCommand = (event: MenuItemCommandEvent) => {
   switch (event.item.label) {
     case "Load PGN":
+      dialog.open(PgnImport, {
+        props: {
+          header: "Load PGN",
+          style: {
+            width: "50vw",
+          },
+          breakpoints: {
+            "960px": "75vw",
+            "640px": "90vw",
+          },
+          modal: true,
+        },
+      });
       break;
     case "Export PGN":
+      // TODO: Implement a modal with a text area or file output
       break;
     case "Empty DB":
       emptyDatabase();
       break;
     case "Quit":
-      // window.close();
+      // TODO: Implement a modal with a confirmation prompt
       break;
   }
 };
 
 const onViewCommand = (event: MenuItemCommandEvent) => {
-  console.log(event);
-
   switch (event.item.label) {
     case themeLabel.value:
       toggleTheme();
@@ -51,9 +65,11 @@ const themeIcon = computed(() =>
   theme.value === "light" ? "pi pi-fw pi-moon" : "pi pi-fw pi-sun",
 );
 
-const openWindows = computed(() => visibleWindows.value);
+// Helper function to get window icon
+const getWindowIcon = (id: string, fallback: string) =>
+  visibleWindows.value?.find((child) => child.id === id)?.icon || fallback;
 
-const items = ref([
+const items = computed(() => [
   {
     label: "File",
     icon: "pi pi-fw pi-file",
@@ -69,16 +85,8 @@ const items = ref([
         icon: "pi pi-fw pi-file-export",
         command: onCommand,
       },
-      {
-        label: "Empty DB",
-        icon: "pi pi-fw pi-database",
-        command: onCommand,
-      },
-      {
-        label: "Quit",
-        icon: "pi pi-fw pi-power-off",
-        command: onCommand,
-      },
+      { label: "Empty DB", icon: "pi pi-fw pi-database", command: onCommand },
+      { label: "Quit", icon: "pi pi-fw pi-power-off", command: onCommand },
     ],
   } as MenuItem,
   {
@@ -93,30 +101,22 @@ const items = ref([
       },
       {
         label: "Board",
-        icon:
-          openWindows.value?.find((child) => child.id === "board")?.icon ||
-          "pi pi-fw pi-board",
+        icon: getWindowIcon("board", "pi pi-fw pi-board"),
         command: onViewCommand,
       },
       {
         label: "Game",
-        icon:
-          openWindows.value?.find((child) => child.id === "game")?.icon ||
-          "pi pi-fw pi-game",
+        icon: getWindowIcon("game", "pi pi-fw pi-game"),
         command: onViewCommand,
       },
       {
         label: "Analysis",
-        icon:
-          openWindows.value?.find((child) => child.id === "analysis")?.icon ||
-          "pi pi-fw pi-analysis",
+        icon: getWindowIcon("analysis", "pi pi-fw pi-analysis"),
         command: onViewCommand,
       },
       {
         label: "Settings",
-        icon:
-          openWindows.value?.find((child) => child.id === "settings")?.icon ||
-          "pi pi-fw pi-settings",
+        icon: getWindowIcon("settings", "pi pi-fw pi-settings"),
         command: onViewCommand,
       },
     ],

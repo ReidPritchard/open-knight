@@ -3,6 +3,7 @@ import typia from "typia";
 export interface Square {
   row: number;
   col: number;
+
   piece: string | null;
 
   /**
@@ -49,3 +50,59 @@ export type CoordinatesStyleType =
   (typeof CoordinatesStyle)[keyof typeof CoordinatesStyle];
 export const validateCoordinatesStyle =
   typia.createValidate<CoordinatesStyleType>();
+
+/**
+ * Visual design/UI of board
+ */
+export type BoardStyle = {
+  /**
+   * The board's colors
+   */
+  colors: {
+    lightSquare: string;
+    darkSquare: string;
+    /**
+     * The color of the border around each square
+     */
+    squareBorder: string;
+  };
+  /**
+   * The size of the border around each square
+   */
+  squareBorderWidth: number;
+  /**
+   * Piece style
+   */
+  pieceStyle: {
+    /**
+     * Sprite sheet image of the pieces
+     * If not provided, the pieces will be rendered using unicode characters
+     */
+    spriteSheetImage?: string;
+    /**
+     * The colors of the unicode pieces
+     */
+    unicodeColors: {
+      white: string;
+      black: string;
+    };
+  };
+};
+
+export const boardStyleColorPresets = {
+  wood: {
+    colors: {
+      lightSquare: "#f0d9b5",
+      darkSquare: "#b58863",
+      squareBorder: "#000",
+    },
+  },
+  blue: {
+    colors: {
+      lightSquare: "#a5c4d4",
+      darkSquare: "#7DAAC0",
+      squareBorder: "#000",
+    },
+  },
+  // TODO: Add more presets
+};

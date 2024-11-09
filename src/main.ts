@@ -10,6 +10,8 @@ import Panel from "primevue/panel";
 import Tabs from "primevue/tabs";
 import TabPanel from "primevue/tabpanel";
 
+import DialogService from "primevue/dialogservice";
+
 import CustomTheme from "./theme";
 
 import { createApp } from "vue";
@@ -27,6 +29,7 @@ app.use(PrimeVue, {
     },
   },
 });
+app.use(DialogService);
 
 app.component("Button", Button);
 app.component("InputText", InputText);

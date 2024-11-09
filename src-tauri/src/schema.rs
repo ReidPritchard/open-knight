@@ -20,13 +20,23 @@ diesel::table! {
         game_id -> Integer,
         move_number -> Integer,
         move_san -> Text,
-        variation_id -> Nullable<Integer>,
-        parent_variation_id -> Nullable<Integer>,
-        fen -> Nullable<Text>,
+        variation_order -> Nullable<Integer>,
+        parent_position_id -> Nullable<Integer>,
+        child_position_id -> Nullable<Integer>,
+        annotation -> Nullable<Text>,
+    }
+}
+
+diesel::table! {
+    positions (id) {
+        id -> Integer,
+        fen -> Text,
         annotation -> Nullable<Text>,
     }
 }
 
 diesel::joinable!(moves -> games (game_id));
+diesel::joinable!(moves -> positions (parent_position_id));
+diesel::joinable!(moves -> positions (child_position_id));
 
-diesel::allow_tables_to_appear_in_same_query!(games, moves,);
+diesel::allow_tables_to_appear_in_same_query!(games, moves, positions);

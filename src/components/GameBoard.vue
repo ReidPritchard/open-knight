@@ -36,9 +36,12 @@ const nextMove = () => {
   <Card style="width: 100%" class="game-board">
     <template #content>
       <div v-if="selectedGame" id="game-board-container">
-        <AspectRatio :ratio="1">
+        <AspectRatio ratio="1 / 1">
           <ChessBoard
             initial-position="start"
+            :current-position="
+              selectedGame.moves?.[selectedGameLocation ?? 0]?.fen ?? 'start'
+            "
             :orientation="orientation"
             :show-coordinates="showCoordinates"
             :draggable="true"
@@ -84,12 +87,14 @@ const nextMove = () => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-
   color: var(--p-card-color);
   background-color: var(--p-card-background);
-
   max-width: 70vw;
   max-height: 70vh;
+}
+
+.game-board {
+  /* width: 100% removed */
 }
 
 .game-board-move-number {

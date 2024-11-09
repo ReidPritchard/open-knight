@@ -3,6 +3,7 @@ import "primeicons/primeicons.css";
 import { onMounted, watch } from "vue";
 import LayoutRenderer from "./components/AppLayout/LayoutRenderer.vue";
 import { useGlobalState } from "./shared/store";
+import DynamicDialog from "primevue/dynamicdialog";
 
 const { layout, updateGames, fetchSelectedGame } = useGlobalState();
 
@@ -22,6 +23,7 @@ watch(
 
 <template>
   <LayoutRenderer :layout="layout" />
+  <DynamicDialog />
 </template>
 
 <style>
@@ -40,6 +42,8 @@ watch(
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
+
+  --modifiedBoardWidth: 500px;
 }
 
 html,

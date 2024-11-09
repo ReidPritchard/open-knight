@@ -6,7 +6,7 @@
     }"
   >
     <div
-      v-for="(row, rowIndex) in board"
+      v-for="(row, rowIndex) in boardPosition"
       :key="rowIndex"
       class="board-row"
       :style="{
@@ -18,16 +18,16 @@
         :key="colIndex"
         class="board-square"
         :class="[
-          getSquareColor(square.row, square.col),
           { 'is-target': square.isTarget },
           showCoordinatesClass(square),
         ]"
+        :style="squareStyle(square)"
         :data-coordinates="formatCoordinates(square)"
         @click="onSquareClick(square)"
         @dragover.prevent="onDragOver(square)"
         @drop="onDrop(square)"
       >
-        <AspectRatio :ratio="1">
+        <AspectRatio ratio="1 / 1">
           <UseDraggable
             v-if="draggable && square.piece !== null"
             storage-type="session"
@@ -59,12 +59,19 @@ import AspectRatio from "../AspectRatio.vue";
 import {
   Animation,
   Arrows,
+  BoardStyle,
+  boardStyleColorPresets,
   CoordinatesStyleType,
   Orientation,
   Square,
 } from "./types";
 import { useChessBoard } from "./useChessBoard";
-import { formatCoordinates, getSquareColor, pieceUnicode } from "./utils";
+import {
+  formatCoordinates,
+  getSquareStyle,
+  parseFenToBoard,
+  pieceUnicode,
+} from "./utils";
 
 export default defineComponent({
   name: "Chessboard",
@@ -97,6 +104,19 @@ export default defineComponent({
       type: Array as PropType<Arrows>,
       default: () => [],
     },
+    style: {
+      type: Object as PropType<BoardStyle>,
+      default: () => ({
+        colors: boardStyleColorPresets.blue.colors,
+        squareBorderWidth: 0,
+        pieceStyle: {
+          unicodeColors: {
+            white: "#000",
+            black: "#fff",
+          },
+        },
+      }),
+    },
   },
   emits: ["move", "piece-click", "square-click"],
   setup(props, { emit }) {
@@ -110,9 +130,21 @@ export default defineComponent({
       draggingPiece,
     } = useChessBoard(props, emit);
 
+    const onResize = () => {
+      console.log("resize");
+    };
+
+    const onResizeMouseDown = (e: MouseEvent) => {
+      console.log("resize mouse down", e);
+      e.preventDefault();
+      e.stopPropagation();
+      // Calculate the new width
+      const newWidth = e.clientX;
+      console.log("new width", newWidth);
+    };
+
     return {
       board,
-      getSquareColor,
       pieceUnicode,
       onDragStart,
       onDragOver,
@@ -121,6 +153,8 @@ export default defineComponent({
       onSquareClick,
       draggingPiece,
       formatCoordinates,
+      onResize,
+      onResizeMouseDown,
     };
   },
   computed: {
@@ -167,6 +201,13 @@ export default defineComponent({
         return classes;
       };
     },
+    squareStyle() {
+      return (square: Square) => getSquareStyle(square, this.style);
+    },
+    boardPosition() {
+      console.log(this.currentPosition);
+      return parseFenToBoard(this.currentPosition);
+    },
   },
   components: {
     AspectRatio,
@@ -179,30 +220,23 @@ export default defineComponent({
 .chessboard {
   display: flex;
   flex-direction: column-reverse;
-
-  border: 2px solid var(--p-content-color);
-
   user-select: none;
-
   --coordinate-font-size: 10px;
+  max-height: 100%;
+  max-width: 100%;
 }
 
 .board-row {
   display: flex;
   flex: 1;
+  min-height: 20px;
 }
 
 .board-square {
   flex: 1;
   position: relative;
-}
-
-.light-square {
-  background-color: #f0d9b5;
-}
-
-.dark-square {
-  background-color: #b58863;
+  min-width: 20px;
+  min-height: 20px;
 }
 
 .piece {

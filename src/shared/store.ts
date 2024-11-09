@@ -9,11 +9,7 @@ import {
   IWindow,
   IGame,
 } from "./types";
-import { invoke } from "@tauri-apps/api/core";
-import {
-  apiExplorerStateToExplorerState,
-  apiSelectedGameToGame,
-} from "./api-conversions";
+import api from "./api";
 
 // Helper to get the visible windows from the layout and its children
 function getVisibleWindowsHelper(layout: ILayout): IWindow[] {
@@ -59,6 +55,12 @@ function getWindowById(layout: ILayout, windowId: string): IWindow | null {
   return null;
 }
 
+function getDefaultTheme() {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
 export const useGlobalState = createGlobalState(() => {
   // Global state
   const layout = ref<ILayout>(applicationLayout);
@@ -71,7 +73,7 @@ export const useGlobalState = createGlobalState(() => {
     theme: "light" | "dark";
   }>({
     visibleGameHeaders: [],
-    theme: "light",
+    theme: getDefaultTheme(),
   });
 
   // Getters (used to compute derived state for specific components)
@@ -103,14 +105,22 @@ export const useGlobalState = createGlobalState(() => {
   };
 
   const toggleTheme = () => {
-    document.documentElement.classList.toggle("dark");
-    UIState.value.theme = UIState.value.theme === "light" ? "dark" : "light";
+    setTheme(UIState.value.theme === "light" ? "dark" : "light");
   };
+
+  const setTheme = (newTheme: "light" | "dark") => {
+    if (newTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    UIState.value.theme = newTheme;
+  };
+  setTheme(UIState.value.theme);
 
   // API Actions
   const updateGames = async () => {
-    const state: string = await invoke("get_explorer_state");
-    const parsedState = apiExplorerStateToExplorerState(state);
+    const parsedState = await api.getExplorerState();
     console.log(parsedState);
     games.value = parsedState.games;
 
@@ -127,20 +137,18 @@ export const useGlobalState = createGlobalState(() => {
   };
 
   const fetchSelectedGame = async () => {
-    const response: string = await invoke("get_selected_game");
-    const game: string | null = response === "null" ? null : response;
-    const parsedGame = apiSelectedGameToGame(game);
+    const parsedGame = await api.getSelectedGame();
     selectedGame.value = parsedGame;
   };
 
   const parsePgnText = async (pgnText: string) => {
-    await invoke("parse_pgn", { pgn: pgnText });
+    await api.parsePgnText(pgnText);
     await updateGames();
     await fetchSelectedGame();
   };
 
   const emptyDatabase = async () => {
-    await invoke("empty_db");
+    await api.emptyDatabase();
     await updateGames();
   };
 

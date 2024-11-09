@@ -38,7 +38,6 @@ export default defineComponent({
       };
       if (props.layout.fixedSize) {
         style.flexBasis = `${props.layout.fixedSize}px`;
-        style.flexShrink = 0;
         style.flexGrow = 0;
       } else {
         style.flexGrow = props.layout.size || 1;
