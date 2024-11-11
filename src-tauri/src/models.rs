@@ -15,7 +15,7 @@ pub struct Game {
     pub player_white: Option<String>,
     pub player_black: Option<String>,
     pub event: Option<String>,
-    pub date: Option<String>,
+    pub date_text: Option<String>,
     pub result: Option<String>,
     pub annotations: Option<String>,
     pub opening_name: Option<String>,
@@ -34,10 +34,10 @@ pub struct Move {
     pub game_id: i32,                    // Foreign key to the game
     pub move_number: i32,                // The move number in the game (half-move number)
     pub move_san: String,                // The move in Standard Algebraic Notation
+    pub annotation: Option<String>,      // Comments or annotations for the move
     pub variation_order: Option<i32>,    // The order of the move in the variation
     pub parent_position_id: Option<i32>, // Foreign key to the parent position
-    pub child_position_id: Option<i32>,  // Foreign key to the child position
-    pub annotation: Option<String>,      // Comments or annotations for the move
+    pub child_position_id: i32,          // Foreign key to the child position
 }
 
 #[derive(

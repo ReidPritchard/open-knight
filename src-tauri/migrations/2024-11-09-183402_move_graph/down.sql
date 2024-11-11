@@ -1,28 +1,51 @@
--- 1. Rename variation_order back to variation_id
-ALTER TABLE moves RENAME COLUMN variation_order TO variation_id;
+-- Step 1: Create the old_moves table with the original schema
+CREATE TABLE
+old_moves (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id INTEGER,
+    fen TEXT NOT NULL DEFAULT '',
+    move_number INTEGER,
+    variation_id INTEGER,
+    parent_variation_id INTEGER,
+    move_san TEXT,
+    annotation TEXT
+);
 
--- 2. Add the parent_variation_id column back to the moves table
-ALTER TABLE moves ADD COLUMN parent_variation_id INTEGER;
+-- Step 2: Populate old_moves with data from moves, linking back to FENs
+INSERT INTO
+old_moves (
+    id,
+    game_id,
+    fen,
+    move_number,
+    variation_id,
+    parent_variation_id,
+    move_san,
+    annotation
+)
+SELECT
+    m.id,
+    m.game_id,
+    p.fen,
+    m.move_number,
+    m.variation_order AS variation_id,
+    NULL AS parent_variation_id,
+    m.move_san,
+    m.annotation
+FROM
+    moves AS m
+INNER JOIN positions AS p ON m.child_position_id = p.id;
 
--- 3. Add the fen column back to the moves table
-ALTER TABLE moves ADD COLUMN fen TEXT NOT NULL;
+-- Step 3: Drop the new moves table
+DROP TABLE moves;
 
--- 4. Add the annotation column back to the moves table
-ALTER TABLE moves ADD COLUMN annotation TEXT DEFAULT NULL;
+-- Step 4: Rename old_moves back to moves
+ALTER TABLE old_moves
+RENAME TO moves;
 
--- 5. Populate moves.fen and moves.annotation from the positions table
-UPDATE moves
-SET
-    fen = (SELECT fen FROM positions WHERE positions.id = moves.child_position_id),
-    annotation = (SELECT annotation FROM positions WHERE positions.id = moves.child_position_id);
-
--- 6. Remove the foreign key constraints from moves
-ALTER TABLE moves DROP FOREIGN KEY (parent_position_id);
-ALTER TABLE moves DROP FOREIGN KEY (child_position_id);
-
--- 7. Drop the parent_position_id and child_position_id columns from moves
-ALTER TABLE moves DROP COLUMN parent_position_id;
-ALTER TABLE moves DROP COLUMN child_position_id;
-
--- 8. Drop the positions table
+-- Step 5: Drop the positions table
 DROP TABLE positions;
+
+-- Step 6: Recreate indexes
+-- CREATE INDEX idx_moves_game_id ON moves (game_id);
+-- There were no indexes on the moves table to begin with

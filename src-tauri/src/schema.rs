@@ -7,7 +7,7 @@ diesel::table! {
         player_white -> Nullable<Text>,
         player_black -> Nullable<Text>,
         event -> Nullable<Text>,
-        date -> Nullable<Text>,
+        date_text -> Nullable<Text>,
         result -> Nullable<Text>,
         annotations -> Nullable<Text>,
         opening_name -> Nullable<Text>,
@@ -20,10 +20,10 @@ diesel::table! {
         game_id -> Integer,
         move_number -> Integer,
         move_san -> Text,
+        annotation -> Nullable<Text>,
         variation_order -> Nullable<Integer>,
         parent_position_id -> Nullable<Integer>,
-        child_position_id -> Nullable<Integer>,
-        annotation -> Nullable<Text>,
+        child_position_id -> Integer,
     }
 }
 
@@ -34,9 +34,5 @@ diesel::table! {
         annotation -> Nullable<Text>,
     }
 }
-
-diesel::joinable!(moves -> games (game_id));
-diesel::joinable!(moves -> positions (parent_position_id));
-diesel::joinable!(moves -> positions (child_position_id));
 
 diesel::allow_tables_to_appear_in_same_query!(games, moves, positions);

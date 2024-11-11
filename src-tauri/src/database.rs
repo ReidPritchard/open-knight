@@ -1,8 +1,8 @@
-use diesel::prelude::*;
+use diesel::{prelude::*, query_builder::QueryId};
 use dotenvy::dotenv;
 use std::env;
 
-use crate::models::{Game, Move};
+use crate::models::{Game, Move, Position};
 
 pub fn establish_connection() -> SqliteConnection {
     dotenv().ok();
@@ -64,4 +64,41 @@ pub fn insert_moves(moves: &Vec<Move>) {
         .values(moves)
         .execute(&mut conn)
         .unwrap();
+}
+
+fn insert_positions(positions: &Vec<Position>) {
+    let mut conn = establish_connection();
+
+    diesel::insert_into(crate::schema::positions::table)
+        .values(positions)
+        .execute(&mut conn)
+        .unwrap();
+}
+
+fn insert_position_with_return_id(position: &Position) -> i32 {
+    let mut conn = establish_connection();
+    let id = diesel::insert_into(crate::schema::positions::table)
+        .values(position)
+        .returning(crate::schema::positions::id)
+        .execute(&mut conn)
+        .unwrap();
+
+    id as i32
+}
+
+pub fn create_position(fen: &str) -> i32 {
+    let position = Position {
+        fen: fen.to_string(),
+        ..Default::default()
+    };
+    insert_position_with_return_id(&position)
+}
+
+pub fn get_position_id_by_fen(fen: &str) -> Option<i32> {
+    let mut conn = establish_connection();
+    crate::schema::positions::table
+        .filter(crate::schema::positions::fen.eq(fen))
+        .select(crate::schema::positions::id)
+        .first(&mut conn)
+        .ok()
 }

@@ -101,12 +101,13 @@ pub fn load_pgn(pgn: &str) -> LoadResult {
 
                     // Parse the move string into a shakmaty san object (this removes the check/checkmate suffix)
                     let san_obj = shakmaty::san::San::from_ascii(mv.as_bytes()).unwrap();
-                    let mut fen: Option<String> = None;
+                    let mut before_move_fen: Option<String> = None;
+                    let mut after_move_fen: Option<String> = None;
 
                     // See if we can play the move in the current game state
                     if let Some(ref mut game) = game_result.game {
                         // Get the FEN of the current position
-                        fen = Some(game.board().board_fen(game.promoted()).to_string());
+                        before_move_fen = Some(game.board().board_fen(game.promoted()).to_string());
 
                         // Convert the move string into a move object and try to play it
                         let mv_obj = san_obj.to_move(game).unwrap();
@@ -117,7 +118,27 @@ pub fn load_pgn(pgn: &str) -> LoadResult {
                         } else {
                             // TODO: We probably need to handle variations here in order to avoid overwriting the game state
                             game.play_unchecked(&mv_obj);
+                            after_move_fen =
+                                Some(game.board().board_fen(game.promoted()).to_string());
                         }
+                    }
+
+                    let mut before_move_position_id =
+                        database::get_position_id_by_fen(before_move_fen.as_ref().unwrap());
+                    if before_move_position_id.is_none() {
+                        // Create a new position
+                        let new_position_id =
+                            database::create_position(before_move_fen.as_ref().unwrap());
+                        before_move_position_id = Some(new_position_id);
+                    }
+
+                    let mut after_move_position_id =
+                        database::get_position_id_by_fen(after_move_fen.as_ref().unwrap());
+                    if after_move_position_id.is_none() {
+                        // Create a new position
+                        let new_position_id =
+                            database::create_position(after_move_fen.as_ref().unwrap());
+                        after_move_position_id = Some(new_position_id);
                     }
 
                     // Convert the move token string into a move object
@@ -127,8 +148,9 @@ pub fn load_pgn(pgn: &str) -> LoadResult {
                         game_id: game_result.id,
                         move_san: mv.to_string(),
                         move_number: current_game_move_number as i32,
-                        variation_id: Some(current_game_variation_id as i32),
-                        fen,
+                        variation_order: Some(current_game_variation_id as i32),
+                        parent_position_id: before_move_position_id,
+                        child_position_id: after_move_position_id.unwrap(),
                         ..Default::default()
                     };
                     game_result.moves.push(move_object);
