@@ -66,15 +66,6 @@ pub fn insert_moves(moves: &Vec<Move>) {
         .unwrap();
 }
 
-fn insert_positions(positions: &Vec<Position>) {
-    let mut conn = establish_connection();
-
-    diesel::insert_into(crate::schema::positions::table)
-        .values(positions)
-        .execute(&mut conn)
-        .unwrap();
-}
-
 fn insert_position_with_return_id(position: &Position) -> i32 {
     let mut conn = establish_connection();
     let id = diesel::insert_into(crate::schema::positions::table)
