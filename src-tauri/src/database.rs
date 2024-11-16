@@ -20,6 +20,9 @@ pub fn empty_db() {
     diesel::delete(crate::schema::moves::table)
         .execute(&mut conn)
         .unwrap();
+    diesel::delete(crate::schema::positions::table)
+        .execute(&mut conn)
+        .unwrap();
 }
 
 pub fn get_game_id_count() -> i64 {
@@ -38,6 +41,11 @@ pub fn get_all_games() -> Vec<Game> {
 pub fn get_all_moves() -> Vec<Move> {
     let mut conn = establish_connection();
     crate::schema::moves::table.load(&mut conn).unwrap()
+}
+
+pub fn get_all_positions() -> Vec<Position> {
+    let mut conn = establish_connection();
+    crate::schema::positions::table.load(&mut conn).unwrap()
 }
 
 pub fn get_move_id_count() -> i64 {
@@ -78,6 +86,7 @@ fn insert_position_with_return_id(position: &Position) -> i32 {
 }
 
 pub fn create_position(fen: &str) -> i32 {
+    println!("Creating position: {}", fen);
     let position = Position {
         fen: fen.to_string(),
         ..Default::default()

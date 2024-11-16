@@ -1,5 +1,18 @@
 import MOCK_DATA from "./mock_data.json";
 
+export let MOCKED = false;
+
+/**
+ * Setup mocks
+ */
+export function setupMocks() {
+  // Check if the __TAURI_INTERNALS__ object exists/is readonly
+  if (typeof (window as any).__TAURI_INTERNALS__ === "undefined") {
+    MOCKED = true;
+    mockInvoke();
+  }
+}
+
 /**
  * Mock for the invoke function.
  */

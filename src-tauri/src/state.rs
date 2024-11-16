@@ -43,7 +43,8 @@ impl ExplorerState {
     pub fn load_games_from_db(&mut self) {
         let games = database::get_all_games();
         let moves = database::get_all_moves();
-        let game_results = convert_to_game_results(games, moves);
+        let positions = database::get_all_positions();
+        let game_results = convert_to_game_results(games, moves, positions);
         self.games.extend(game_results.iter().cloned());
     }
 }

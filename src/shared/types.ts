@@ -198,6 +198,16 @@ export const validateWindowContainer = typia.createValidate<IWindowContainer>();
 export type ILayout = IWindow | IWindowContainer;
 
 /**
+ * Interface for a position in chess
+ */
+export interface IChessPosition {
+  fen: string;
+  annotation: string | null;
+}
+export const assertChessPosition = typia.createAssert<IChessPosition>();
+export const validateChessPosition = typia.createValidate<IChessPosition>();
+
+/**
  * Interface for a chess move.
  */
 export interface IMove {
@@ -205,10 +215,10 @@ export interface IMove {
   game_id: number; // Corresponds to i32 in Rust
   move_number: number; // Corresponds to i32 in Rust
   move_san: string; // Corresponds to String in Rust
-  variation_id: number | null; // Corresponds to Option<i32> in Rust
-  parent_variation_id: number | null; // Corresponds to Option<i32> in Rust
-  fen: string | null; // Corresponds to Option<String> in Rust
+  variation_order: number | null; // Corresponds to Option<i32> in Rust
   annotation: string | null; // Corresponds to Option<String> in Rust
+  parent_position_id: number | null; // Corresponds to Option<i32> in Rust
+  child_position_id: number; // Corresponds to i32 in Rust
 }
 export const assertMove = typia.createAssert<IMove>();
 export const validateMove = typia.createValidate<IMove>();

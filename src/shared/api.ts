@@ -1,17 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
+import { MOCKED, setupMocks } from "../test/mock";
 import {
   apiExplorerStateToExplorerState,
   apiSelectedGameToGame,
 } from "./api-conversions";
-import { mockInvoke } from "../test/mock";
-import { IExplorerState } from "./types";
-
-const MOCKED = true;
+import type { IExplorerState } from "./types";
 
 // Setup the API
-if (MOCKED) {
-  mockInvoke();
-}
+setupMocks();
 
 export default {
   /**

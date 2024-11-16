@@ -1,5 +1,5 @@
 use crate::loader::GameResult;
-use crate::models::{Game, Move};
+use crate::models::{Game, Move, Position};
 
 impl From<shakmaty::san::San> for Move {
     fn from(value: shakmaty::san::San) -> Self {
@@ -13,7 +13,7 @@ impl From<shakmaty::san::San> for Move {
 impl From<GameResult> for Game {
     fn from(value: GameResult) -> Self {
         Game {
-            id: value.id,
+            id: Some(value.id),
             pgn: value.pgn,
             // Map headers to Game fields as needed
             player_white: value
@@ -49,16 +49,21 @@ pub fn convert_to_games(game_results: Vec<GameResult>) -> (Vec<Game>, Vec<Move>)
     (games, moves)
 }
 
-pub fn convert_to_game_results(games: Vec<Game>, moves: Vec<Move>) -> Vec<GameResult> {
+pub fn convert_to_game_results(
+    games: Vec<Game>,
+    moves: Vec<Move>,
+    positions: Vec<Position>,
+) -> Vec<GameResult> {
     let mut game_map: std::collections::HashMap<i32, GameResult> = games
         .into_iter()
         .map(|game| {
             (
-                game.id,
+                game.id.unwrap(),
                 GameResult {
-                    id: game.id,
+                    id: game.id.unwrap(),
                     pgn: game.pgn.clone(),
                     moves: Vec::new(),
+                    positions: Vec::new(),
                     headers: vec![],
                     errors: vec![],
                     game: None, // Not needed now as we already have moves
@@ -70,6 +75,12 @@ pub fn convert_to_game_results(games: Vec<Game>, moves: Vec<Move>) -> Vec<GameRe
     for m in moves {
         if let Some(game_result) = game_map.get_mut(&m.game_id) {
             game_result.moves.push(m);
+        }
+    }
+
+    for p in positions {
+        if let Some(game_result) = game_map.get_mut(&p.game_id) {
+            game_result.positions.push(p);
         }
     }
 

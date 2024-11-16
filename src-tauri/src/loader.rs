@@ -12,7 +12,9 @@ pub struct LoadResult {
     pub success: bool,
 }
 
-/// Simple type for a single game+headers+errors result from the pgn loader
+/// Type for a single game+headers+errors result from the pgn loader
+///
+/// This type is used when a game is requested in the UI.
 #[derive(Debug, Clone, Serialize)]
 pub struct GameResult {
     pub id: i32,
@@ -20,6 +22,7 @@ pub struct GameResult {
     #[serde(skip)]
     pub game: Option<Chess>,
     pub moves: Vec<Move>,
+    pub positions: Vec<Position>,
     pub pgn: String,
     pub errors: Vec<String>,
 }
@@ -31,6 +34,7 @@ impl GameResult {
             headers: Vec::new(),
             game: Some(Chess::default()),
             moves: Vec::new(),
+            positions: Vec::new(),
             pgn: String::new(),
             errors: Vec::new(),
         }
@@ -126,6 +130,10 @@ pub fn load_pgn(pgn: &str) -> LoadResult {
                     let mut before_move_position_id =
                         database::get_position_id_by_fen(before_move_fen.as_ref().unwrap());
                     if before_move_position_id.is_none() {
+                        println!(
+                            "Creating new position for before move fen: {}",
+                            before_move_fen.as_ref().unwrap()
+                        );
                         // Create a new position
                         let new_position_id =
                             database::create_position(before_move_fen.as_ref().unwrap());
@@ -135,6 +143,10 @@ pub fn load_pgn(pgn: &str) -> LoadResult {
                     let mut after_move_position_id =
                         database::get_position_id_by_fen(after_move_fen.as_ref().unwrap());
                     if after_move_position_id.is_none() {
+                        println!(
+                            "Creating new position for after move fen: {}",
+                            after_move_fen.as_ref().unwrap()
+                        );
                         // Create a new position
                         let new_position_id =
                             database::create_position(after_move_fen.as_ref().unwrap());
@@ -143,8 +155,6 @@ pub fn load_pgn(pgn: &str) -> LoadResult {
 
                     // Convert the move token string into a move object
                     let move_object = Move {
-                        // Generate a new id for the move (move db count + number of moves in games loaded so far)
-                        id: (database::get_move_id_count() + total_move_count + 1) as i32,
                         game_id: game_result.id,
                         move_san: mv.to_string(),
                         move_number: current_game_move_number as i32,

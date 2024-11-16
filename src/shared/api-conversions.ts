@@ -1,5 +1,6 @@
 import typia from "typia";
-import { assertGame, IExplorerState, IGame, IMove } from "./types";
+import type { IExplorerState, IGame, IMove } from "./types";
+import { assertGame } from "./types";
 
 /**
  * This is an intermediate type that matches the raw json response from the tauri api
@@ -24,7 +25,7 @@ const parsePartialGame =
  * Convert an incoming "GameResult" (as defined in src-tauri/src/state.rs) to a "Game" (as defined in src/App.vue)
  */
 export const gameResultToGame = (
-  game: PartialExplorerState["games"][number],
+  game: PartialExplorerState["games"][number]
 ): IGame => {
   console.log("Converting game result to game:", game.id); // Log the game ID being processed
 
@@ -53,7 +54,7 @@ export const gameResultToGame = (
  * Convert an api response "get_explorer_state" (JSON string) to an ExplorerState (as defined in src/App.vue)
  */
 export function apiExplorerStateToExplorerState(
-  apiExplorerState: string,
+  apiExplorerState: string
 ): IExplorerState {
   console.log("Parsing API Explorer State"); // Log the start of parsing
   const parsed = parsePartialExplorerState(apiExplorerState);
@@ -66,33 +67,32 @@ export function apiExplorerStateToExplorerState(
     const explorerState: IExplorerState = { games };
     console.log("Returning explorer state:", explorerState);
     return explorerState;
-  } else {
-    console.error(
-      "Error parsing explorer state:",
-      JSON.stringify(parsed.errors, null, 2),
-    );
-    // TODO: Better error handling, maybe a toast?
-    throw new Error(parsed.errors.join("\n"));
   }
+  console.error(
+    "Error parsing explorer state:",
+    JSON.stringify(parsed.errors, null, 2)
+  );
+  // TODO: Better error handling, maybe a toast?
+  throw new Error(parsed.errors.join("\n"));
 }
 
 /**
  * Api response "get_selected_game" (JSON string) to a Game (as defined in src/App.vue)
  */
 export function apiSelectedGameToGame(
-  apiSelectedGame: string | null,
+  apiSelectedGame: string | null
 ): IGame | null {
   console.log("Parsing API Selected Game"); // Log the start of parsing
   if (apiSelectedGame !== null) {
     const parsed = parsePartialGame(apiSelectedGame);
     if (parsed.success) {
       return gameResultToGame(parsed.data);
-    } else {
-      // TODO: Better error handling
-      console.error(JSON.stringify(parsed.errors, null, 2));
-      console.error("Error parsing selected game:", apiSelectedGame);
-      return null;
     }
+
+    // TODO: Better error handling
+    console.error(JSON.stringify(parsed.errors, null, 2));
+    console.error("Error parsing selected game:", apiSelectedGame);
+    return null;
   }
 
   // If no game is selected, return null
