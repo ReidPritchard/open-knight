@@ -1,5 +1,5 @@
 use serde::Serialize;
-use shakmaty::{Chess, Position};
+use shakmaty::Chess;
 
 use crate::{database, models::Move, parser};
 
@@ -13,8 +13,6 @@ pub struct LoadResult {
 }
 
 /// Type for a single game+headers+errors result from the pgn loader
-///
-/// This type is used when a game is requested in the UI.
 #[derive(Debug, Clone, Serialize)]
 pub struct GameResult {
     pub id: i32,
@@ -22,7 +20,7 @@ pub struct GameResult {
     #[serde(skip)]
     pub game: Option<Chess>,
     pub moves: Vec<Move>,
-    pub positions: Vec<Position>,
+    pub positions: Vec<crate::models::Position>,
     pub pgn: String,
     pub errors: Vec<String>,
 }
@@ -66,7 +64,7 @@ pub fn load_pgn(pgn: &str) -> LoadResult {
 
         // Create a new game result for the first game
         games.push(GameResult::new_with_id(
-            ((database::get_game_id_count() as i64 + games.len() as i64) + 1) as i32,
+            ((database::game::get_game_id_count() as i64 + games.len() as i64) + 1) as i32,
         ));
         let mut current_game_idx = 0;
         // State for the current game
@@ -80,7 +78,7 @@ pub fn load_pgn(pgn: &str) -> LoadResult {
             if game_started && matches!(token, parser::PgnToken::Tag(_, _)) {
                 println!("Game complete, adding new game");
                 games.push(GameResult::new_with_id(
-                    ((database::get_game_id_count() as i64 + games.len() as i64) + 1) as i32,
+                    ((database::game::get_game_id_count() as i64 + games.len() as i64) + 1) as i32,
                 ));
                 current_game_idx += 1;
                 current_game_move_number = 0;
@@ -111,24 +109,32 @@ pub fn load_pgn(pgn: &str) -> LoadResult {
                     // See if we can play the move in the current game state
                     if let Some(ref mut game) = game_result.game {
                         // Get the FEN of the current position
-                        before_move_fen = Some(game.board().board_fen(game.promoted()).to_string());
+                        before_move_fen = Some(
+                            shakmaty::Position::board(game)
+                                .board_fen(shakmaty::Position::promoted(game))
+                                .to_string(),
+                        );
 
                         // Convert the move string into a move object and try to play it
                         let mv_obj = san_obj.to_move(game).unwrap();
 
-                        let is_valid_move = game.is_legal(&mv_obj);
+                        let is_valid_move = shakmaty::Position::is_legal(game, &mv_obj);
                         if !is_valid_move {
                             game_result.errors.push(format!("Invalid move: {}", mv));
                         } else {
                             // TODO: We probably need to handle variations here in order to avoid overwriting the game state
-                            game.play_unchecked(&mv_obj);
-                            after_move_fen =
-                                Some(game.board().board_fen(game.promoted()).to_string());
+                            shakmaty::Position::play_unchecked(game, &mv_obj);
+                            after_move_fen = Some(
+                                shakmaty::Position::board(game)
+                                    .board_fen(shakmaty::Position::promoted(game))
+                                    .to_string(),
+                            );
                         }
                     }
 
-                    let mut before_move_position_id =
-                        database::get_position_id_by_fen(before_move_fen.as_ref().unwrap());
+                    let mut before_move_position_id = database::position::get_position_id_by_fen(
+                        before_move_fen.as_ref().unwrap(),
+                    );
                     if before_move_position_id.is_none() {
                         println!(
                             "Creating new position for before move fen: {}",
@@ -136,12 +142,13 @@ pub fn load_pgn(pgn: &str) -> LoadResult {
                         );
                         // Create a new position
                         let new_position_id =
-                            database::create_position(before_move_fen.as_ref().unwrap());
+                            database::position::create_position(before_move_fen.as_ref().unwrap());
                         before_move_position_id = Some(new_position_id);
                     }
 
-                    let mut after_move_position_id =
-                        database::get_position_id_by_fen(after_move_fen.as_ref().unwrap());
+                    let mut after_move_position_id = database::position::get_position_id_by_fen(
+                        after_move_fen.as_ref().unwrap(),
+                    );
                     if after_move_position_id.is_none() {
                         println!(
                             "Creating new position for after move fen: {}",
@@ -149,7 +156,7 @@ pub fn load_pgn(pgn: &str) -> LoadResult {
                         );
                         // Create a new position
                         let new_position_id =
-                            database::create_position(after_move_fen.as_ref().unwrap());
+                            database::position::create_position(after_move_fen.as_ref().unwrap());
                         after_move_position_id = Some(new_position_id);
                     }
 
@@ -159,7 +166,7 @@ pub fn load_pgn(pgn: &str) -> LoadResult {
                         move_san: mv.to_string(),
                         move_number: current_game_move_number as i32,
                         variation_order: Some(current_game_variation_id as i32),
-                        parent_position_id: before_move_position_id,
+                        parent_position_id: before_move_position_id.unwrap(),
                         child_position_id: after_move_position_id.unwrap(),
                         ..Default::default()
                     };

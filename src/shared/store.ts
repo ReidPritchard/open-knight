@@ -1,15 +1,15 @@
 import { createGlobalState } from "@vueuse/core";
-import { ref, computed } from "vue";
+import { computed, ref } from "vue";
 import { applicationLayout } from "../applicationLayout";
-import {
-  ILayout,
-  IWindowContainer,
-  validateWindowContainer,
-  validateWindow,
-  IWindow,
-  IGame,
-} from "./types";
 import api from "./api";
+import {
+  type IAPIGame,
+  type ILayout,
+  type IWindow,
+  type IWindowContainer,
+  validateWindow,
+  validateWindowContainer,
+} from "./types";
 
 // Helper to get the visible windows from the layout and its children
 function getVisibleWindowsHelper(layout: ILayout): IWindow[] {
@@ -20,6 +20,7 @@ function getVisibleWindowsHelper(layout: ILayout): IWindow[] {
   if (validateWindowContainer(layout).success) {
     const container = layout as IWindowContainer;
     if (container.visible && !container.collapsed) {
+      // biome-ignore lint/complexity/noForEach: TODO change later
       container.children.forEach((child) => {
         const visibleChildWindows = getVisibleWindowsHelper(child);
         visibleWindows.push(...visibleChildWindows);
@@ -64,8 +65,8 @@ function getDefaultTheme() {
 export const useGlobalState = createGlobalState(() => {
   // Global state
   const layout = ref<ILayout>(applicationLayout);
-  const selectedGame = ref<IGame | null>(null);
-  const games = ref<IGame[]>([]);
+  const selectedGame = ref<IAPIGame | null>(null);
+  const games = ref<IAPIGame[]>([]);
   const selectedGameLocation = ref<number | null>(0); // The move number of the selected game
 
   const UIState = ref<{
@@ -87,15 +88,16 @@ export const useGlobalState = createGlobalState(() => {
   const updateWindowProperty = (
     windowId: string,
     property: string,
-    value: any,
+    value: string | number | boolean | null
   ) => {
     const window = getWindowById(layout.value, windowId);
-    if (window) {
-      (window as any)[property] = value;
+    if (window && property in window) {
+      // Use type assertion to IWindow since we know it's a window property
+      (window as IWindow)[property as keyof IWindow] = value as never;
     }
   };
 
-  const setSelectedGame = (newGame: IGame | null) => {
+  const setSelectedGame = (newGame: IAPIGame | null) => {
     selectedGame.value = newGame;
     selectedGameLocation.value = 0;
   };
@@ -121,14 +123,13 @@ export const useGlobalState = createGlobalState(() => {
   // API Actions
   const updateGames = async () => {
     const parsedState = await api.getExplorerState();
-    console.log(parsedState);
     games.value = parsedState.games;
 
     const defaultHeaders = () => {
       const headers =
         selectedGame.value?.headers ?? games.value[0]?.headers ?? {};
       return Object.keys(headers).filter(
-        (key) => headers[key] !== "" && !headers[key].includes("?"),
+        (key) => headers[key] !== "" && !headers[key].includes("?")
       );
     };
     if (UIState.value.visibleGameHeaders.length === 0) {

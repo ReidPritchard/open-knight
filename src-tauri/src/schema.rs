@@ -22,7 +22,7 @@ diesel::table! {
         move_san -> Text,
         annotation -> Nullable<Text>,
         variation_order -> Nullable<Integer>,
-        parent_position_id -> Nullable<Integer>,
+        parent_position_id -> Integer,
         child_position_id -> Integer,
     }
 }
@@ -34,5 +34,7 @@ diesel::table! {
         annotation -> Nullable<Text>,
     }
 }
+
+diesel::joinable!(moves -> games (game_id));
 
 diesel::allow_tables_to_appear_in_same_query!(games, moves, positions);

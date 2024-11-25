@@ -1,11 +1,14 @@
-use crate::{convert::convert_to_game_results, database, loader::GameResult};
+use crate::{
+    api_types::{APIGame, ExplorerGame},
+    database,
+};
 use serde::Serialize;
 use std::sync::Mutex;
 
 #[derive(Debug, Serialize)]
 pub struct AppState {
     /// The currently selected game
-    pub selected_game: Mutex<Option<GameResult>>,
+    pub selected_game: Mutex<Option<APIGame>>,
 
     // Each "view" will be a separate struct
     pub explorer: Mutex<ExplorerState>,
@@ -19,7 +22,7 @@ pub struct AppState {
 /// (like a game viewer, analysis tools, etc.)
 #[derive(Debug, Clone, Serialize)]
 pub struct ExplorerState {
-    pub games: Vec<GameResult>,
+    pub games: Vec<ExplorerGame>,
     // TODO: add search/filter/sort state
 }
 
@@ -32,20 +35,18 @@ impl ExplorerState {
         self.games.clear();
     }
 
-    pub fn extend(&mut self, games: &Vec<GameResult>) {
+    pub fn extend(&mut self, games: &Vec<ExplorerGame>) {
         self.games.extend(games.iter().cloned());
     }
 
-    pub fn get_game_by_id(&self, id: &i32) -> Option<GameResult> {
-        self.games.iter().find(|game| game.id == *id).cloned()
-    }
-
     pub fn load_games_from_db(&mut self) {
-        let games = database::get_all_games();
-        let moves = database::get_all_moves();
-        let positions = database::get_all_positions();
-        let game_results = convert_to_game_results(games, moves, positions);
-        self.games.extend(game_results.iter().cloned());
+        let games = database::game::get_all_games();
+
+        let explorer_games = games
+            .iter()
+            .map(|game| ExplorerGame::from(game.clone()))
+            .collect::<Vec<ExplorerGame>>();
+        self.games.extend(explorer_games);
     }
 }
 
@@ -71,7 +72,7 @@ impl AppState {
         *self.selected_game.lock().unwrap() = None;
     }
 
-    pub fn set_selected_game(&self, game: Option<GameResult>) {
+    pub fn set_selected_game(&self, game: Option<APIGame>) {
         *self.selected_game.lock().unwrap() = game;
     }
 }

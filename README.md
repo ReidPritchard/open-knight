@@ -75,7 +75,7 @@
 ### Screenshots
 
 <div align="center">
-  <img src="https://placehold.co/600x400?text=Your+Screenshot+here" alt="screenshot" />
+  <img src="docs/assets/UI-Nov25-2024.png" alt="Screenshot of the current Open Knight UI" />
 </div>
 
 <!-- TechStack -->

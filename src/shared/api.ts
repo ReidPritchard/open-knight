@@ -1,10 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { MOCKED, setupMocks } from "../test/mock";
 import {
-  apiExplorerStateToExplorerState,
+  apiExplorerStateToExplorerGames,
   apiSelectedGameToGame,
 } from "./api-conversions";
-import type { IExplorerState } from "./types";
+import type { IExplorerGame } from "./types";
 
 // Setup the API
 setupMocks();
@@ -15,8 +15,8 @@ export default {
    */
   getExplorerState: async () => {
     const state: string = await invoke("get_explorer_state");
-    const parsedState = MOCKED ? state : apiExplorerStateToExplorerState(state);
-    return parsedState as IExplorerState;
+    const parsedState = MOCKED ? state : apiExplorerStateToExplorerGames(state);
+    return parsedState as IExplorerGame[];
   },
 
   /**

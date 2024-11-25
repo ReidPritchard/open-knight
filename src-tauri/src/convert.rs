@@ -1,3 +1,4 @@
+use crate::api_types::{APIGame, APIMove};
 use crate::loader::GameResult;
 use crate::models::{Game, Move, Position};
 
@@ -32,7 +33,7 @@ impl From<GameResult> for Game {
     }
 }
 
-pub fn convert_to_games(game_results: Vec<GameResult>) -> (Vec<Game>, Vec<Move>) {
+pub fn game_results_to_games_and_moves(game_results: Vec<GameResult>) -> (Vec<Game>, Vec<Move>) {
     let games: Vec<Game> = game_results
         .iter()
         .map(|gr| Game::from(gr.clone()))
@@ -49,40 +50,24 @@ pub fn convert_to_games(game_results: Vec<GameResult>) -> (Vec<Game>, Vec<Move>)
     (games, moves)
 }
 
-pub fn convert_to_game_results(
-    games: Vec<Game>,
-    moves: Vec<Move>,
-    positions: Vec<Position>,
-) -> Vec<GameResult> {
-    let mut game_map: std::collections::HashMap<i32, GameResult> = games
+pub fn moves_to_api_moves(moves: Vec<(Move, Position, Position)>) -> Vec<APIMove> {
+    moves.into_iter().map(APIMove::from).collect()
+}
+
+/**
+ * Convert a vector of games and a vector of moves (from all games)
+ * to a vector of API games.
+ */
+pub fn games_and_moves_to_api_games(games: Vec<Game>, moves: Vec<APIMove>) -> Vec<APIGame> {
+    games
         .into_iter()
         .map(|game| {
-            (
-                game.id.unwrap(),
-                GameResult {
-                    id: game.id.unwrap(),
-                    pgn: game.pgn.clone(),
-                    moves: Vec::new(),
-                    positions: Vec::new(),
-                    headers: vec![],
-                    errors: vec![],
-                    game: None, // Not needed now as we already have moves
-                },
-            )
+            let game_moves = moves
+                .iter()
+                .filter(|m| m.game_move.game_id == game.id.unwrap())
+                .cloned()
+                .collect();
+            APIGame::from((game, game_moves))
         })
-        .collect();
-
-    for m in moves {
-        if let Some(game_result) = game_map.get_mut(&m.game_id) {
-            game_result.moves.push(m);
-        }
-    }
-
-    for p in positions {
-        if let Some(game_result) = game_map.get_mut(&p.game_id) {
-            game_result.positions.push(p);
-        }
-    }
-
-    game_map.into_values().collect()
+        .collect()
 }

@@ -201,6 +201,7 @@ export type ILayout = IWindow | IWindowContainer;
  * Interface for a position in chess
  */
 export interface IChessPosition {
+  id: number;
   fen: string;
   annotation: string | null;
 }
@@ -220,26 +221,45 @@ export interface IMove {
   parent_position_id: number | null; // Corresponds to Option<i32> in Rust
   child_position_id: number; // Corresponds to i32 in Rust
 }
-export const assertMove = typia.createAssert<IMove>();
-export const validateMove = typia.createValidate<IMove>();
-export const parseMove = typia.json.createValidateParse<IMove>();
+
+export interface IAPIMove {
+  chess_move: IMove;
+  parent_position: IChessPosition;
+  child_position: IChessPosition;
+}
+export const assertAPIMove = typia.createAssert<IAPIMove>();
+export const validateAPIMove = typia.createValidate<IAPIMove>();
+export const parseAPIMove = typia.json.createValidateParse<IAPIMove>();
 
 export interface IGame {
-  id: number;
-  headers: Record<string, string>;
+  id: number | null;
+  event: string | null;
+  date_text: string | null;
+  result: string | null;
+  player_white: string | null;
+  player_black: string | null;
+  opening_name: string | null;
+  annotations: string | null;
   pgn: string;
-  moves: IMove[];
-  // annotations: string | null;
   errors: string[];
 }
 export const assertGame = typia.createAssert<IGame>();
 export const validateGame = typia.createValidate<IGame>();
 export const parseGame = typia.json.createValidateParse<IGame>();
 
-export interface IExplorerState {
-  games: IGame[];
+export interface IAPIGame {
+  game_data: IGame;
+  moves: IAPIMove[];
 }
-export const assertExplorerState = typia.createAssert<IExplorerState>();
-export const validateExplorerState = typia.createValidate<IExplorerState>();
-export const parseExplorerState =
-  typia.json.createValidateParse<IExplorerState>();
+export const assertAPIGame = typia.createAssert<IAPIGame>();
+export const validateAPIGame = typia.createValidate<IAPIGame>();
+export const parseAPIGame = typia.json.createValidateParse<IAPIGame>();
+
+export interface IExplorerGame {
+  id: number;
+  headers: [string, string][];
+}
+export const assertExplorerGame = typia.createAssert<IExplorerGame>();
+export const validateExplorerGame = typia.createValidate<IExplorerGame>();
+export const parseExplorerGame =
+  typia.json.createValidateParse<IExplorerGame>();

@@ -2,9 +2,9 @@
   <div class="move-tree">
     <div v-for="(move, index) in moveTree" class="move-tree-item">
       <ChessMove
-        :key="move.id"
+        :key="move.chess_move.id"
         :move="move"
-        :is-current-move="move.id === props.currentMoveId"
+        :is-current-move="move.chess_move.id === props.currentMoveId"
         @move-click="handleMoveClick"
       />
       <div v-if="move.variations.length > 0" class="move-tree-item-variations">
@@ -25,26 +25,27 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { IMove } from "../../shared/types";
+import type { IAPIMove } from "../../shared/types";
 import ChessMove from "./ChessMove.vue";
 
-const emit = defineEmits<{
-  (e: "move-click", move: { move: IMove; index: number }): void;
-}>();
+const emit =
+  defineEmits<
+    (e: "move-click", move: { move: IAPIMove; index: number }) => void
+  >();
 
 const props = defineProps<{
-  moves: IMove[];
+  moves: IAPIMove[];
   currentMoveId: number;
 }>();
 
-const buildMoveTree = (moves: IMove[]) => {
+const buildMoveTree = (moves: IAPIMove[]) => {
   const moveTree: Array<
-    IMove & { variations: IMove[]; nextMoveId: number | undefined }
+    IAPIMove & { variations: IAPIMove[]; nextMoveId: number | undefined }
   > = [];
 
-  let nextMoveId: number | undefined = moves[1]?.id;
+  let nextMoveId: number | undefined = moves[1]?.chess_move.id;
   moves.forEach((move, index) => {
-    nextMoveId = moves[index + 1]?.id;
+    nextMoveId = moves[index + 1]?.chess_move.id;
     const newMove = { ...move, variations: [], nextMoveId };
     moveTree.push(newMove);
   });
@@ -54,9 +55,11 @@ const buildMoveTree = (moves: IMove[]) => {
 
 const moveTree = computed(() => buildMoveTree(props.moves));
 
-const handleMoveClick = (move: IMove) => {
+const handleMoveClick = (move: IAPIMove) => {
   // get the index of the move in the moves array
-  const index = props.moves.findIndex((m) => m.id === move.id);
+  const index = props.moves.findIndex(
+    (m) => m.chess_move.id === move.chess_move.id
+  );
   emit("move-click", { move, index });
 };
 </script>

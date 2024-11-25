@@ -1,8 +1,8 @@
 import {
-  IFlexibleContainer,
-  ISimpleContainer,
-  ITabContainer,
-  IWindow,
+  type IFlexibleContainer,
+  type ISimpleContainer,
+  type ITabContainer,
+  type IWindow,
   LayoutDirection,
   WindowDisplayMode,
 } from "./shared/types";

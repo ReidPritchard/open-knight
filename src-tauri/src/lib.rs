@@ -1,8 +1,10 @@
-use convert::convert_to_games;
+use api_types::{APIGame, ExplorerGame};
+use convert::{game_results_to_games_and_moves, games_and_moves_to_api_games, moves_to_api_moves};
 use loader::load_pgn;
 use shakmaty::san::San;
 use state::AppState;
 
+mod api_types;
 mod convert;
 mod database;
 mod loader;
@@ -13,7 +15,7 @@ mod state;
 
 #[tauri::command]
 fn empty_db(state: tauri::State<AppState>) {
-    database::empty_db();
+    database::setup::empty_db();
 
     // Reset the app state
     state.clear();
@@ -35,16 +37,33 @@ fn san_to_move(san: &str) -> String {
 fn parse_pgn(pgn: &str, state: tauri::State<AppState>) -> String {
     let load_result = load_pgn(pgn);
     let game_results = load_result.get_game_results();
-
-    // Save the result to the app state
-    state.explorer.lock().unwrap().extend(&game_results);
+    // FIXME: This is super gross, but finding a type that works for the loader, database, and API
+    // is a pain. Going to do this until all the edge cases are identified then refactor.
 
     // Convert to games and moves (for database insertion)
-    let (games, moves) = convert_to_games(game_results.clone());
+    let (games, moves) = game_results_to_games_and_moves(game_results.clone());
 
     // Insert into the database
-    database::insert_games(&games);
-    database::insert_moves(&moves);
+    database::game::insert_games(&games);
+    database::move_::insert_moves(&moves);
+
+    // Get all the games and moves from the database
+    let games = database::game::get_all_games();
+    let moves = database::move_::get_all_moves();
+
+    // Convert to API games
+    let api_games: Vec<APIGame> = games
+        .iter()
+        .map(|game| APIGame::from((game.clone(), moves.clone())))
+        .collect();
+
+    let explorer_games = api_games
+        .iter()
+        .map(|game| ExplorerGame::from(game.clone()))
+        .collect();
+
+    // Save the result to the app state
+    state.explorer.lock().unwrap().extend(&explorer_games);
 
     serde_json::to_string(&game_results).unwrap()
 }
@@ -64,8 +83,8 @@ fn get_explorer_state(state: tauri::State<AppState>) -> String {
 fn set_selected_game(game_id: Option<i32>, state: tauri::State<AppState>) {
     println!("Setting selected game: {}", game_id.unwrap_or(-1));
     if let Some(game_id) = game_id {
-        let game_result = state.explorer.lock().unwrap().get_game_by_id(&game_id);
-        state.set_selected_game(game_result);
+        let api_game = database::game::get_full_game_by_id(game_id).unwrap();
+        state.set_selected_game(Some(api_game));
     } else {
         state.set_selected_game(None);
     }
