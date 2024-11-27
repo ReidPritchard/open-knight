@@ -1,85 +1,115 @@
 <script setup lang="ts">
-import Button from "primevue/button";
-import Card from "primevue/card";
-import Toolbar from "primevue/toolbar";
 import { ref } from "vue";
-import { useGlobalState } from "../shared/store";
+import { useGlobalStore } from "../stores";
 import AspectRatio from "./AspectRatio.vue";
 import ChessBoard from "./ChessBoard/ChessBoard.vue";
 import {
   CoordinatesStyle,
-  CoordinatesStyleType,
-  Orientation,
+  type CoordinatesStyleType,
+  type Orientation,
 } from "./ChessBoard/types";
 
-const { selectedGame, selectedGameLocation, setSelectedGameLocation } =
-  useGlobalState();
+const { game } = useGlobalStore();
 
 const showCoordinates = ref<CoordinatesStyleType>(CoordinatesStyle.none);
 
 const orientation = ref<Orientation>("white");
 
 const previousMove = () => {
-  const newLocation = (selectedGameLocation.value ?? 0) - 1;
-  setSelectedGameLocation(Math.max(newLocation, 0));
+  const newLocation = (game.selectedGameLocation ?? 0) - 1;
+  game.setSelectedGameLocation(Math.max(newLocation, 0));
 };
 
 const nextMove = () => {
-  const newLocation = (selectedGameLocation.value ?? 0) + 1;
-  setSelectedGameLocation(
-    Math.min(newLocation, (selectedGame.value?.moves?.length ?? 0) - 1),
+  const newLocation = (game.selectedGameLocation ?? 0) + 1;
+  game.setSelectedGameLocation(
+    Math.min(newLocation, (game.selectedGame?.moves?.length ?? 0) - 1)
   );
 };
 </script>
 
 <template>
-  <Card style="width: 100%" class="game-board">
-    <template #content>
-      <div v-if="selectedGame" id="game-board-container">
-        <AspectRatio ratio="1 / 1">
-          <ChessBoard
-            initial-position="start"
-            :current-position="
-              selectedGame.moves?.[selectedGameLocation ?? 0]?.fen ?? 'start'
-            "
-            :orientation="orientation"
-            :show-coordinates="showCoordinates"
-            :draggable="true"
-          />
-        </AspectRatio>
+  <div class="w-full rounded-lg bg-white dark:bg-gray-800 shadow-md p-4">
+    <div
+      v-if="game.selectedGame"
+      class="flex flex-col gap-4 max-w-[70vw] max-h-[70vh]"
+    >
+      <AspectRatio ratio="1 / 1">
+        <ChessBoard
+          initial-position="start"
+          :current-position="
+            game.selectedGame?.moves?.[game.selectedGameLocation ?? 0]
+              ?.parent_position.fen ?? 'start'
+          "
+          :orientation="orientation"
+          :show-coordinates="showCoordinates"
+          :draggable="true"
+        />
+      </AspectRatio>
 
-        <Toolbar>
-          <template #start>
-            <!-- Debugging (display coordinates style) -->
-            <!-- <Select v-model="showCoordinates" :options="coordinatesOptions" /> -->
+      <nav
+        class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-md"
+      >
+        <div class="flex-1">
+          <!-- Left section (empty for now, previously debugging tools) -->
+        </div>
 
-            <!-- Button to toggle orientation -->
-            <!-- <Button label="Toggle orientation" @click="toggleOrientation" /> -->
+        <div class="flex-1 flex items-center justify-center gap-2">
+          <button
+            @click="previousMove"
+            class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
 
-            <!-- Game navigation buttons -->
-          </template>
+          <span>{{ game.selectedGameLocation }}</span>
+          <span>/</span>
+          <span>{{ game.selectedGame?.moves?.length }}</span>
 
-          <template #center>
-            <div class="game-board-move-number">
-              <Button icon="pi pi-chevron-left" @click="previousMove" />
-              <span>{{ selectedGameLocation }}</span>
-              <span> / </span>
-              <span>{{ selectedGame?.moves?.length }}</span>
-              <Button icon="pi pi-chevron-right" @click="nextMove" />
-              <span>
-                {{ selectedGame?.moves?.[selectedGameLocation ?? 0]?.move_san }}
-              </span>
-            </div>
-          </template>
+          <button
+            @click="nextMove"
+            class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
 
-          <template #end>
-            <!-- Game toolbar buttons -->
-          </template>
-        </Toolbar>
-      </div>
-    </template>
-    <template #subtitle v-if="!selectedGame"> No game selected </template>
-  </Card>
+          <span class="ml-2 text-sm">
+            {{
+              game.selectedGame?.moves?.[game.selectedGameLocation ?? 0]
+                ?.game_move.move_san
+            }}
+          </span>
+        </div>
+
+        <div class="flex-1">
+          <!-- Right section (empty for now) -->
+        </div>
+      </nav>
+    </div>
+    <div v-else class="text-gray-500 dark:text-gray-400">No game selected</div>
+  </div>
 </template>
 
 <style scoped>

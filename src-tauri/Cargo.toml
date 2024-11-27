@@ -27,3 +27,4 @@ diesel = { version = "2.2.0", features = [
 ] }
 r2d2 = "0.8"
 dotenvy = "0.15"
+ts-bind = "0.1.7"

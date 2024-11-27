@@ -7,7 +7,7 @@
     ></MeterGroup>
     <Inplace class="inline-notes-editor">
       <template #display>
-        <p>{{ currentMove?.annotation }}</p>
+        <p>{{ currentMove?.game_move.annotation }}</p>
         <Button icon="pi pi-pencil" />
       </template>
       <template #content="{ closeCallback }">
@@ -24,16 +24,16 @@
 </template>
 
 <script setup lang="ts">
+import Inplace from "primevue/inplace";
 import MeterGroup from "primevue/metergroup";
 import { computed } from "vue";
-import { useGlobalState } from "../shared/store";
-import Inplace from "primevue/inplace";
+import { useGlobalStore } from "../stores";
 
-const { selectedGame, selectedGameLocation } = useGlobalState();
+const { game } = useGlobalStore();
 
 const moveNotes = computed({
   get: () => {
-    return currentMove.value?.annotation ?? "";
+    return currentMove.value?.game_move.annotation ?? "";
   },
   set: (value) => {
     updateMoveNotes(value);
@@ -42,22 +42,22 @@ const moveNotes = computed({
 
 const updateMoveNotes = (value: string) => {
   if (currentMove.value) {
-    currentMove.value.annotation = value;
+    currentMove.value.game_move.annotation = value;
   }
 };
 
 const totalMoves = computed(() => {
-  return selectedGame.value?.moves.length ?? 0;
+  return game.selectedGame?.moves.length ?? 0;
 });
 
 const currentMove = computed(() => {
-  return selectedGame.value?.moves[selectedGameLocation.value ?? 0];
+  return game.selectedGame?.moves[game.selectedGameLocation ?? 0];
 });
 
 const meterItems = computed(() => {
   return [
     {
-      value: selectedGameLocation.value ?? 0,
+      value: game.selectedGameLocation ?? 0,
       color: "var(--p-primary-color)",
       label: "Game Position",
       icon: "pi pi-gamepad",

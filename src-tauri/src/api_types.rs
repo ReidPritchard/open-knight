@@ -1,5 +1,6 @@
 use crate::models::{Game, Move, Position};
 use serde::{Deserialize, Serialize};
+use ts_bind::TsBind;
 
 ////////////// API Types //////////////
 // These types are used for interacting with the frontend
@@ -10,7 +11,8 @@ use serde::{Deserialize, Serialize};
  * Represents a move with its parent and child positions.
  * All properties from the Move type, plus the parent and child positions (rather than ids)
  */
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, TsBind)]
+#[ts_bind(export = "../src/shared/bindings")]
 pub struct APIMove {
     #[serde(flatten)]
     pub game_move: Move,
@@ -33,7 +35,8 @@ impl From<(Move, Position, Position)> for APIMove {
  *
  * Similar to GameResult, but simplified as there is no validation of the game.
  */
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, TsBind)]
+#[ts_bind(export = "../src/shared/bindings")]
 pub struct APIGame {
     #[serde(flatten)]
     pub game_data: Game,
@@ -49,16 +52,33 @@ impl From<(Game, Vec<APIMove>)> for APIGame {
     }
 }
 
+/// A type for (string, string) tuples so the bindings can be generated correctly
+///
+///
+#[derive(Serialize, Deserialize, Debug, Clone, TsBind)]
+#[ts_bind(export = "../src/shared/bindings")]
+pub struct HeaderTuple {
+    pub key: String,
+    pub value: String,
+}
+
+impl From<(String, String)> for HeaderTuple {
+    fn from((key, value): (String, String)) -> Self {
+        HeaderTuple { key, value }
+    }
+}
+
 /**
  * Represents a game in the explorer state.
  *
  * This is really just the headers and the id of the game.
  * It is used to represent a game in the explorer state.
  */
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, TsBind)]
+#[ts_bind(export = "../src/shared/bindings")]
 pub struct ExplorerGame {
     pub id: i32,
-    pub headers: Vec<(String, String)>,
+    pub headers: Vec<HeaderTuple>,
 }
 
 impl From<Game> for ExplorerGame {
@@ -87,7 +107,7 @@ impl From<Game> for ExplorerGame {
 
         ExplorerGame {
             id: game.id.unwrap_or(0),
-            headers,
+            headers: headers.into_iter().map(HeaderTuple::from).collect(),
         }
     }
 }

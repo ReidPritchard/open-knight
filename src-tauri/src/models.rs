@@ -3,6 +3,7 @@ use diesel::prelude::*;
 use diesel::BelongingToDsl;
 use diesel::{prelude::Insertable, Associations, Identifiable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
+use ts_bind::TsBind;
 
 /**
  * Represents a Game in the chess database.
@@ -11,8 +12,18 @@ use serde::{Deserialize, Serialize};
  * The actual moves of the game are stored separately in the `moves` table.
  */
 #[derive(
-    Queryable, Identifiable, Serialize, Deserialize, Debug, Selectable, Default, Clone, Insertable,
+    Queryable,
+    Identifiable,
+    Serialize,
+    Deserialize,
+    Debug,
+    Selectable,
+    Default,
+    Clone,
+    Insertable,
+    TsBind,
 )]
+#[ts_bind(export = "../src/shared/bindings")]
 #[diesel(table_name=crate::schema::games, primary_key(id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Game {
@@ -45,7 +56,9 @@ pub struct Game {
     Clone,
     Insertable,
     Associations,
+    TsBind,
 )]
+#[ts_bind(export = "../src/shared/bindings")]
 #[diesel(
     table_name=crate::schema::moves,
     belongs_to(Game),
@@ -67,8 +80,18 @@ pub struct Move {
 }
 
 #[derive(
-    Queryable, Identifiable, Serialize, Deserialize, Debug, Selectable, Default, Clone, Insertable,
+    Queryable,
+    Identifiable,
+    Serialize,
+    Deserialize,
+    Debug,
+    Selectable,
+    Default,
+    Clone,
+    Insertable,
+    TsBind,
 )]
+#[ts_bind(export = "../src/shared/bindings")]
 #[diesel(table_name=crate::schema::positions, primary_key(id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Position {

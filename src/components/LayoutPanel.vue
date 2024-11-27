@@ -44,9 +44,7 @@ const props = defineProps<{
   collapseOrientation: "horizontal" | "vertical";
 }>();
 
-const emit = defineEmits<{
-  (e: "update:collapsed", collapsed: boolean): void;
-}>();
+const emit = defineEmits<(e: "update:collapsed", collapsed: boolean) => void>();
 
 const isOpen = ref(props.collapsed);
 

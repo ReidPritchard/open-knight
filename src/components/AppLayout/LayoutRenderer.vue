@@ -3,10 +3,10 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, Component } from "vue";
-import { ILayout } from "../../shared/types";
-import WindowRenderer from "./WindowRenderer.vue";
+import { type Component, computed, defineComponent } from "vue";
+import type { ILayout } from "../../shared/types";
 import ContainerRenderer from "./ContainerRenderer.vue";
+import WindowRenderer from "./WindowRenderer.vue";
 
 export default defineComponent({
   name: "LayoutRenderer",

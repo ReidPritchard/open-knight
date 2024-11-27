@@ -1,33 +1,32 @@
-import { onMounted, ref } from "vue";
-import { Board, Move, Orientation, Square } from "./types";
+import { onMounted, onUnmounted, ref, watch } from "vue";
+import type { Board, Move, Orientation, Square } from "./types";
 import { createBoard, parseFenToBoard } from "./utils";
 
 export function useChessBoard(
   props: {
-    initialPosition: string;
-    currentPosition: string;
+    currentPosition: { value: string };
     orientation: Orientation;
     draggable: boolean;
   },
-  emit: (
-    event: "move" | "piece-click" | "square-click",
-    ...args: any[]
-  ) => void,
+  emit: {
+    (event: "move", move: { from: Square; to: Square }): void;
+    (event: "piece-click", square: Square): void;
+    (event: "square-click", square: Square): void;
+  }
 ) {
   const board = ref<Board>([]);
   const draggingPiece = ref<Square | null>(null);
   const dragImage = ref<HTMLDivElement | null>(null);
 
-  const initBoard = () => {
-    if (props.initialPosition === "start") {
+  const updateBoard = () => {
+    if (props.currentPosition.value === "start") {
       board.value = createBoard();
     } else {
-      board.value = parseFenToBoard(props.initialPosition);
+      board.value = parseFenToBoard(props.currentPosition.value);
     }
   };
 
   const onDragStart = (event: DragEvent, square: Square) => {
-    console.log("drag-start", square);
     if (!props.draggable) return;
 
     draggingPiece.value = square;
@@ -46,43 +45,29 @@ export function useChessBoard(
   };
 
   const onDragOver = (square: Square) => {
-    console.log("drag-over", square);
     if (draggingPiece.value && draggingPiece.value !== square) {
       event?.preventDefault();
     }
   };
 
-  const onDrop = (square: Square) => {
-    console.log("drag-drop", square);
+  const onDrop = (toSquare: Square) => {
     if (draggingPiece.value) {
-      board.value[square.row][square.col].piece = draggingPiece.value.piece;
-      board.value[draggingPiece.value.row][draggingPiece.value.col].piece =
-        null;
-
-      const move: Move = {
-        from: { row: draggingPiece.value.row, col: draggingPiece.value.col },
-        to: { row: square.row, col: square.col },
-        piece: draggingPiece.value.piece!,
-      };
-      emit("move", move);
-
+      const fromSquare = { ...draggingPiece.value };
+      emit("move", { from: fromSquare, to: toSquare });
       draggingPiece.value = null;
     }
-    if (dragImage.value) {
-      document.body.removeChild(dragImage.value);
-      dragImage.value = null;
-    }
+
+    cleanupDragImage();
   };
 
   const moveDragImage = (event: DragEvent) => {
-    if (dragImage.value) {
+    if (dragImage.value && event.pageX && event.pageY) {
       dragImage.value.style.left = `${event.pageX - 30}px`;
       dragImage.value.style.top = `${event.pageY - 30}px`;
     }
   };
 
-  const onDragEnd = () => {
-    console.log("drag-end");
+  const cleanupDragImage = () => {
     if (dragImage.value) {
       document.body.removeChild(dragImage.value);
       dragImage.value = null;
@@ -90,19 +75,25 @@ export function useChessBoard(
   };
 
   const onPieceClick = (square: Square) => {
-    console.log("piece-click", square);
     emit("piece-click", square);
   };
 
   const onSquareClick = (square: Square) => {
-    console.log("square-click", square);
     emit("square-click", square);
   };
 
+  // Initialize board
   onMounted(() => {
-    initBoard();
+    updateBoard();
     document.addEventListener("drag", moveDragImage);
-    document.addEventListener("dragend", onDragEnd);
+    document.addEventListener("dragend", cleanupDragImage);
+  });
+
+  // Cleanup
+  onUnmounted(() => {
+    document.removeEventListener("drag", moveDragImage);
+    document.removeEventListener("dragend", cleanupDragImage);
+    cleanupDragImage();
   });
 
   return {
@@ -113,5 +104,6 @@ export function useChessBoard(
     onPieceClick,
     onSquareClick,
     draggingPiece,
+    updateBoard,
   };
 }

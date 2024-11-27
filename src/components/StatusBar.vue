@@ -7,11 +7,11 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useGlobalState } from "../shared/store";
+import { useGlobalStore } from "../stores";
 
-const { UIState } = useGlobalState();
+const { ui } = useGlobalStore();
 
-const theme = computed(() => UIState.value.theme);
+const theme = computed(() => ui.$state.theme);
 </script>
 
 <style scoped>

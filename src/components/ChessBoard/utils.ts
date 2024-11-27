@@ -1,4 +1,4 @@
-import { BoardStyle, Square } from "./types";
+import type { BoardStyle, Square } from "./types";
 
 export const pieceUnicode: { [key: string]: string } = {
   wK: "♔",
@@ -35,7 +35,7 @@ export const getSquareStyle = (square: Square, style: BoardStyle): string => {
   // Square border
   if (style.squareBorderWidth && style.colors.squareBorder) {
     styles.push(
-      `border: ${style.squareBorderWidth}px solid ${style.colors.squareBorder}`,
+      `border: ${style.squareBorderWidth}px solid ${style.colors.squareBorder}`
     );
   }
 
@@ -104,7 +104,7 @@ export const parseFenToBoard = (fen: string): Square[][] => {
 
     for (const char of rankStr) {
       if (/[1-8]/.test(char)) {
-        const emptySquares = parseInt(char, 10);
+        const emptySquares = Number.parseInt(char, 10);
         for (let i = 0; i < emptySquares; i++) {
           row.push({
             row: rowNumber,
@@ -129,14 +129,16 @@ export const parseFenToBoard = (fen: string): Square[][] => {
         fileIndex++;
       } else {
         throw new Error(
-          `Invalid FEN string: Invalid character '${char}' in board notation.`,
+          `Invalid FEN string: Invalid character '${char}' in board notation.`
         );
       }
     }
 
     if (row.length !== 8) {
       throw new Error(
-        `Invalid FEN string: Incorrect number of squares in rank ${8 - rankIndex}.`,
+        `Invalid FEN string: Incorrect number of squares in rank ${
+          8 - rankIndex
+        }.`
       );
     }
 
@@ -144,13 +146,6 @@ export const parseFenToBoard = (fen: string): Square[][] => {
   }
 
   // Parse the additional FEN context if needed
-  const context = {
-    turn: activeColor as "w" | "b",
-    castlingAvailability,
-    enPassantTarget,
-    halfMoveClock: parseInt(halfMoveClock, 10),
-    fullMoveNumber: parseInt(fullMoveNumber, 10),
-  };
 
   // Optionally, log or process the context
   // console.log(context);
@@ -166,7 +161,7 @@ export const createBoard = (): Square[][] => {
       col: colIndex,
       piece,
       isTarget: false,
-    })),
+    }))
   );
 };
 

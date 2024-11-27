@@ -10,23 +10,22 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useGlobalState } from "../shared/store";
-import { IMove } from "../shared/types";
+import type { APIMove } from "../shared/bindings/APIMove";
+import { useGameStore } from "../stores/game";
 import ChessMoveTree from "./ChessMoveTree/ChessMoveTree.vue";
 
-const { selectedGame, selectedGameLocation, setSelectedGameLocation } =
-  useGlobalState();
+const gameStore = useGameStore();
 
-const moves = computed<IMove[]>(() => {
-  return selectedGame.value?.moves ?? [];
+const moves = computed<APIMove[]>(() => {
+  return gameStore.selectedGame?.moves ?? [];
 });
 
 const currentMoveId = computed<number>(() => {
-  return selectedGame.value?.moves?.[selectedGameLocation.value ?? 0]?.id ?? 0;
+  return gameStore.currentMove?.game_move.id ?? 0;
 });
 
-const handleMoveClick = (move: { move: IMove; index: number }) => {
-  setSelectedGameLocation(move.index);
+const handleMoveClick = (move: { move: APIMove; index: number }) => {
+  gameStore.setSelectedGameLocation(move.index);
 };
 </script>
 
@@ -34,9 +33,7 @@ const handleMoveClick = (move: { move: IMove; index: number }) => {
 .move-tree {
   background-color: var(--p-surface-color);
   padding: 0.5rem;
-
   max-height: 150px;
-
   overflow-y: scroll;
 }
 </style>

@@ -9,13 +9,13 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useGlobalState } from "../shared/store";
+import { useGlobalStore } from "../stores";
 
-const { selectedGame } = useGlobalState();
+const { game } = useGlobalStore();
 
 // An array of objects with two fields: key and value
 const headers = computed(() => {
-  const headers = selectedGame.value?.headers ?? {};
+  const headers = game.selectedGame?.game_data ?? {};
   return Object.entries(headers).map(([key, value]) => ({
     key,
     value,

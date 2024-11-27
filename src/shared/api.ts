@@ -4,7 +4,7 @@ import {
   apiExplorerStateToExplorerGames,
   apiSelectedGameToGame,
 } from "./api-conversions";
-import type { IExplorerGame } from "./types";
+import type { ExplorerGame } from "./bindings/ExplorerGame";
 
 // Setup the API
 setupMocks();
@@ -12,34 +12,57 @@ setupMocks();
 export default {
   /**
    * Get the explorer state from the backend.
+   * @throws {Error} If the backend returns invalid data
+   * @returns Promise<ExplorerGame[]> Array of explorer games
    */
-  getExplorerState: async () => {
-    const state: string = await invoke("get_explorer_state");
-    const parsedState = MOCKED ? state : apiExplorerStateToExplorerGames(state);
-    return parsedState as IExplorerGame[];
+  getExplorerState: async (): Promise<ExplorerGame[]> => {
+    const serializedState: string = await invoke("get_explorer_state");
+    if (MOCKED) {
+      return serializedState as unknown as ExplorerGame[];
+    }
+
+    const parsed = JSON.parse(serializedState);
+
+    console.log("Parsed explorer state:", parsed);
+
+    return apiExplorerStateToExplorerGames(serializedState);
   },
 
   /**
    * Get the selected game from the backend.
+   * @throws {Error} If the backend returns invalid data
+   * @returns Promise<APIGame | null> Selected game or null if none selected
    */
   getSelectedGame: async () => {
-    const response: string = await invoke("get_selected_game");
-    const game: string | null = response === "null" ? null : response;
-    const parsedGame = apiSelectedGameToGame(game);
-    return parsedGame;
+    const serializedGame: string = await invoke("get_selected_game");
+    if (serializedGame === "null") {
+      return null;
+    }
+
+    const parsed = JSON.parse(serializedGame);
+    if (typeof parsed !== "object") {
+      throw new Error("Invalid game data received from backend");
+    }
+
+    console.log("Parsed selected game:", parsed);
+
+    return apiSelectedGameToGame(serializedGame);
   },
+
+  
 
   /**
    * Parse a PGN text and update the games and selected game.
+   * @param pgnText The PGN text to parse
    */
-  parsePgnText: async (pgnText: string) => {
+  parsePgnText: async (pgnText: string): Promise<void> => {
     await invoke("parse_pgn", { pgn: pgnText });
   },
 
   /**
-   * Empty the database.
+   * Empty the database and reset the app state.
    */
-  emptyDatabase: async () => {
+  emptyDatabase: async (): Promise<void> => {
     await invoke("empty_db");
   },
 };

@@ -76,16 +76,13 @@ import TabPanel from "primevue/tabpanel";
 import TabPanels from "primevue/tabpanels";
 import Tabs from "primevue/tabs";
 import { computed } from "vue";
-import { useGlobalState } from "../../shared/store";
 import {
-  IWindowContainer,
+  type IWindowContainer,
   validateFlexibleContainer,
   validateTabContainer,
 } from "../../shared/types";
 import LayoutPanel from "../LayoutPanel.vue";
 import LayoutRenderer from "./LayoutRenderer.vue";
-
-const { updateWindowProperty } = useGlobalState();
 
 const props = defineProps<{
   layout: IWindowContainer;
@@ -102,7 +99,7 @@ const orientationClass = computed(() => {
 });
 
 const containerStyle = computed(() => {
-  const style: any = {
+  const style: Record<string, string | number> = {
     display: "flex",
     flexDirection: "column",
   };

@@ -7,19 +7,19 @@
     @click="handleClick"
   >
     <!-- TODO: add syntax highlighting for the move san -->
-    <div>{{ props.move.chess_move.move_san }}</div>
+    <div>{{ props.move.game_move.move_san }}</div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { IAPIMove } from "../../shared/types";
+import type { APIMove } from "../../shared/bindings/APIMove";
 
 const props = defineProps<{
-  move: IAPIMove;
+  move: APIMove;
   isCurrentMove: boolean;
 }>();
 
-const emit = defineEmits<(e: "move-click", move: IAPIMove) => void>();
+const emit = defineEmits<(e: "move-click", move: APIMove) => void>();
 
 const handleClick = () => {
   emit("move-click", props.move);

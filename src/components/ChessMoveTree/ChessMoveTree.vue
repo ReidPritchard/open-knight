@@ -2,9 +2,9 @@
   <div class="move-tree">
     <div v-for="(move, index) in moveTree" class="move-tree-item">
       <ChessMove
-        :key="move.chess_move.id"
+        :key="move.game_move.id"
         :move="move"
-        :is-current-move="move.chess_move.id === props.currentMoveId"
+        :is-current-move="move.game_move.id === props.currentMoveId"
         @move-click="handleMoveClick"
       />
       <div v-if="move.variations.length > 0" class="move-tree-item-variations">
@@ -25,27 +25,27 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import type { IAPIMove } from "../../shared/types";
+import type { APIMove } from "../../shared/bindings/APIMove";
 import ChessMove from "./ChessMove.vue";
 
 const emit =
   defineEmits<
-    (e: "move-click", move: { move: IAPIMove; index: number }) => void
+    (e: "move-click", move: { move: APIMove; index: number }) => void
   >();
 
 const props = defineProps<{
-  moves: IAPIMove[];
+  moves: APIMove[];
   currentMoveId: number;
 }>();
 
-const buildMoveTree = (moves: IAPIMove[]) => {
+const buildMoveTree = (moves: APIMove[]) => {
   const moveTree: Array<
-    IAPIMove & { variations: IAPIMove[]; nextMoveId: number | undefined }
+    APIMove & { variations: APIMove[]; nextMoveId: number | undefined }
   > = [];
 
-  let nextMoveId: number | undefined = moves[1]?.chess_move.id;
+  let nextMoveId: number | undefined = moves[1]?.game_move.id;
   moves.forEach((move, index) => {
-    nextMoveId = moves[index + 1]?.chess_move.id;
+    nextMoveId = moves[index + 1]?.game_move.id;
     const newMove = { ...move, variations: [], nextMoveId };
     moveTree.push(newMove);
   });
@@ -55,10 +55,10 @@ const buildMoveTree = (moves: IAPIMove[]) => {
 
 const moveTree = computed(() => buildMoveTree(props.moves));
 
-const handleMoveClick = (move: IAPIMove) => {
+const handleMoveClick = (move: APIMove) => {
   // get the index of the move in the moves array
   const index = props.moves.findIndex(
-    (m) => m.chess_move.id === move.chess_move.id
+    (m) => m.game_move.id === move.game_move.id
   );
   emit("move-click", { move, index });
 };

@@ -52,18 +52,19 @@
   </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 import { UseDraggable } from "@vueuse/components";
-import { defineComponent, PropType } from "vue";
+import { computed, onMounted, watch } from "vue";
 import AspectRatio from "../AspectRatio.vue";
+import { useGameStore } from "../../stores/game";
 import {
-  Animation,
-  Arrows,
-  BoardStyle,
+  type Animation,
+  type Arrows,
+  type BoardStyle,
+  type CoordinatesStyleType,
+  type Orientation,
+  type Square,
   boardStyleColorPresets,
-  CoordinatesStyleType,
-  Orientation,
-  Square,
 } from "./types";
 import { useChessBoard } from "./useChessBoard";
 import {
@@ -73,146 +74,126 @@ import {
   pieceUnicode,
 } from "./utils";
 
-export default defineComponent({
-  name: "Chessboard",
-  props: {
-    initialPosition: {
-      type: String,
-      default: "start",
-    },
-    currentPosition: {
-      type: String,
-      default: "start",
-    },
-    orientation: {
-      type: String as PropType<Orientation>,
-      default: "white",
-    },
-    showCoordinates: {
-      type: String as PropType<CoordinatesStyleType>,
-      default: "none",
-    },
-    draggable: {
-      type: Boolean,
-      default: true,
-    },
-    animation: {
-      type: String as PropType<Animation>,
-      default: "none",
-    },
-    arrows: {
-      type: Array as PropType<Arrows>,
-      default: () => [],
-    },
-    style: {
-      type: Object as PropType<BoardStyle>,
-      default: () => ({
-        colors: boardStyleColorPresets.blue.colors,
-        squareBorderWidth: 0,
-        pieceStyle: {
-          unicodeColors: {
-            white: "#000",
-            black: "#fff",
-          },
+const props = defineProps({
+  orientation: {
+    type: String as () => Orientation,
+    default: "white",
+  },
+  showCoordinates: {
+    type: String as () => CoordinatesStyleType,
+    default: "none",
+  },
+  draggable: {
+    type: Boolean,
+    default: true,
+  },
+  animation: {
+    type: String as () => Animation,
+    default: "none",
+  },
+  arrows: {
+    type: Array as () => Arrows,
+    default: () => [],
+  },
+  style: {
+    type: Object as () => BoardStyle,
+    default: () => ({
+      colors: boardStyleColorPresets.blue.colors,
+      squareBorderWidth: 0,
+      pieceStyle: {
+        unicodeColors: {
+          white: "#000",
+          black: "#fff",
         },
-      }),
-    },
+      },
+    }),
   },
-  emits: ["move", "piece-click", "square-click"],
-  setup(props, { emit }) {
-    const {
-      board,
-      onDragStart,
-      onDragOver,
-      onDrop,
-      onPieceClick,
-      onSquareClick,
-      draggingPiece,
-    } = useChessBoard(props, emit);
+});
 
-    const onResize = () => {
-      console.log("resize");
-    };
+const emit = defineEmits<{
+  (e: "move", move: { from: Square; to: Square }): void;
+  (e: "piece-click", square: Square): void;
+  (e: "square-click", square: Square): void;
+}>();
 
-    const onResizeMouseDown = (e: MouseEvent) => {
-      console.log("resize mouse down", e);
-      e.preventDefault();
-      e.stopPropagation();
-      // Calculate the new width
-      const newWidth = e.clientX;
-      console.log("new width", newWidth);
-    };
+const gameStore = useGameStore();
 
-    return {
-      board,
-      pieceUnicode,
-      onDragStart,
-      onDragOver,
-      onDrop,
-      onPieceClick,
-      onSquareClick,
-      draggingPiece,
-      formatCoordinates,
-      onResize,
-      onResizeMouseDown,
-    };
+const currentPosition = computed(() => {
+  return gameStore.currentPosition;
+});
+
+const {
+  board,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onPieceClick,
+  onSquareClick,
+  draggingPiece,
+  updateBoard,
+} = useChessBoard(
+  {
+    currentPosition,
+    orientation: props.orientation,
+    draggable: props.draggable,
   },
-  computed: {
-    showCoordinatesClass() {
-      return (square: Square) => {
-        if (this.showCoordinates === "none") {
-          return "";
-        }
+  emit
+);
 
-        const classes = [];
+// Watch for position changes and update the board
+watch(currentPosition, () => {
+  updateBoard();
+});
 
-        const isWhiteOrientation = this.orientation === "white";
+// Watch for orientation changes and update the board
+watch(() => props.orientation, () => {
+  updateBoard();
+});
 
-        const firstRow = isWhiteOrientation ? 0 : 7;
-        const lastRow = isWhiteOrientation ? 7 : 0;
-        const firstCol = isWhiteOrientation ? 0 : 7;
-        const lastCol = isWhiteOrientation ? 7 : 0;
+const showCoordinatesClass = computed(() => {
+  return (square: Square) => {
+    if (props.showCoordinates === "none") {
+      return "";
+    }
 
-        if (
-          this.showCoordinates === "inside" ||
-          this.showCoordinates === "outside"
-        ) {
-          if (square.row === firstRow) {
-            classes.push("coordinate-bottom");
-          } else if (square.row === lastRow) {
-            classes.push("coordinate-top");
-          }
-          if (square.col === firstCol) {
-            classes.push("coordinate-left");
-          } else if (square.col === lastCol) {
-            classes.push("coordinate-right");
-          }
-        } else if (this.showCoordinates === "verbose") {
-          classes.push(
-            "coordinate-top",
-            "coordinate-bottom",
-            "coordinate-left",
-            "coordinate-right",
-          );
-        }
+    const classes = [];
+    const isWhiteOrientation = props.orientation === "white";
+    const firstRow = isWhiteOrientation ? 0 : 7;
+    const lastRow = isWhiteOrientation ? 7 : 0;
+    const firstCol = isWhiteOrientation ? 0 : 7;
+    const lastCol = isWhiteOrientation ? 7 : 0;
 
-        classes.push(`show-coordinates-${this.showCoordinates}`);
+    if (props.showCoordinates === "inside" || props.showCoordinates === "outside") {
+      if (square.row === firstRow) {
+        classes.push("coordinate-bottom");
+      } else if (square.row === lastRow) {
+        classes.push("coordinate-top");
+      }
+      if (square.col === firstCol) {
+        classes.push("coordinate-left");
+      } else if (square.col === lastCol) {
+        classes.push("coordinate-right");
+      }
+    } else if (props.showCoordinates === "verbose") {
+      classes.push(
+        "coordinate-top",
+        "coordinate-bottom",
+        "coordinate-left",
+        "coordinate-right"
+      );
+    }
 
-        return classes;
-      };
-    },
-    squareStyle() {
-      return (square: Square) => getSquareStyle(square, this.style);
-    },
-    boardPosition() {
-      console.log(this.currentPosition);
-      return parseFenToBoard(this.currentPosition);
-    },
-  },
-  components: {
-    AspectRatio,
-    UseDraggable,
-  },
+    classes.push(`show-coordinates-${props.showCoordinates}`);
+    return classes;
+  };
+});
+
+const squareStyle = computed(() => {
+  return (square: Square) => getSquareStyle(square, props.style);
+});
+
+const boardPosition = computed(() => {
+  return board.value;
 });
 </script>
 
@@ -252,8 +233,6 @@ export default defineComponent({
 
 .piece[draggable="true"] {
   cursor: grab;
-
-  /* Prevent text selection */
   -moz-user-select: none;
   -khtml-user-select: none;
   -webkit-user-select: none;
@@ -272,7 +251,7 @@ export default defineComponent({
 }
 
 .is-target {
-  border: 2px solid red;
+  border: 2px solid var(--p-primary-color);
 }
 
 .show-coordinates-inside::after {
@@ -322,7 +301,6 @@ export default defineComponent({
   position: absolute;
   top: 0;
   left: 0;
-
   content: attr(data-coordinates);
   font-size: var(--coordinate-font-size);
   color: var(--p-content-color);

@@ -2,18 +2,20 @@
 import "primeicons/primeicons.css";
 import { onMounted, watch } from "vue";
 import LayoutRenderer from "./components/AppLayout/LayoutRenderer.vue";
-import { useGlobalState } from "./shared/store";
+import { useGameStore } from "./stores/game";
+import { useUIStore } from "./stores/ui";
 import DynamicDialog from "primevue/dynamicdialog";
 
-const { layout, updateGames, fetchSelectedGame } = useGlobalState();
+const gameStore = useGameStore();
+const uiStore = useUIStore();
 
 onMounted(async () => {
-  await updateGames();
-  await fetchSelectedGame();
+  await gameStore.updateGames();
+  await gameStore.fetchSelectedGame();
 });
 
 watch(
-  layout,
+  () => uiStore.layout,
   (newLayout) => {
     localStorage.setItem("app-layout", JSON.stringify(newLayout));
   },
@@ -22,7 +24,7 @@ watch(
 </script>
 
 <template>
-  <LayoutRenderer :layout="layout" />
+  <LayoutRenderer :layout="uiStore.layout" />
   <DynamicDialog />
 </template>
 
