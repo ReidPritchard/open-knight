@@ -1,5 +1,9 @@
-use crate::models::*;
-use convert::{parsing_games_to_models, to_explorer_games};
+use crate::models::{
+    api::APIGame,
+    db::{Game, Header},
+    game::ExplorerGame,
+};
+use convert::parsing_games_to_models;
 use loader::load_pgn;
 use shakmaty::san::San;
 use state::AppState;
@@ -63,25 +67,29 @@ fn parse_pgn(pgn: &str, state: tauri::State<AppState>) -> Result<String, String>
     // Process the games in a transaction to ensure database consistency
     let result = || -> Result<String, String> {
         // Convert to database models
-        let (games, moves) = parsing_games_to_models(parsing_games.clone());
+        let (games, moves, headers) = parsing_games_to_models(parsing_games.clone());
 
         // Insert into database
         database::game::insert_games(&games).map_err(|e| format!("Database error: {}", e))?;
         database::move_::insert_moves(&moves).map_err(|e| format!("Database error: {}", e))?;
+        database::header::insert_headers(&headers).map_err(|e| format!("Database error: {}", e))?;
 
-        // Retrieve all games and moves
-        let games: Vec<db::Game> =
-            database::game::get_all_games().map_err(|e| format!("Database error: {}", e))?;
+        // Get all games with their headers in a single query
+        let games_with_headers = database::game::get_all_games_with_headers()
+            .map_err(|e| format!("Database error: {}", e))?;
 
-        let explorer_games: Vec<game::ExplorerGame> = to_explorer_games(games);
+        // Convert to explorer games
+        let explorer_games = games_with_headers
+            .into_iter()
+            .map(|(game, headers)| ExplorerGame::from((game, headers)))
+            .collect::<Vec<_>>();
 
         // Update application state
         state
             .explorer
             .lock()
             .map_err(|e| format!("State error: {}", e))?
-            .games
-            .extend(explorer_games.clone());
+            .extend(&explorer_games);
 
         // Serialize the result
         serde_json::to_string(&explorer_games).map_err(|e| format!("Serialization error: {}", e))
@@ -111,7 +119,7 @@ fn set_selected_game(game_id: Option<i32>, state: tauri::State<AppState>) -> Res
 
 #[tauri::command]
 fn get_selected_game(state: tauri::State<AppState>) -> String {
-    let selected_game: Option<api::APIGame> = state.selected_game.lock().unwrap().clone();
+    let selected_game = state.selected_game.lock().unwrap().clone();
     serde_json::to_string_pretty(&selected_game).unwrap()
 }
 

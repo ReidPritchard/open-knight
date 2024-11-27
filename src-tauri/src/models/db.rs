@@ -3,6 +3,11 @@ use serde::{Deserialize, Serialize};
 use ts_bind::TsBind;
 
 /// Core game type that represents a chess game in the database
+///
+/// TODO: the fields are metadata about the game and ideally
+/// cover the 7-archive tags that all games should have.
+/// See: http://www.saremba.de/chessgml/standards/pgn/pgn-complete.htm#c8.1.1
+/// All other tags are stored in the `headers` table.
 #[derive(
     Queryable,
     Identifiable,
@@ -54,7 +59,7 @@ pub struct Game {
 )]
 pub struct Move {
     #[diesel(deserialize_as = i32)]
-    pub id: Option<i32>,
+    pub id: Option<i32>, // TODO: Auto incremented by database so nullable for insert, but not when queried
     pub game_id: i32,
     pub move_number: i32,
     pub move_san: String,
@@ -82,7 +87,7 @@ pub struct Move {
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Position {
     #[diesel(deserialize_as = i32)]
-    pub id: Option<i32>,
+    pub id: Option<i32>, // TODO: Auto incremented by database so nullable for insert, but not when queried
     pub fen: String,
     pub annotation: Option<String>,
 }
@@ -108,7 +113,7 @@ pub struct Position {
 )]
 pub struct Header {
     #[diesel(deserialize_as = i32)]
-    pub id: Option<i32>,
+    pub id: Option<i32>, // TODO: Auto incremented by database so nullable for insert, but not when queried
     pub game_id: i32,
     pub header_key: String,
     pub header_value: String,

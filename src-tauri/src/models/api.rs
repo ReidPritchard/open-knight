@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use ts_bind::TsBind;
 
-use super::db::{Game, Move, Position};
+use super::db::{Game, Header, Move, Position};
 use super::game::FullGame;
 
 /// Represents a move with its parent and child positions.
@@ -31,11 +31,16 @@ pub struct APIGame {
     #[serde(flatten)]
     pub game: Game,
     pub moves: Vec<APIMove>,
+    pub headers: Vec<Header>,
 }
 
-impl From<(Game, Vec<APIMove>)> for APIGame {
-    fn from((game, moves): (Game, Vec<APIMove>)) -> Self {
-        APIGame { game, moves }
+impl From<(Game, Vec<APIMove>, Vec<Header>)> for APIGame {
+    fn from((game, moves, headers): (Game, Vec<APIMove>, Vec<Header>)) -> Self {
+        APIGame {
+            game,
+            moves,
+            headers,
+        }
     }
 }
 
@@ -44,6 +49,7 @@ impl From<Game> for APIGame {
         APIGame {
             game,
             moves: Vec::new(),
+            headers: Vec::new(),
         }
     }
 }
@@ -53,6 +59,7 @@ impl From<FullGame> for APIGame {
         APIGame {
             game: full_game.game,
             moves: Vec::new(), // Convert moves if needed
+            headers: Vec::new(),
         }
     }
 }

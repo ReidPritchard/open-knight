@@ -40,9 +40,11 @@ impl ExplorerState {
     }
 
     pub fn load_games_from_db(&mut self) -> Result<(), database::DatabaseError> {
-        let games = database::game::get_all_games()?;
-        let explorer_games = games.into_iter().map(ExplorerGame::from).collect();
-        self.games = explorer_games;
+        let games_with_headers = database::game::get_all_games_with_headers()?;
+        self.games = games_with_headers
+            .into_iter()
+            .map(|(game, headers)| ExplorerGame::from((game, headers)))
+            .collect();
         Ok(())
     }
 }
