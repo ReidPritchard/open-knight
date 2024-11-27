@@ -1,10 +1,9 @@
-use api_types::{APIGame, ExplorerGame};
-use convert::{game_results_to_games_and_moves, games_and_moves_to_api_games, moves_to_api_moves};
+use crate::models::*;
+use convert::{parsing_games_to_models, to_explorer_games};
 use loader::load_pgn;
 use shakmaty::san::San;
 use state::AppState;
 
-mod api_types;
 mod convert;
 mod database;
 mod loader;
@@ -13,87 +12,107 @@ mod parser;
 mod schema;
 mod state;
 
+/// Error type for PGN parsing and processing
+#[derive(Debug, serde::Serialize)]
+pub enum PGNError {
+    ParseError(String),
+    DatabaseError(String),
+    SerializationError(String),
+}
+
+impl std::fmt::Display for PGNError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PGNError::ParseError(e) => write!(f, "Parse error: {}", e),
+            PGNError::DatabaseError(e) => write!(f, "Database error: {}", e),
+            PGNError::SerializationError(e) => write!(f, "Serialization error: {}", e),
+        }
+    }
+}
+
 #[tauri::command]
-fn empty_db(state: tauri::State<AppState>) {
-    database::setup::empty_db();
+fn empty_db(state: tauri::State<AppState>) -> Result<(), String> {
+    database::setup::empty_db().map_err(|e| format!("Database error: {}", e))?;
 
     // Reset the app state
     state.clear();
+    Ok(())
 }
 
 #[tauri::command]
 fn san_to_move(san: &str) -> String {
     let move_result: Result<San, _> = san.parse();
-
-    let move_result = match move_result {
+    match move_result {
         Ok(m) => format!("{:?}", m),
         Err(e) => format!("{:?}", e),
-    };
-
-    move_result
+    }
 }
 
 #[tauri::command]
-fn parse_pgn(pgn: &str, state: tauri::State<AppState>) -> String {
-    let load_result = load_pgn(pgn);
-    let game_results = load_result.get_game_results();
-    // FIXME: This is super gross, but finding a type that works for the loader, database, and API
-    // is a pain. Going to do this until all the edge cases are identified then refactor.
+fn parse_pgn(pgn: &str, state: tauri::State<AppState>) -> Result<String, String> {
+    // Load and parse the PGN
+    let load_result = load_pgn(pgn).map_err(|e| e.to_string())?;
 
-    // Convert to games and moves (for database insertion)
-    let (games, moves) = game_results_to_games_and_moves(game_results.clone());
+    // Early return if there were parsing errors
+    if !load_result.success {
+        return Err(load_result.errors.join("\n"));
+    }
 
-    // Insert into the database
-    database::game::insert_games(&games);
-    database::move_::insert_moves(&moves);
+    let parsing_games = load_result.get_games();
 
-    // Get all the games and moves from the database
-    let games = database::game::get_all_games();
-    let moves = database::move_::get_all_moves();
+    // Process the games in a transaction to ensure database consistency
+    let result = || -> Result<String, String> {
+        // Convert to database models
+        let (games, moves) = parsing_games_to_models(parsing_games.clone());
 
-    // Convert to API games
-    let api_games: Vec<APIGame> = games
-        .iter()
-        .map(|game| APIGame::from((game.clone(), moves.clone())))
-        .collect();
+        // Insert into database
+        database::game::insert_games(&games).map_err(|e| format!("Database error: {}", e))?;
+        database::move_::insert_moves(&moves).map_err(|e| format!("Database error: {}", e))?;
 
-    let explorer_games = api_games
-        .iter()
-        .map(|game| ExplorerGame::from(game.clone()))
-        .collect();
+        // Retrieve all games and moves
+        let games: Vec<db::Game> =
+            database::game::get_all_games().map_err(|e| format!("Database error: {}", e))?;
 
-    // Save the result to the app state
-    state.explorer.lock().unwrap().extend(&explorer_games);
+        let explorer_games: Vec<game::ExplorerGame> = to_explorer_games(games);
 
-    serde_json::to_string(&game_results).unwrap()
+        // Update application state
+        state
+            .explorer
+            .lock()
+            .map_err(|e| format!("State error: {}", e))?
+            .games
+            .extend(explorer_games.clone());
+
+        // Serialize the result
+        serde_json::to_string(&explorer_games).map_err(|e| format!("Serialization error: {}", e))
+    }();
+
+    result
 }
 
 #[tauri::command]
 fn get_explorer_state(state: tauri::State<AppState>) -> String {
     let explorer = state.explorer.lock().unwrap().clone();
-
-    let explorer_json = serde_json::to_string_pretty(&explorer).unwrap();
-
-    explorer_json
+    serde_json::to_string_pretty(&explorer).unwrap()
 }
 
 #[tauri::command]
-fn set_selected_game(game_id: Option<i32>, state: tauri::State<AppState>) {
-    println!("Setting selected game: {}", game_id.unwrap_or(-1));
+fn set_selected_game(game_id: Option<i32>, state: tauri::State<AppState>) -> Result<(), String> {
     if let Some(game_id) = game_id {
-        let api_game = database::game::get_full_game_by_id(game_id).unwrap();
+        let api_game = database::game::get_full_game_by_id(game_id)
+            .map_err(|e| format!("Database error: {}", e))?
+            .ok_or_else(|| format!("Game not found: {}", game_id))?;
         state.set_selected_game(Some(api_game));
     } else {
         state.set_selected_game(None);
     }
+    Ok(())
 }
 
 #[tauri::command]
 fn get_selected_game(state: tauri::State<AppState>) -> String {
-    let selected_game = state.selected_game.lock().unwrap().clone();
-    let selected_game_json = serde_json::to_string_pretty(&selected_game).unwrap();
-
-    selected_game_json
+    let selected_game: Option<api::APIGame> = state.selected_game.lock().unwrap().clone();
+    serde_json::to_string_pretty(&selected_game).unwrap()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

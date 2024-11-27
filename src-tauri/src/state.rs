@@ -1,6 +1,6 @@
 use crate::{
-    api_types::{APIGame, ExplorerGame},
     database,
+    models::{api::APIGame, game::ExplorerGame},
 };
 use serde::Serialize;
 use std::sync::Mutex;
@@ -35,18 +35,15 @@ impl ExplorerState {
         self.games.clear();
     }
 
-    pub fn extend(&mut self, games: &Vec<ExplorerGame>) {
+    pub fn extend(&mut self, games: &[ExplorerGame]) {
         self.games.extend(games.iter().cloned());
     }
 
-    pub fn load_games_from_db(&mut self) {
-        let games = database::game::get_all_games();
-
-        let explorer_games = games
-            .iter()
-            .map(|game| ExplorerGame::from(game.clone()))
-            .collect::<Vec<ExplorerGame>>();
-        self.games.extend(explorer_games);
+    pub fn load_games_from_db(&mut self) -> Result<(), database::DatabaseError> {
+        let games = database::game::get_all_games()?;
+        let explorer_games = games.into_iter().map(ExplorerGame::from).collect();
+        self.games = explorer_games;
+        Ok(())
     }
 }
 
@@ -59,7 +56,7 @@ impl Default for ExplorerState {
 impl AppState {
     pub fn new() -> Self {
         let mut explorer = ExplorerState::new();
-        explorer.load_games_from_db();
+        let _ = explorer.load_games_from_db();
 
         AppState {
             explorer: Mutex::new(explorer),

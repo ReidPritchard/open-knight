@@ -15,6 +15,15 @@ diesel::table! {
 }
 
 diesel::table! {
+    headers (id) {
+        id -> Integer,
+        game_id -> Integer,
+        header_key -> Text,
+        header_value -> Text,
+    }
+}
+
+diesel::table! {
     moves (id) {
         id -> Integer,
         game_id -> Integer,
@@ -35,6 +44,4 @@ diesel::table! {
     }
 }
 
-diesel::joinable!(moves -> games (game_id));
-
-diesel::allow_tables_to_appear_in_same_query!(games, moves, positions);
+diesel::allow_tables_to_appear_in_same_query!(games, headers, moves, positions,);

@@ -68,6 +68,7 @@ export const useGameStore = defineStore("game", {
     },
 
     async updateGames() {
+      console.log("Updating games");
       const parsedState = await api.getExplorerState();
       this.games = parsedState;
     },

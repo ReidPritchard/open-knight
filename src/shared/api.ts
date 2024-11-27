@@ -49,14 +49,13 @@ export default {
     return apiSelectedGameToGame(serializedGame);
   },
 
-  
-
   /**
    * Parse a PGN text and update the games and selected game.
    * @param pgnText The PGN text to parse
    */
   parsePgnText: async (pgnText: string): Promise<void> => {
-    await invoke("parse_pgn", { pgn: pgnText });
+    const result = await invoke("parse_pgn", { pgn: pgnText });
+    console.log("Parse PGN result:", result);
   },
 
   /**

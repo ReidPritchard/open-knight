@@ -21,7 +21,14 @@ function getWindowById(layout: ILayout, windowId: string): IWindow | null {
 export const useUIStore = defineStore("ui", {
   state: () => ({
     layout: applicationLayout as ILayout,
-    visibleGameHeaders: [] as string[],
+    visibleGameHeaders: [
+      "Event",
+      "Date",
+      "White",
+      "Black",
+      "Result",
+      "Opening",
+    ] as string[],
     theme: getDefaultTheme() as "light" | "dark",
   }),
 

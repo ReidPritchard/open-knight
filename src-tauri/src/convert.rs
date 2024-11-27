@@ -1,6 +1,8 @@
-use crate::api_types::{APIGame, APIMove};
-use crate::loader::GameResult;
-use crate::models::{Game, Move, Position};
+use crate::models::{
+    api::{APIGame, APIMove},
+    db::{Game, Move, Position},
+    game::{ExplorerGame, FullGame, ParsingGame},
+};
 
 impl From<shakmaty::san::San> for Move {
     fn from(value: shakmaty::san::San) -> Self {
@@ -11,54 +13,25 @@ impl From<shakmaty::san::San> for Move {
     }
 }
 
-impl From<GameResult> for Game {
-    fn from(value: GameResult) -> Self {
-        Game {
-            id: Some(value.id),
-            pgn: value.pgn,
-            // Map headers to Game fields as needed
-            player_white: value
-                .headers
-                .iter()
-                .find(|(k, _)| k == "White")
-                .map(|(_, v)| v.clone()),
-            player_black: value
-                .headers
-                .iter()
-                .find(|(k, _)| k == "Black")
-                .map(|(_, v)| v.clone()),
-            // Add other fields as needed
-            ..Default::default()
-        }
-    }
-}
+/// Convert a vector of parsing games to database models
+pub fn parsing_games_to_models(parsing_games: Vec<ParsingGame>) -> (Vec<Game>, Vec<Move>) {
+    let games: Vec<Game> = parsing_games.iter().map(|pg| pg.game.clone()).collect();
 
-pub fn game_results_to_games_and_moves(game_results: Vec<GameResult>) -> (Vec<Game>, Vec<Move>) {
-    let games: Vec<Game> = game_results
+    let moves: Vec<Move> = parsing_games
         .iter()
-        .map(|gr| Game::from(gr.clone()))
+        .flat_map(|pg| pg.moves.clone())
         .collect();
-    let moves: Vec<Move> = game_results
-        .iter()
-        .flat_map(|gr| {
-            gr.moves.iter().map(move |m| Move {
-                game_id: gr.id,
-                ..m.clone()
-            })
-        })
-        .collect();
+
     (games, moves)
 }
 
+/// Convert database moves to API moves
 pub fn moves_to_api_moves(moves: Vec<(Move, Position, Position)>) -> Vec<APIMove> {
     moves.into_iter().map(APIMove::from).collect()
 }
 
-/**
- * Convert a vector of games and a vector of moves (from all games)
- * to a vector of API games.
- */
-pub fn games_and_moves_to_api_games(games: Vec<Game>, moves: Vec<APIMove>) -> Vec<APIGame> {
+/// Convert database models to API games
+pub fn to_api_games(games: Vec<Game>, moves: Vec<APIMove>) -> Vec<APIGame> {
     games
         .into_iter()
         .map(|game| {
@@ -68,6 +41,29 @@ pub fn games_and_moves_to_api_games(games: Vec<Game>, moves: Vec<APIMove>) -> Ve
                 .cloned()
                 .collect();
             APIGame::from((game, game_moves))
+        })
+        .collect()
+}
+
+/// Convert database models to explorer games
+pub fn to_explorer_games(games: Vec<Game>) -> Vec<ExplorerGame> {
+    games.into_iter().map(ExplorerGame::from).collect()
+}
+
+/// Convert database models to full games
+pub fn to_full_games(games: Vec<Game>, moves: Vec<Move>) -> Vec<FullGame> {
+    games
+        .into_iter()
+        .map(|game| {
+            let game_moves = moves
+                .iter()
+                .filter(|m| m.game_id == game.id.unwrap())
+                .cloned()
+                .collect();
+            FullGame {
+                game,
+                moves: game_moves,
+            }
         })
         .collect()
 }

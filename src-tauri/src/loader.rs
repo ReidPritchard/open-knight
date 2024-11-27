@@ -1,208 +1,198 @@
-use serde::Serialize;
-use shakmaty::Chess;
+use std::fmt;
 
-use crate::{database, models::Move, parser};
+use crate::{
+    database::{self, DatabaseError},
+    models::{
+        db::{Game, Move},
+        game::ParsingGame,
+    },
+};
 
-/// A result from loading a PGN file
-///
-/// Can contain multiple games, moves, and headers
-#[derive(Debug, Clone)]
-pub struct LoadResult {
-    pub games: Vec<GameResult>,
-    pub success: bool,
+#[derive(Debug)]
+pub enum LoaderError {
+    ParseError(String),
+    DatabaseError(DatabaseError),
+    ChessError(String),
 }
 
-/// Type for a single game+headers+errors result from the pgn loader
-#[derive(Debug, Clone, Serialize)]
-pub struct GameResult {
-    pub id: i32,
-    pub headers: Vec<(String, String)>,
-    #[serde(skip)]
-    pub game: Option<Chess>,
-    pub moves: Vec<Move>,
-    pub positions: Vec<crate::models::Position>,
-    pub pgn: String,
+impl fmt::Display for LoaderError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LoaderError::ParseError(e) => write!(f, "Parse error: {}", e),
+            LoaderError::DatabaseError(e) => write!(f, "Database error: {}", e),
+            LoaderError::ChessError(e) => write!(f, "Chess error: {}", e),
+        }
+    }
+}
+
+impl From<DatabaseError> for LoaderError {
+    fn from(err: DatabaseError) -> Self {
+        LoaderError::DatabaseError(err)
+    }
+}
+
+/// A result from loading a PGN file
+#[derive(Debug, Clone)]
+pub struct LoadResult {
+    pub games: Vec<ParsingGame>,
+    pub success: bool,
     pub errors: Vec<String>,
 }
 
-impl GameResult {
+impl LoadResult {
     pub fn new() -> Self {
-        GameResult {
-            id: 0,
-            headers: Vec::new(),
-            game: Some(Chess::default()),
-            moves: Vec::new(),
-            positions: Vec::new(),
-            pgn: String::new(),
+        LoadResult {
+            games: Vec::new(),
+            success: true,
             errors: Vec::new(),
         }
     }
 
-    pub fn new_with_id(id: i32) -> Self {
-        GameResult {
-            id,
-            ..GameResult::new()
-        }
-    }
-}
-
-impl LoadResult {
-    pub fn get_game_results(&self) -> &Vec<GameResult> {
+    pub fn get_games(&self) -> &Vec<ParsingGame> {
         &self.games
     }
+
+    pub fn add_error(&mut self, error: String) {
+        self.success = false;
+        self.errors.push(error);
+    }
 }
 
-pub fn load_pgn(pgn: &str) -> LoadResult {
+pub fn load_pgn(pgn: &str) -> Result<LoadResult, LoaderError> {
+    let mut result = LoadResult::new();
+
     // Parse the pgn (returns a vector of tokens or errors)
-    let tokens = parser::parse_pgn(pgn);
+    let tokens = crate::parser::parse_pgn(pgn)
+        .map_err(|e| LoaderError::ParseError(format!("Failed to parse PGN: {:?}", e)))?;
 
-    let mut games: Vec<GameResult> = Vec::new();
-    // Tokens can contain multiple games, so we need to loop through them
-    // and determine where each game starts and ends while parsing
-    if let Ok(tokens) = tokens {
-        let mut game_started = false;
+    let mut game_started = false;
+    let game_count = database::game::get_game_id_count()?;
 
-        // Create a new game result for the first game
-        games.push(GameResult::new_with_id(
-            ((database::game::get_game_id_count() as i64 + games.len() as i64) + 1) as i32,
-        ));
-        let mut current_game_idx = 0;
-        // State for the current game
-        let mut current_game_move_number: u32 = 0;
-        let mut current_game_variation_id: u32 = 0;
+    // Create a new game result for the first game
+    let mut current_game = ParsingGame::from(Game {
+        id: Some(((game_count as i64) + 1) as i32),
+        ..Default::default()
+    });
 
-        // State for all moves in all parsed games
-        let mut total_move_count = 0;
-        tokens.iter().for_each(|token| {
-            // If we've already seen a game's moves, we should consider this a new game
-            if game_started && matches!(token, parser::PgnToken::Tag(_, _)) {
-                println!("Game complete, adding new game");
-                games.push(GameResult::new_with_id(
-                    ((database::game::get_game_id_count() as i64 + games.len() as i64) + 1) as i32,
-                ));
-                current_game_idx += 1;
-                current_game_move_number = 0;
-                current_game_variation_id = 0;
+    let mut current_game_move_number: u32 = 0;
+    let mut current_game_variation_id: u32 = 0;
 
-                game_started = false;
+    for token in tokens.iter() {
+        // If we've already seen a game's moves, we should consider this a new game
+        if game_started && matches!(token, crate::parser::PgnToken::Tag(_, _)) {
+            result.games.push(current_game);
+            current_game = ParsingGame::from(Game {
+                id: Some(((game_count as i64 + result.games.len() as i64) + 1) as i32),
+                ..Default::default()
+            });
+            current_game_move_number = 0;
+            current_game_variation_id = 0;
+            game_started = false;
+        }
+
+        match token {
+            crate::parser::PgnToken::Tag(key, value) => {
+                match key.as_str() {
+                    "White" => current_game.game.player_white = Some(value.clone()),
+                    "Black" => current_game.game.player_black = Some(value.clone()),
+                    "Event" => current_game.game.event = Some(value.clone()),
+                    "Date" => current_game.game.date_text = Some(value.clone()),
+                    "Result" => current_game.game.result = Some(value.clone()),
+                    _ => {} // Ignore other tags for now
+                }
             }
+            crate::parser::PgnToken::Move(mv) => {
+                game_started = true;
 
-            let game_result = games.get_mut(current_game_idx).unwrap();
-            match token {
-                parser::PgnToken::Tag(key, value) => {
-                    println!("TAG: {} = {}", key, value);
-                    game_result
-                        .headers
-                        .push((key.to_string(), value.to_string()));
-                }
-                parser::PgnToken::Move(mv) => {
-                    game_started = true;
-                    total_move_count += 1;
+                // Parse the move string into a shakmaty san object
+                let san_obj = shakmaty::san::San::from_ascii(mv.as_bytes()).map_err(|e| {
+                    LoaderError::ChessError(format!("Invalid SAN move {}: {}", mv, e))
+                })?;
 
-                    println!("MOVE: {}", mv);
+                let mut before_move_fen: Option<String> = None;
+                let mut after_move_fen: Option<String> = None;
 
-                    // Parse the move string into a shakmaty san object (this removes the check/checkmate suffix)
-                    let san_obj = shakmaty::san::San::from_ascii(mv.as_bytes()).unwrap();
-                    let mut before_move_fen: Option<String> = None;
-                    let mut after_move_fen: Option<String> = None;
-
-                    // See if we can play the move in the current game state
-                    if let Some(ref mut game) = game_result.game {
-                        // Get the FEN of the current position
-                        before_move_fen = Some(
-                            shakmaty::Position::board(game)
-                                .board_fen(shakmaty::Position::promoted(game))
-                                .to_string(),
-                        );
-
-                        // Convert the move string into a move object and try to play it
-                        let mv_obj = san_obj.to_move(game).unwrap();
-
-                        let is_valid_move = shakmaty::Position::is_legal(game, &mv_obj);
-                        if !is_valid_move {
-                            game_result.errors.push(format!("Invalid move: {}", mv));
-                        } else {
-                            // TODO: We probably need to handle variations here in order to avoid overwriting the game state
-                            shakmaty::Position::play_unchecked(game, &mv_obj);
-                            after_move_fen = Some(
-                                shakmaty::Position::board(game)
-                                    .board_fen(shakmaty::Position::promoted(game))
-                                    .to_string(),
-                            );
-                        }
-                    }
-
-                    let mut before_move_position_id = database::position::get_position_id_by_fen(
-                        before_move_fen.as_ref().unwrap(),
+                // Process the move in the current game state
+                if let Some(ref mut game) = current_game.chess_position {
+                    before_move_fen = Some(
+                        shakmaty::Position::board(game)
+                            .board_fen(shakmaty::Position::promoted(game))
+                            .to_string(),
                     );
-                    if before_move_position_id.is_none() {
-                        println!(
-                            "Creating new position for before move fen: {}",
-                            before_move_fen.as_ref().unwrap()
-                        );
-                        // Create a new position
-                        let new_position_id =
-                            database::position::create_position(before_move_fen.as_ref().unwrap());
-                        before_move_position_id = Some(new_position_id);
+
+                    // Convert and validate the move
+                    let mv_obj = san_obj.to_move(game).map_err(|e| {
+                        LoaderError::ChessError(format!("Invalid move {}: {}", mv, e))
+                    })?;
+
+                    if !shakmaty::Position::is_legal(game, &mv_obj) {
+                        current_game.errors.push(format!("Invalid move: {}", mv));
+                        continue;
                     }
 
-                    let mut after_move_position_id = database::position::get_position_id_by_fen(
-                        after_move_fen.as_ref().unwrap(),
+                    shakmaty::Position::play_unchecked(game, &mv_obj);
+                    after_move_fen = Some(
+                        shakmaty::Position::board(game)
+                            .board_fen(shakmaty::Position::promoted(game))
+                            .to_string(),
                     );
-                    if after_move_position_id.is_none() {
-                        println!(
-                            "Creating new position for after move fen: {}",
-                            after_move_fen.as_ref().unwrap()
-                        );
-                        // Create a new position
-                        let new_position_id =
-                            database::position::create_position(after_move_fen.as_ref().unwrap());
-                        after_move_position_id = Some(new_position_id);
-                    }
+                }
 
-                    // Convert the move token string into a move object
-                    let move_object = Move {
-                        game_id: game_result.id,
-                        move_san: mv.to_string(),
-                        move_number: current_game_move_number as i32,
-                        variation_order: Some(current_game_variation_id as i32),
-                        parent_position_id: before_move_position_id.unwrap(),
-                        child_position_id: after_move_position_id.unwrap(),
-                        ..Default::default()
-                    };
-                    game_result.moves.push(move_object);
-                }
-                parser::PgnToken::MoveNumber(num) => {
-                    println!("MOVE NUMBER: {}", num);
-                    current_game_move_number = *num;
-                }
-                parser::PgnToken::Variation(tokens) => {
-                    println!("VARIATION: {:?}", tokens);
-                    current_game_variation_id += 1;
-                    // TODO: recursively parse the variation
-                    current_game_variation_id -= 1;
-                }
-                parser::PgnToken::Comment(comment) => {
-                    println!("COMMENT: {}", comment);
-                    // Assume the comment is for the last move
-                    let last_move = game_result.moves.last_mut().unwrap();
+                // Handle position database operations
+                let before_move_position_id = match database::position::get_position_id_by_fen(
+                    before_move_fen.as_ref().unwrap(),
+                )? {
+                    Some(id) => id,
+                    None => database::position::create_position(before_move_fen.as_ref().unwrap())?,
+                };
+
+                let after_move_position_id = match database::position::get_position_id_by_fen(
+                    after_move_fen.as_ref().unwrap(),
+                )? {
+                    Some(id) => id,
+                    None => database::position::create_position(after_move_fen.as_ref().unwrap())?,
+                };
+
+                // Create and store the move
+                let move_object = Move {
+                    game_id: current_game.game.id.unwrap(),
+                    move_san: mv.to_string(),
+                    move_number: current_game_move_number as i32,
+                    variation_order: Some(current_game_variation_id as i32),
+                    parent_position_id: before_move_position_id,
+                    child_position_id: after_move_position_id,
+                    ..Default::default()
+                };
+                current_game.moves.push(move_object);
+            }
+            crate::parser::PgnToken::MoveNumber(num) => {
+                current_game_move_number = *num;
+            }
+            crate::parser::PgnToken::Variation(tokens) => {
+                current_game_variation_id += 1;
+                // TODO: recursively parse the variation
+                current_game_variation_id -= 1;
+            }
+            crate::parser::PgnToken::Comment(comment) => {
+                if let Some(last_move) = current_game.moves.last_mut() {
                     last_move.annotation = Some(comment.to_string());
                 }
-                parser::PgnToken::Result(result) => {
-                    println!("RESULT: {}", result);
-                }
-                _ => {
-                    println!("UNKNOWN TOKEN: {:?}", token);
-                    game_result
-                        .errors
-                        .push(format!("Unknown token: {:?}", token));
-                }
             }
-        });
+            crate::parser::PgnToken::Result(_) => {
+                // Store game result if needed
+            }
+            _ => {
+                current_game
+                    .errors
+                    .push(format!("Unexpected token: {:?}", token));
+            }
+        }
     }
 
-    LoadResult {
-        games,
-        success: true,
+    // Don't forget to add the last game
+    if !current_game.moves.is_empty() {
+        result.games.push(current_game);
     }
+
+    Ok(result)
 }
