@@ -24,7 +24,7 @@
   <a href="https://github.com/reidpritchard/open-knight/issues/">
     <img src="https://img.shields.io/github/issues/reidpritchard/open-knight" alt="open issues" />
   </a>
-  <a href="https://github.com/reidpritchard/open-knight/blob/main/LICENSE">
+  <a href="https://github.com/reidpritchard/open-knight/blob/main/docs/LICENSE">
     <img alt="GitHub License" src="https://img.shields.io/github/license/reidpritchard/open-knight">
   </a>
 </p>
