@@ -24,8 +24,10 @@ watch(
 </script>
 
 <template>
-  <LayoutRenderer :layout="uiStore.layout" />
-  <DynamicDialog />
+  <div class="app-root">
+    <LayoutRenderer :layout="uiStore.layout" />
+    <DynamicDialog />
+  </div>
 </template>
 
 <style>
@@ -49,18 +51,74 @@ watch(
 }
 
 html,
-body,
+body {
+  height: 100vh;
+  width: 100vw;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 #app {
   height: 100vh;
   width: 100vw;
+  overflow: hidden;
+}
 
-  max-height: 100vh;
-  max-width: 100vw;
-
-  margin: 0;
-  padding: 0;
-
+.app-root {
+  height: 100vh;
+  width: 100vw;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+/* Root layout styles */
+.app-root > :first-child {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Menu bar */
+[data-container-id="menu-bar"] {
+  flex-shrink: 0;
+}
+
+/* Status bar */
+[data-container-id="status-bar"] {
+  flex-shrink: 0;
+}
+
+/* Main area */
+[data-container-id="main-area"] {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Content area */
+[data-container-id="content-area"] {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Center pane */
+[data-container-id="center-pane"] {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Bottom panel container */
+[data-container-id="bottom-bar"] {
+  flex-shrink: 0;
 }
 </style>

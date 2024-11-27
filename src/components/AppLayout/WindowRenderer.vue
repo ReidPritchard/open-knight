@@ -23,7 +23,7 @@
           />
         </svg>
       </button>
-      <div v-show="!layout.collapsed" class="p-4">
+      <div v-show="!layout.collapsed" class="">
         <component :is="contentComponent" v-if="contentComponent" />
       </div>
     </div>

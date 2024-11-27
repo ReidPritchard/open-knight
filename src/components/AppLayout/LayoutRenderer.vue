@@ -1,37 +1,24 @@
 <template>
-  <component :is="layoutComponent" :layout="layout" />
+  <WindowRenderer
+    v-if="isWindowComponent(props.layout)"
+    :layout="props.layout"
+  />
+  <ContainerRenderer v-else :layout="props.layout" />
 </template>
 
-<script lang="ts">
-import { type Component, computed, defineComponent } from "vue";
-import type { ILayout } from "../../shared/types";
+<script setup lang="ts">
+import type { ILayout, IWindow } from "../../shared/types";
 import ContainerRenderer from "./ContainerRenderer.vue";
 import WindowRenderer from "./WindowRenderer.vue";
 
-export default defineComponent({
-  name: "LayoutRenderer",
-  components: {
-    WindowRenderer,
-    ContainerRenderer,
-  } satisfies Record<string, Component>,
-  props: {
-    layout: {
-      type: Object as () => ILayout,
-      required: true,
-    },
-  },
-  setup(props) {
-    const layoutComponent = computed(() => {
-      return "contentComponent" in props.layout
-        ? "WindowRenderer"
-        : "ContainerRenderer";
-    });
+const props = defineProps<{
+  layout: ILayout;
+}>();
 
-    return {
-      layoutComponent,
-    };
-  },
-});
+// Type guard for window components
+function isWindowComponent(layout: ILayout): layout is IWindow {
+  return "contentComponent" in layout;
+}
 </script>
 
 <style scoped>

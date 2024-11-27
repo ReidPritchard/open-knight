@@ -5,8 +5,6 @@ import FloatLabel from "primevue/floatlabel";
 import InputText from "primevue/inputtext";
 import Row from "primevue/row";
 import Select from "primevue/select";
-import Tabs from "primevue/tabs";
-import TabPanel from "primevue/tabpanel";
 
 import DialogService from "primevue/dialogservice";
 import { createPinia } from 'pinia'
@@ -39,7 +37,5 @@ app.component("DataTable", DataTable);
 app.component("Column", Column);
 app.component("Row", Row);
 app.component("Select", Select);
-app.component("Tabs", Tabs);
-app.component("TabPanel", TabPanel);
 
 app.mount("#app");
