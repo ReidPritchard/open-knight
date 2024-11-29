@@ -1,6 +1,5 @@
 <template>
-  <div
-    class="chessboard"
+  <div class="w-full h-full flex select-none"
     :style="{
       flexDirection: orientation === 'white' ? 'column-reverse' : 'column',
     }"
@@ -8,7 +7,7 @@
     <div
       v-for="(row, rowIndex) in boardPosition"
       :key="rowIndex"
-      class="board-row"
+      class="flex flex-1"
       :style="{
         flexDirection: orientation === 'white' ? 'row' : 'row-reverse',
       }"
@@ -16,7 +15,7 @@
       <div
         v-for="(square, colIndex) in row"
         :key="colIndex"
-        class="board-square"
+        class="relative flex-1"
         :class="[
           { 'is-target': square.isTarget },
           showCoordinatesClass(square),
@@ -27,14 +26,14 @@
         @dragover.prevent="onDragOver(square)"
         @drop="onDrop(square)"
       >
-        <AspectRatio ratio="1 / 1">
+        <div class="w-full h-full">
           <UseDraggable
             v-if="draggable && square.piece !== null"
             storage-type="session"
             :storage-key="`draggable-${square.row}-${square.col}`"
           >
             <div
-              class="piece"
+              class="piece w-full h-full flex items-center justify-center text-4xl"
               :draggable="draggable && square.piece !== null"
               @dragstart="onDragStart($event, square)"
               @click="
@@ -46,7 +45,7 @@
               {{ square.piece ? pieceUnicode[square.piece] : "" }}
             </div>
           </UseDraggable>
-        </AspectRatio>
+        </div>
       </div>
     </div>
   </div>
@@ -54,9 +53,9 @@
 
 <script setup lang="ts">
 import { UseDraggable } from "@vueuse/components";
-import { computed, onMounted, watch } from "vue";
-import AspectRatio from "../AspectRatio.vue";
+import { computed, watch } from "vue";
 import { useGameStore } from "../../stores/game";
+import AspectRatio from "../AspectRatio.vue";
 import {
   type Animation,
   type Arrows,
@@ -67,12 +66,7 @@ import {
   boardStyleColorPresets,
 } from "./types";
 import { useChessBoard } from "./useChessBoard";
-import {
-  formatCoordinates,
-  getSquareStyle,
-  parseFenToBoard,
-  pieceUnicode,
-} from "./utils";
+import { formatCoordinates, getSquareStyle, pieceUnicode } from "./utils";
 
 const props = defineProps({
   orientation: {
@@ -129,7 +123,6 @@ const {
   onDrop,
   onPieceClick,
   onSquareClick,
-  draggingPiece,
   updateBoard,
 } = useChessBoard(
   {
@@ -146,9 +139,12 @@ watch(currentPosition, () => {
 });
 
 // Watch for orientation changes and update the board
-watch(() => props.orientation, () => {
-  updateBoard();
-});
+watch(
+  () => props.orientation,
+  () => {
+    updateBoard();
+  }
+);
 
 const showCoordinatesClass = computed(() => {
   return (square: Square) => {
@@ -163,7 +159,10 @@ const showCoordinatesClass = computed(() => {
     const firstCol = isWhiteOrientation ? 0 : 7;
     const lastCol = isWhiteOrientation ? 7 : 0;
 
-    if (props.showCoordinates === "inside" || props.showCoordinates === "outside") {
+    if (
+      props.showCoordinates === "inside" ||
+      props.showCoordinates === "outside"
+    ) {
       if (square.row === firstRow) {
         classes.push("coordinate-bottom");
       } else if (square.row === lastRow) {
@@ -198,35 +197,8 @@ const boardPosition = computed(() => {
 </script>
 
 <style scoped>
-.chessboard {
-  display: flex;
-  flex-direction: column-reverse;
-  user-select: none;
-  --coordinate-font-size: 10px;
-  max-height: 100%;
-  max-width: 100%;
-}
-
-.board-row {
-  display: flex;
-  flex: 1;
-  min-height: 20px;
-}
-
-.board-square {
-  flex: 1;
-  position: relative;
-  min-width: 20px;
-  min-height: 20px;
-}
-
+/* Custom styles that can't be handled by Tailwind */
 .piece {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 36px;
   font-family: "Segoe UI Symbol", "Noto Sans Symbols", "DejaVu Sans", "Symbola",
     sans-serif;
 }
@@ -252,6 +224,11 @@ const boardPosition = computed(() => {
 
 .is-target {
   border: 2px solid var(--p-primary-color);
+}
+
+/* Coordinate styles */
+:root {
+  --coordinate-font-size: 10px;
 }
 
 .show-coordinates-inside::after {
@@ -304,5 +281,13 @@ const boardPosition = computed(() => {
   content: attr(data-coordinates);
   font-size: var(--coordinate-font-size);
   color: var(--p-content-color);
+}
+
+/* Make the container fill the smaller of width/height while maintaining aspect ratio */
+.relative > .absolute {
+  width: min(100%, 100vh);
+  height: min(100%, 100vw);
+  margin: auto;
+  inset: 0;
 }
 </style>

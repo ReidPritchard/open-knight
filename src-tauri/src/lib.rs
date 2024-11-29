@@ -1,8 +1,4 @@
-use crate::models::{
-    api::APIGame,
-    db::{Game, Header},
-    game::ExplorerGame,
-};
+use crate::models::game::ExplorerGame;
 use convert::parsing_games_to_models;
 use loader::load_pgn;
 use shakmaty::san::San;
@@ -106,6 +102,7 @@ fn get_explorer_state(state: tauri::State<AppState>) -> String {
 
 #[tauri::command]
 fn set_selected_game(game_id: Option<i32>, state: tauri::State<AppState>) -> Result<(), String> {
+    println!("Setting selected game to: {:?}", game_id);
     if let Some(game_id) = game_id {
         let api_game = database::game::get_full_game_by_id(game_id)
             .map_err(|e| format!("Database error: {}", e))?

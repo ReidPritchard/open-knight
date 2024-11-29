@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import "primeicons/primeicons.css";
+import DynamicDialog from "primevue/dynamicdialog";
 import { onMounted, watch } from "vue";
 import LayoutRenderer from "./components/AppLayout/LayoutRenderer.vue";
 import { useGameStore } from "./stores/game";
 import { useUIStore } from "./stores/ui";
-import DynamicDialog from "primevue/dynamicdialog";
 
 const gameStore = useGameStore();
 const uiStore = useUIStore();
@@ -19,7 +19,7 @@ watch(
   (newLayout) => {
     localStorage.setItem("app-layout", JSON.stringify(newLayout));
   },
-  { deep: true },
+  { deep: true }
 );
 </script>
 

@@ -3,9 +3,18 @@ import { applicationLayout } from "../applicationLayout";
 import type { ILayout, IWindow } from "../shared/types";
 
 function getDefaultTheme() {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+  const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+  // Set the theme in localStorage
+  localStorage.setItem("theme", isDark ? "dark" : "light");
+  // Set the class on the document element
+  if (isDark) {
+    document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.remove("dark");
+  }
+
+  return isDark ? "dark" : "light";
 }
 
 function getWindowById(layout: ILayout, windowId: string): IWindow | null {
@@ -50,11 +59,16 @@ export const useUIStore = defineStore("ui", {
 
     toggleTheme() {
       const newTheme = this.theme === "light" ? "dark" : "light";
+
+      // Set the theme in localStorage
+      localStorage.setItem("theme", newTheme);
+      // Set the class on the document element
       if (newTheme === "dark") {
         document.documentElement.classList.add("dark");
       } else {
         document.documentElement.classList.remove("dark");
       }
+
       this.theme = newTheme;
     },
   },

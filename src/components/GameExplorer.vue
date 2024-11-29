@@ -118,7 +118,8 @@
             class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer"
             :class="{
               'bg-gray-50 dark:bg-gray-900': isEvenRow(game),
-              'bg-blue-50 dark:bg-blue-900':
+              'bg-blue-500 dark:bg-blue-600':
+                gameStore.selectedGame?.game &&
                 gameStore.selectedGame?.game.id === game.game.id,
             }"
             @click="selectGame(game)"
@@ -197,7 +198,12 @@ const isEvenRow = (game: ExplorerGame) => {
 const selectGame = async (game: ExplorerGame) => {
   isLoading.value = true;
   try {
+    console.log("GameExplorer: Starting game selection for game:", game);
     await gameStore.setSelectedGame(game);
+    console.log("GameExplorer: Game selection completed");
+  } catch (error) {
+    console.error("GameExplorer: Error selecting game:", error);
+    // TODO: Add user-facing error handling here
   } finally {
     isLoading.value = false;
   }

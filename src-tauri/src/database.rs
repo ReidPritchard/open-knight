@@ -154,6 +154,22 @@ pub mod game {
             .execute(&mut conn)?;
         Ok(())
     }
+
+    pub fn insert_games_returning_ids(games: &[Game]) -> Result<Vec<i32>, DatabaseError> {
+        let mut conn = setup::establish_connection()?;
+
+        // Pretty sure SQLite doesn't support batch insert with returning, so insert one at a time
+        // and collect the IDs
+        let mut ids = Vec::new();
+        for game in games {
+            let id = diesel::insert_into(crate::schema::games::table)
+                .values(game)
+                .returning(crate::schema::games::id)
+                .get_result(&mut conn)?;
+            ids.push(id);
+        }
+        Ok(ids)
+    }
 }
 
 // === Move Queries ===

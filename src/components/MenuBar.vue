@@ -53,7 +53,7 @@ import { useGlobalStore } from "../stores";
 import PgnImport from "./PgnImport.vue";
 
 // Get the layout from the store
-const { ui } = useGlobalStore();
+const { ui, game } = useGlobalStore();
 
 const dialog = useDialog();
 
@@ -112,6 +112,7 @@ const onCommand = (event: { item: { label: string } }) => {
       break;
     case "Empty DB":
       api.emptyDatabase();
+      game.updateGames();
       break;
     case "Quit":
       // TODO: Implement a modal with a confirmation prompt

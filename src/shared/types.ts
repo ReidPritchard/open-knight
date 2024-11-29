@@ -1,4 +1,7 @@
 import typia from "typia";
+import type { APIGame } from "./bindings/APIGame";
+import type { ExplorerGame } from "./bindings/ExplorerGame";
+import type { FullGame } from "./bindings/FullGame";
 
 ////////////////////////////////////////////////////////////
 // Application UI Interfaces
@@ -202,5 +205,13 @@ export const validateWindowContainer = typia.createValidate<IWindowContainer>();
 export type ILayout = IWindow | IWindowContainer;
 
 ////////////////////////////////////////////////////////////
-// Chess Interfaces
+// Backend Interfaces - Most of these are automatically generated, so we only need to export the related type guards
 ////////////////////////////////////////////////////////////
+
+// Type Guards
+export const isExplorerGame = typia.createIs<ExplorerGame>();
+export const isAPIGame = typia.createIs<APIGame>();
+
+// Parsers
+export const parseFullGame = typia.createValidate<FullGame>();
+export const parseAPIGame = typia.createValidate<APIGame>();
