@@ -151,10 +151,10 @@ const pgnInput = ref("");
 const isLoading = ref(false);
 
 const getHeaderValue = (game: ExplorerGame, header: string): string => {
-  const match = game.game.pgn.match(
-    new RegExp(`\\[${header}\\s*\\"([^\\]]+)\\"\\]`)
+  return (
+    game.headers.find((searchHeader) => searchHeader.header_key === header)
+      ?.header_value ?? ""
   );
-  return match ? match[1] : "";
 };
 
 // Sorting

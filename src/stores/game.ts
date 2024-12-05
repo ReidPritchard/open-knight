@@ -38,11 +38,13 @@ export const useGameStore = defineStore("game", {
         console.log("Starting setSelectedGame with:", game);
         const gameId =
           isAPIGame(game) || isExplorerGame(game) ? game.game.id : null;
+        // FIXME: hasGameIdChanged is undefined
         const hasGameIdChanged =
-          this.selectedGame?.game && this.selectedGame.game.id !== gameId;
+          !!this.selectedGame?.game && this.selectedGame.game.id !== gameId;
         console.log("Has game ID changed:", hasGameIdChanged);
 
         if (game === null || hasGameIdChanged) {
+          console.log("Resetting selected game and location to null");
           this.selectedGame = null;
           this.selectedGameLocation = 0;
         }

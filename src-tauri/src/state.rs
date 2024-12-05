@@ -1,15 +1,15 @@
 use crate::{
-    database,
+    database::{self, Database},
     models::{api::APIGame, game::ExplorerGame},
 };
 use serde::Serialize;
 use std::sync::Mutex;
 
-#[derive(Debug, Serialize)]
 pub struct AppState {
+    /// The database connection pool
+    pub db: Database,
     /// The currently selected game
     pub selected_game: Mutex<Option<APIGame>>,
-
     // Each "view" will be a separate struct
     pub explorer: Mutex<ExplorerState>,
 }
@@ -39,8 +39,8 @@ impl ExplorerState {
         self.games.extend(games.iter().cloned());
     }
 
-    pub fn load_games_from_db(&mut self) -> Result<(), database::DatabaseError> {
-        let games_with_headers = database::game::get_all_games_with_headers()?;
+    pub fn load_games_from_db(&mut self, db: &Database) -> Result<(), database::DatabaseError> {
+        let games_with_headers = database::game::get_all_games_with_headers(db)?;
         self.games = games_with_headers
             .into_iter()
             .map(|(game, headers)| ExplorerGame::from((game, headers)))
@@ -56,28 +56,36 @@ impl Default for ExplorerState {
 }
 
 impl AppState {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, database::DatabaseError> {
+        let db = Database::new()?;
         let mut explorer = ExplorerState::new();
-        let _ = explorer.load_games_from_db();
+        explorer.load_games_from_db(&db)?;
 
-        AppState {
+        Ok(AppState {
+            db,
             explorer: Mutex::new(explorer),
             selected_game: Mutex::new(None),
-        }
+        })
     }
 
-    pub fn clear(&self) {
+    pub fn clear(&self) -> Result<(), database::DatabaseError> {
+        database::setup::empty_db(&self.db)?;
         self.explorer.lock().unwrap().clear();
         *self.selected_game.lock().unwrap() = None;
+        Ok(())
     }
 
     pub fn set_selected_game(&self, game: Option<APIGame>) {
         *self.selected_game.lock().unwrap() = game;
     }
+
+    pub fn get_db(&self) -> &Database {
+        &self.db
+    }
 }
 
 impl Default for AppState {
     fn default() -> Self {
-        Self::new()
+        Self::new().expect("Failed to create AppState")
     }
 }

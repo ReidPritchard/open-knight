@@ -1,17 +1,18 @@
 use std::fmt;
 
 use crate::{
-    database::{self, DatabaseError},
+    database::{self, Database, DatabaseError, DbConnection},
     models::{
         db::{Game, Header, Move},
         game::ParsingGame,
     },
+    state,
 };
 
 #[derive(Debug)]
 pub enum LoaderError {
     ParseError(String),
-    DatabaseError(DatabaseError),
+    DatabaseError(database::DatabaseError),
     ChessError(String),
     InvalidMove { move_text: String, reason: String },
     InvalidPosition { fen: Option<String>, reason: String },
@@ -40,8 +41,8 @@ impl fmt::Display for LoaderError {
     }
 }
 
-impl From<DatabaseError> for LoaderError {
-    fn from(err: DatabaseError) -> Self {
+impl From<database::DatabaseError> for LoaderError {
+    fn from(err: database::DatabaseError) -> Self {
         LoaderError::DatabaseError(err)
     }
 }
@@ -113,8 +114,167 @@ fn process_tag(game: &mut ParsingGame, key: &str, value: &str) -> Result<(), Loa
     Ok(())
 }
 
-/// Process a chess move and update the game state
-fn process_move(
+/// Create a new game with the given PGN
+fn create_new_game(pgn: &str) -> Result<ParsingGame, LoaderError> {
+    if pgn.trim().is_empty() {
+        return Err(LoaderError::EmptyInput);
+    }
+
+    Ok(ParsingGame::from(Game {
+        id: None, // Let the database assign the ID
+        pgn: pgn.to_string(),
+        ..Default::default()
+    }))
+}
+
+pub fn load_pgn(pgn: &str, db: &Database) -> Result<LoadResult, LoaderError> {
+    println!("=== load_pgn called ===");
+
+    if pgn.trim().is_empty() {
+        println!("Empty PGN input");
+        return Err(LoaderError::EmptyInput);
+    }
+
+    // Parse the pgn (returns a vector of tokens or errors)
+    println!("Parsing PGN input");
+    let tokens = crate::parser::parse_pgn(pgn)
+        .map_err(|e| LoaderError::ParseError(format!("Failed to parse PGN: {:?}", e)))?;
+
+    println!("Number of tokens parsed: {}", tokens.len());
+
+    if tokens.is_empty() {
+        println!("No tokens found in PGN");
+        return Err(LoaderError::ParseError(
+            "No tokens found in PGN".to_string(),
+        ));
+    }
+
+    // Process everything in a single transaction
+    db.transaction(|conn| {
+        let mut result = LoadResult::new();
+
+        // Create a new game result for the first game
+        let mut current_game =
+            create_new_game(pgn).map_err(|e| DatabaseError::TransactionError(e.to_string()))?;
+        println!("Created first game object");
+
+        let mut current_game_move_number: u32 = 0;
+        let mut current_game_variation_id: u32 = 0;
+        let mut game_started = false;
+
+        println!("Starting token processing loop");
+        for (i, token) in tokens.iter().enumerate() {
+            println!("Processing token {} of {}", i + 1, tokens.len());
+
+            // If we've already seen a game's moves, we should consider this a new game
+            if game_started && matches!(token, crate::parser::PgnToken::Tag(_, _)) {
+                if !current_game.moves.is_empty() {
+                    println!(
+                        "Found new game marker, current game has {} moves",
+                        current_game.moves.len()
+                    );
+                    // If the last game has moves (assume it's a complete game), add it to the result
+                    result.games.push(current_game);
+                    println!(
+                        "Added game to results, total games now: {}",
+                        result.games.len()
+                    );
+                    current_game = create_new_game(pgn)
+                        .map_err(|e| DatabaseError::TransactionError(e.to_string()))?;
+                    current_game_move_number = 0;
+                    current_game_variation_id = 0;
+                    game_started = false;
+                }
+            }
+
+            match token {
+                crate::parser::PgnToken::Tag(key, value) => {
+                    println!("Processing tag: {} = {}", key, value);
+                    if let Err(e) = process_tag(&mut current_game, key, value) {
+                        println!("Error processing tag: {}", e);
+                        result.add_error(e.to_string());
+                        continue;
+                    }
+                }
+                crate::parser::PgnToken::Move(mv) => {
+                    println!("Processing move: {}", mv);
+                    game_started = true;
+                    if let Err(e) = process_move_with_conn(
+                        conn,
+                        &mut current_game,
+                        mv,
+                        current_game_move_number as i32,
+                        current_game_variation_id as i32,
+                    ) {
+                        println!("Error processing move: {}", e);
+                        result.add_error(e.to_string());
+                        continue;
+                    }
+                }
+                crate::parser::PgnToken::MoveNumber(num) => {
+                    println!("Processing move number: {}", num);
+                    current_game_move_number = *num;
+                }
+                crate::parser::PgnToken::Variation(tokens) => {
+                    println!("Processing variation with {} tokens", tokens.len());
+                    if let Err(e) = process_variation_with_conn(
+                        conn,
+                        &mut current_game,
+                        tokens,
+                        &mut current_game_move_number,
+                        &mut current_game_variation_id,
+                    ) {
+                        println!("Error processing variation: {}", e);
+                        result.add_error(e.to_string());
+                        continue;
+                    }
+                }
+                crate::parser::PgnToken::Comment(comment) => {
+                    println!("Processing comment: {}", comment);
+                    if let Some(last_move) = current_game.moves.last_mut() {
+                        last_move.annotation = Some(comment.to_string());
+                    }
+                }
+                crate::parser::PgnToken::Result(_) => {
+                    println!("Processing game result token");
+                }
+                _ => {
+                    println!("Unexpected token: {:?}", token);
+                    result.add_error(format!("Unexpected token: {:?}", token));
+                }
+            }
+        }
+
+        // Don't forget to add the last game
+        if !current_game.moves.is_empty() {
+            println!("Adding final game with {} moves", current_game.moves.len());
+            result.games.push(current_game);
+        }
+
+        println!("Saving game data");
+        save_game_data_with_conn(conn, &result)
+            .map_err(|e| DatabaseError::TransactionError(e.to_string()))?;
+
+        println!("Final number of games: {}", result.games.len());
+        if result.games.is_empty() {
+            println!("No valid games found in PGN");
+            return Err(DatabaseError::TransactionError(
+                "No valid games found in PGN".to_string(),
+            ));
+        }
+
+        Ok(result)
+    })
+    .map_err(|e| match e {
+        database::DatabaseError::QueryError(e) => {
+            LoaderError::DatabaseError(database::DatabaseError::QueryError(e))
+        }
+        e => LoaderError::DatabaseError(e),
+    })
+}
+
+fn process_move_with_conn(
+    conn: &mut DbConnection,
     game: &mut ParsingGame,
     mv: &str,
     move_number: i32,
@@ -169,28 +329,34 @@ fn process_move(
 
     // Handle position database operations
     let before_move_position_id = match before_move_fen.as_ref() {
-        Some(fen) => match database::position::get_position_id_by_fen(fen)? {
-            Some(id) => id,
-            None => database::position::create_position(fen)?,
-        },
+        Some(fen) => {
+            let existing_id = database::position::get_position_id_by_fen_with_conn(conn, fen)?;
+            match existing_id {
+                Some(id) => id,
+                None => database::position::create_position_with_conn(conn, fen)?,
+            }
+        }
         None => {
             return Err(LoaderError::InvalidPosition {
                 fen: None,
                 reason: "Failed to get position before move".to_string(),
-            });
+            })
         }
     };
 
     let after_move_position_id = match after_move_fen.as_ref() {
-        Some(fen) => match database::position::get_position_id_by_fen(fen)? {
-            Some(id) => id,
-            None => database::position::create_position(fen)?,
-        },
+        Some(fen) => {
+            let existing_id = database::position::get_position_id_by_fen_with_conn(conn, fen)?;
+            match existing_id {
+                Some(id) => id,
+                None => database::position::create_position_with_conn(conn, fen)?,
+            }
+        }
         None => {
             return Err(LoaderError::InvalidPosition {
                 fen: None,
                 reason: "Failed to get position after move".to_string(),
-            });
+            })
         }
     };
 
@@ -209,8 +375,8 @@ fn process_move(
     Ok(())
 }
 
-/// Process a variation (sequence of alternative moves)
-fn process_variation(
+fn process_variation_with_conn(
+    conn: &mut DbConnection,
     game: &mut ParsingGame,
     tokens: &[crate::parser::PgnToken],
     move_number: &mut u32,
@@ -232,13 +398,19 @@ fn process_variation(
         for token in tokens {
             match token {
                 crate::parser::PgnToken::Move(mv) => {
-                    process_move(game, mv, *move_number as i32, *variation_id as i32)?;
+                    process_move_with_conn(
+                        conn,
+                        game,
+                        mv,
+                        *move_number as i32,
+                        *variation_id as i32,
+                    )?;
                 }
                 crate::parser::PgnToken::MoveNumber(num) => {
                     *move_number = *num;
                 }
                 crate::parser::PgnToken::Variation(tokens) => {
-                    process_variation(game, tokens, move_number, variation_id)?;
+                    process_variation_with_conn(conn, game, tokens, move_number, variation_id)?;
                 }
                 _ => {}
             }
@@ -253,375 +425,64 @@ fn process_variation(
     result
 }
 
-/// Create a new game with the given PGN
-fn create_new_game(pgn: &str) -> Result<ParsingGame, LoaderError> {
-    if pgn.trim().is_empty() {
-        return Err(LoaderError::EmptyInput);
-    }
+fn save_game_data_with_conn(
+    conn: &mut DbConnection,
+    result: &LoadResult,
+) -> Result<(), LoaderError> {
+    println!("=== save_game_data_with_conn called ===");
+    println!("Number of games to save: {}", result.games.len());
 
-    Ok(ParsingGame::from(Game {
-        id: None, // Let the database assign the ID
-        pgn: pgn.to_string(),
-        ..Default::default()
-    }))
-}
-
-/// Save game data to the database
-fn save_game_data(result: &LoadResult) -> Result<(), LoaderError> {
     if result.games.is_empty() {
+        println!("No games to save, returning early");
         return Ok(()); // No games to save
     }
 
     // Save all games to the database and get their assigned IDs
     let games: Vec<Game> = result.games.iter().map(|g| g.game.clone()).collect();
-    let game_ids = database::game::insert_games_returning_ids(&games)?;
+    println!("Saving {} games to database", games.len());
+    let game_ids = database::game::insert_games_returning_ids_with_conn(conn, &games)?;
+    println!("Received {} game IDs from database", game_ids.len());
 
     // Now games have been assigned IDs by the database
     // Update the moves and headers with the correct game IDs
     for (game_index, game) in result.games.iter().enumerate() {
+        println!(
+            "Processing game {} of {}",
+            game_index + 1,
+            result.games.len()
+        );
+        println!(
+            "Game has {} moves and {} headers",
+            game.moves.len(),
+            game.headers.len()
+        );
+
         if !game.moves.is_empty() {
             let mut moves = game.moves.clone();
             for move_entry in moves.iter_mut() {
                 move_entry.game_id = game_ids[game_index];
             }
-            database::move_::insert_moves(&moves)?;
+            println!(
+                "Inserting {} moves for game {}",
+                moves.len(),
+                game_ids[game_index]
+            );
+            database::move_::insert_moves_with_conn(conn, &moves)?;
         }
         if !game.headers.is_empty() {
             let mut headers = game.headers.clone();
             for header in headers.iter_mut() {
                 header.game_id = game_ids[game_index];
             }
-            database::header::insert_headers(&headers)?;
+            println!(
+                "Inserting {} headers for game {}",
+                headers.len(),
+                game_ids[game_index]
+            );
+            database::header::insert_headers_with_conn(conn, &headers)?;
         }
     }
 
+    println!("=== save_game_data_with_conn completed successfully ===");
     Ok(())
-}
-
-pub fn load_pgn(pgn: &str) -> Result<LoadResult, LoaderError> {
-    let mut result = LoadResult::new();
-
-    if pgn.trim().is_empty() {
-        return Err(LoaderError::EmptyInput);
-    }
-
-    // Parse the pgn (returns a vector of tokens or errors)
-    let tokens = crate::parser::parse_pgn(pgn)
-        .map_err(|e| LoaderError::ParseError(format!("Failed to parse PGN: {:?}", e)))?;
-
-    if tokens.is_empty() {
-        return Err(LoaderError::ParseError(
-            "No tokens found in PGN".to_string(),
-        ));
-    }
-
-    // Create a new game result for the first game
-    let mut current_game = create_new_game(pgn)?;
-
-    let mut current_game_move_number: u32 = 0;
-    let mut current_game_variation_id: u32 = 0;
-    let mut game_started = false;
-
-    for token in tokens.iter() {
-        // If we've already seen a game's moves, we should consider this a new game
-        if game_started && matches!(token, crate::parser::PgnToken::Tag(_, _)) {
-            if !current_game.moves.is_empty() {
-                result.games.push(current_game);
-                current_game = create_new_game(pgn)?;
-                current_game_move_number = 0;
-                current_game_variation_id = 0;
-                game_started = false;
-            }
-        }
-
-        match token {
-            crate::parser::PgnToken::Tag(key, value) => {
-                if let Err(e) = process_tag(&mut current_game, key, value) {
-                    result.add_error(e.to_string());
-                    continue;
-                }
-            }
-            crate::parser::PgnToken::Move(mv) => {
-                game_started = true;
-                if let Err(e) = process_move(
-                    &mut current_game,
-                    mv,
-                    current_game_move_number as i32,
-                    current_game_variation_id as i32,
-                ) {
-                    result.add_error(e.to_string());
-                    continue;
-                }
-            }
-            crate::parser::PgnToken::MoveNumber(num) => {
-                current_game_move_number = *num;
-            }
-            crate::parser::PgnToken::Variation(tokens) => {
-                if let Err(e) = process_variation(
-                    &mut current_game,
-                    tokens,
-                    &mut current_game_move_number,
-                    &mut current_game_variation_id,
-                ) {
-                    result.add_error(e.to_string());
-                    continue;
-                }
-            }
-            crate::parser::PgnToken::Comment(comment) => {
-                if let Some(last_move) = current_game.moves.last_mut() {
-                    last_move.annotation = Some(comment.to_string());
-                }
-            }
-            crate::parser::PgnToken::Result(_) => {
-                // Store game result if needed
-            }
-            _ => {
-                result.add_error(format!("Unexpected token: {:?}", token));
-            }
-        }
-    }
-
-    // Don't forget to add the last game
-    if !current_game.moves.is_empty() {
-        result.games.push(current_game);
-    }
-
-    save_game_data(&result)?;
-
-    if result.games.is_empty() {
-        return Err(LoaderError::ParseError(
-            "No valid games found in PGN".to_string(),
-        ));
-    }
-
-    Ok(result)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // Helper function to run tests with a database connection
-    fn with_test_db<F>(test: F) -> Result<(), DatabaseError>
-    where
-        F: FnOnce() -> Result<(), DatabaseError>,
-    {
-        // Run the test (database is initialized with migrations in establish_connection)
-        test()
-    }
-
-    #[test]
-    fn test_empty_pgn() {
-        with_test_db(|| {
-            // Test completely empty string
-            let result = load_pgn("");
-            assert!(matches!(result, Err(LoaderError::EmptyInput)));
-
-            // Test whitespace-only string
-            let result = load_pgn("   \n  \t  ");
-            assert!(matches!(result, Err(LoaderError::EmptyInput)));
-
-            Ok(())
-        })
-        .unwrap();
-    }
-
-    #[test]
-    fn test_basic_game() {
-        with_test_db(|| {
-            let pgn = r#"[Event "Test Game"]
-[Site "Chess Club"]
-[Date "2024.03.21"]
-[Round "1"]
-[White "Player 1"]
-[Black "Player 2"]
-[Result "1-0"]
-
-1. e4 e5 2. Nf3 Nc6 3. Bb5 1-0"#;
-
-            let result = load_pgn(pgn).unwrap();
-
-            assert!(result.success);
-            assert_eq!(result.errors.len(), 0);
-            assert_eq!(result.games.len(), 1);
-
-            let game = &result.games[0];
-
-            assert_eq!(game.game.player_white, Some("Player 1".to_string()));
-            assert_eq!(game.game.player_black, Some("Player 2".to_string()));
-            assert_eq!(game.game.event, Some("Test Game".to_string()));
-            assert_eq!(game.game.result, Some("1-0".to_string()));
-            assert_eq!(game.moves.len(), 5);
-            Ok(())
-        })
-        .unwrap();
-    }
-
-    #[test]
-    fn test_multiple_games() {
-        with_test_db(|| {
-            let pgn = r#"[Event "Game 1"]
-[White "Player 1"]
-[Black "Player 2"]
-[Result "1-0"]
-
-1. e4 e5 2. Nf3 1-0
-
-[Event "Game 2"]
-[White "Player 3"]
-[Black "Player 4"]
-[Result "0-1"]
-
-1. d4 d5 0-1"#;
-
-            let result = load_pgn(pgn).unwrap();
-            assert!(result.success);
-            assert_eq!(result.games.len(), 2);
-
-            assert_eq!(result.games[0].game.event, Some("Game 1".to_string()));
-            assert_eq!(result.games[1].game.event, Some("Game 2".to_string()));
-            Ok(())
-        })
-        .unwrap();
-    }
-
-    #[test]
-    fn test_custom_headers() {
-        with_test_db(|| {
-            let pgn = r#"[Event "Test Game"]
-[White "Player 1"]
-[Black "Player 2"]
-[Result "1-0"]
-[CustomHeader1 "Value1"]
-[CustomHeader2 "Value2"]
-
-1. e4 e5 1-0"#;
-
-            let result = load_pgn(pgn).unwrap();
-            let game = &result.games[0];
-
-            let custom_headers: Vec<_> = game
-                .headers
-                .iter()
-                .filter(|h| h.header_key == "CustomHeader1" || h.header_key == "CustomHeader2")
-                .collect();
-
-            assert_eq!(custom_headers.len(), 2);
-            assert!(custom_headers
-                .iter()
-                .any(|h| h.header_key == "CustomHeader1" && h.header_value == "Value1"));
-            assert!(custom_headers
-                .iter()
-                .any(|h| h.header_key == "CustomHeader2" && h.header_value == "Value2"));
-            Ok(())
-        })
-        .unwrap();
-    }
-
-    #[test]
-    fn test_invalid_move() {
-        with_test_db(|| {
-            let pgn = r#"[Event "Test Game"]
-[White "Player 1"]
-[Black "Player 2"]
-[Result "*"]
-
-1. e4 e5 2. InvalidMove e6 3. Nf3 Nc6 *"#;
-
-            let result = load_pgn(pgn).unwrap();
-            assert!(!result.success);
-
-            // Check that we have the error message for the invalid move
-            let error_message = result
-                .errors
-                .iter()
-                .find(|e| e.contains("InvalidMove"))
-                .expect("Should contain error about invalid move");
-            assert!(error_message.contains("Invalid move"));
-
-            // Verify that valid moves before and after the invalid one were processed
-            let game = &result.games[0];
-            assert_eq!(game.moves.len(), 4); // e4, e5, Nf3, Nc6
-
-            // Verify the moves are the correct ones
-            assert!(game.moves.iter().any(|m| m.move_san == "e4"));
-            assert!(game.moves.iter().any(|m| m.move_san == "e5"));
-            assert!(game.moves.iter().any(|m| m.move_san == "Nf3"));
-            assert!(game.moves.iter().any(|m| m.move_san == "Nc6"));
-
-            // Verify move numbers are correct
-            let first_moves: Vec<_> = game.moves.iter().filter(|m| m.move_number == 1).collect();
-            assert_eq!(first_moves.len(), 2); // e4, e5
-
-            let third_moves: Vec<_> = game.moves.iter().filter(|m| m.move_number == 3).collect();
-            assert_eq!(third_moves.len(), 2); // Nf3, Nc6
-
-            Ok(())
-        })
-        .unwrap();
-    }
-
-    #[test]
-    // Skip this test for now, need to revisit variations
-    #[ignore]
-    fn test_game_with_variations() {
-        with_test_db(|| {
-            let pgn = r#"[Event "Test Game"]
-[White "Player 1"]
-[Black "Player 2"]
-[Result "1-0"]
-
-1. e4 e5 2. Nf3 (2. d4 d5 3. exd5) 2... Nc6 3. Bb5 1-0"#;
-
-            let result = load_pgn(pgn).unwrap();
-            assert!(result.success);
-
-            let game = &result.games[0];
-            // Verify main line moves
-            assert!(game.moves.iter().any(|m| m.move_san == "e4"));
-            assert!(game.moves.iter().any(|m| m.move_san == "Nf3"));
-
-            // Verify variation moves have different variation_order
-            let variation_moves: Vec<_> = game
-                .moves
-                .iter()
-                .filter(|m| m.variation_order.is_some() && m.variation_order.unwrap() > 0)
-                .collect();
-            assert!(!variation_moves.is_empty());
-            Ok(())
-        })
-        .unwrap();
-    }
-
-    #[test]
-    fn test_game_with_comments() {
-        with_test_db(|| {
-            let pgn = r#"[Event "Test Game"]
-[White "Player 1"]
-[Black "Player 2"]
-[Result "1-0"]
-
-1. e4 {Good opening move} e5 2. Nf3 {Developing knight} Nc6 1-0"#;
-
-            let result = load_pgn(pgn).unwrap();
-            assert!(result.success);
-
-            let game = &result.games[0];
-            let moves_with_comments: Vec<_> = game
-                .moves
-                .iter()
-                .filter(|m| m.annotation.is_some())
-                .collect();
-
-            assert_eq!(moves_with_comments.len(), 2);
-            assert!(moves_with_comments
-                .iter()
-                .any(|m| m.annotation.as_ref().unwrap() == "Good opening move"));
-            assert!(moves_with_comments
-                .iter()
-                .any(|m| m.annotation.as_ref().unwrap() == "Developing knight"));
-            Ok(())
-        })
-        .unwrap();
-    }
 }

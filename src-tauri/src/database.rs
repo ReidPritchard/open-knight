@@ -1,4 +1,8 @@
-use diesel::{alias, prelude::*};
+use diesel::{
+    alias,
+    prelude::*,
+    r2d2::{self, ConnectionManager},
+};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use dotenvy::dotenv;
 use std::collections::HashMap;
@@ -11,11 +15,22 @@ use crate::{
     models::{APIGame, APIMove, Game, Header, Move, Position},
 };
 
+// Type aliases for cleaner code
+pub type DbPool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
+pub type DbConnection = r2d2::PooledConnection<ConnectionManager<SqliteConnection>>;
+
+// Global pool stored in AppState instead of a static
+pub struct Database {
+    pool: DbPool,
+}
+
 #[derive(Debug)]
 pub enum DatabaseError {
     ConnectionError(String),
     QueryError(diesel::result::Error),
     ConfigError(String),
+    PoolError(r2d2::Error),
+    TransactionError(String),
 }
 
 impl std::fmt::Display for DatabaseError {
@@ -24,6 +39,8 @@ impl std::fmt::Display for DatabaseError {
             DatabaseError::ConnectionError(e) => write!(f, "Connection error: {}", e),
             DatabaseError::QueryError(e) => write!(f, "Query error: {}", e),
             DatabaseError::ConfigError(e) => write!(f, "Configuration error: {}", e),
+            DatabaseError::PoolError(e) => write!(f, "Pool error: {}", e),
+            DatabaseError::TransactionError(e) => write!(f, "Transaction error: {}", e),
         }
     }
 }
@@ -34,46 +51,63 @@ impl From<diesel::result::Error> for DatabaseError {
     }
 }
 
-// === Connection and Setup ===
+impl From<r2d2::Error> for DatabaseError {
+    fn from(err: r2d2::Error) -> Self {
+        DatabaseError::PoolError(err)
+    }
+}
+
+impl Database {
+    pub fn new() -> Result<Self, DatabaseError> {
+        dotenv().ok();
+        let database_url = env::var("DATABASE_URL")
+            .map_err(|_| DatabaseError::ConfigError("DATABASE_URL must be set".to_string()))?;
+
+        let manager = ConnectionManager::<SqliteConnection>::new(database_url);
+        let pool = r2d2::Pool::builder().max_size(5).build(manager)?;
+
+        // Run migrations on one connection
+        let mut conn = pool.get()?;
+        conn.run_pending_migrations(MIGRATIONS)
+            .map_err(|e| DatabaseError::ConnectionError(format!("Migration failed: {}", e)))?;
+
+        Ok(Database { pool })
+    }
+
+    pub fn get_pool(&self) -> &DbPool {
+        &self.pool
+    }
+
+    pub fn with_connection<F, T>(&self, f: F) -> Result<T, DatabaseError>
+    where
+        F: FnOnce(&mut DbConnection) -> Result<T, DatabaseError>,
+    {
+        let mut conn = self.pool.get()?;
+        f(&mut conn)
+    }
+
+    pub fn transaction<F, T>(&self, f: F) -> Result<T, DatabaseError>
+    where
+        F: FnOnce(&mut DbConnection) -> Result<T, DatabaseError>,
+    {
+        let mut conn = self.pool.get()?;
+        conn.transaction(|conn| f(conn))
+    }
+}
+
+// === Setup Functions ===
 
 pub mod setup {
     use super::*;
 
-    #[cfg(not(test))]
-    pub fn establish_connection() -> Result<SqliteConnection, DatabaseError> {
-        dotenv().ok();
-        let database_url = env::var("DATABASE_URL")
-            .map_err(|_| DatabaseError::ConfigError("DATABASE_URL must be set".to_string()))?;
-        let mut conn = SqliteConnection::establish(&database_url)
-            .map_err(|e| DatabaseError::ConnectionError(e.to_string()))?;
-
-        // Run migrations in production as well to ensure schema is up to date
-        conn.run_pending_migrations(MIGRATIONS)
-            .map_err(|e| DatabaseError::ConnectionError(format!("Migration failed: {}", e)))?;
-
-        Ok(conn)
-    }
-
-    #[cfg(test)]
-    pub fn establish_connection() -> Result<SqliteConnection, DatabaseError> {
-        // For tests, always use an in-memory database
-        let mut conn = SqliteConnection::establish(":memory:")
-            .map_err(|e| DatabaseError::ConnectionError(e.to_string()))?;
-
-        // Run migrations for test database
-        conn.run_pending_migrations(MIGRATIONS)
-            .map_err(|e| DatabaseError::ConnectionError(format!("Migration failed: {}", e)))?;
-
-        Ok(conn)
-    }
-
-    pub fn empty_db() -> Result<(), DatabaseError> {
-        let mut conn = establish_connection()?;
-        diesel::delete(crate::schema::games::table).execute(&mut conn)?;
-        diesel::delete(crate::schema::moves::table).execute(&mut conn)?;
-        diesel::delete(crate::schema::headers::table).execute(&mut conn)?;
-        diesel::delete(crate::schema::positions::table).execute(&mut conn)?;
-        Ok(())
+    pub fn empty_db(db: &Database) -> Result<(), DatabaseError> {
+        db.with_connection(|conn| {
+            diesel::delete(crate::schema::games::table).execute(conn)?;
+            diesel::delete(crate::schema::moves::table).execute(conn)?;
+            diesel::delete(crate::schema::headers::table).execute(conn)?;
+            diesel::delete(crate::schema::positions::table).execute(conn)?;
+            Ok(())
+        })
     }
 }
 
@@ -82,93 +116,87 @@ pub mod setup {
 pub mod game {
     use super::*;
 
-    pub fn get_game_id_count() -> Result<i64, DatabaseError> {
-        let mut conn = setup::establish_connection()?;
-        Ok(crate::schema::games::table.count().get_result(&mut conn)?)
+    pub fn get_game_id_count(db: &Database) -> Result<i64, DatabaseError> {
+        db.with_connection(|conn| Ok(crate::schema::games::table.count().get_result(conn)?))
     }
 
-    pub fn get_all_games() -> Result<Vec<Game>, DatabaseError> {
-        let mut conn = setup::establish_connection()?;
-        Ok(crate::schema::games::table.load(&mut conn)?)
+    pub fn get_all_games(db: &Database) -> Result<Vec<Game>, DatabaseError> {
+        db.with_connection(|conn| Ok(crate::schema::games::table.load(conn)?))
     }
 
-    /// Get all games with their headers in a single query
-    pub fn get_all_games_with_headers() -> Result<Vec<(Game, Vec<Header>)>, DatabaseError> {
-        use diesel::prelude::*;
-        let mut conn = setup::establish_connection()?;
+    pub fn get_all_games_with_headers(
+        db: &Database,
+    ) -> Result<Vec<(Game, Vec<Header>)>, DatabaseError> {
+        db.with_connection(|conn| {
+            // Get all games and headers in a single query using a left join
+            let results: Vec<(Game, Option<Header>)> = crate::schema::games::table
+                .left_join(
+                    crate::schema::headers::table
+                        .on(crate::schema::games::id.eq(crate::schema::headers::game_id)),
+                )
+                .select((
+                    crate::schema::games::all_columns,
+                    crate::schema::headers::all_columns.nullable(),
+                ))
+                .load(conn)?;
 
-        // Get all games and headers in a single query using a left join
-        // We use left join to ensure we get games even if they have no headers
-        let results: Vec<(Game, Option<Header>)> = crate::schema::games::table
-            .left_join(
-                crate::schema::headers::table
-                    .on(crate::schema::games::id.eq(crate::schema::headers::game_id)),
-            )
-            .select((
-                crate::schema::games::all_columns,
-                crate::schema::headers::all_columns.nullable(),
-            ))
-            .load(&mut conn)?;
+            // Group the results by game
+            let mut games_map: HashMap<i32, (Game, Vec<Header>)> = HashMap::new();
 
-        // Group the results by game
-        let mut games_map: std::collections::HashMap<i32, (Game, Vec<Header>)> = HashMap::new();
+            for (game, header_opt) in results {
+                let game_id = game.id.unwrap();
+                let entry = games_map
+                    .entry(game_id)
+                    .or_insert_with(|| (game, Vec::new()));
 
-        for (game, header_opt) in results {
-            let game_id = game.id.unwrap();
-            let entry = games_map
-                .entry(game_id)
-                .or_insert_with(|| (game, Vec::new()));
-
-            if let Some(header) = header_opt {
-                // entry: (game, vec<header>)
-                entry.1.push(header);
+                if let Some(header) = header_opt {
+                    entry.1.push(header);
+                }
             }
-        }
 
-        Ok(games_map.into_values().collect())
+            Ok(games_map.into_values().collect())
+        })
     }
 
-    pub fn get_full_game_by_id(id: i32) -> Result<Option<APIGame>, DatabaseError> {
-        let mut conn = setup::establish_connection()?;
+    pub fn get_full_game_by_id(db: &Database, id: i32) -> Result<Option<APIGame>, DatabaseError> {
+        db.with_connection(|conn| {
+            // Get the game
+            let game = match crate::schema::games::table.find(id).first(conn) {
+                Ok(g) => g,
+                Err(diesel::result::Error::NotFound) => return Ok(None),
+                Err(e) => return Err(e.into()),
+            };
 
-        // Get the game
-        let game = match crate::schema::games::table.find(id).first(&mut conn) {
-            Ok(g) => g,
-            Err(diesel::result::Error::NotFound) => return Ok(None),
-            Err(e) => return Err(e.into()),
-        };
+            // Get the moves with positions
+            let moves = move_::get_moves_by_game_id(db, id)?;
 
-        // Get the moves with positions
-        let moves = move_::get_moves_by_game_id(id)?;
+            // Get the headers
+            let headers = header::get_headers_by_game_id(db, id)?;
 
-        // Get the headers
-        let headers = header::get_headers_by_game_id(id)?;
-
-        Ok(Some(APIGame::from((game, moves, headers))))
+            Ok(Some(APIGame::from((game, moves, headers))))
+        })
     }
 
-    pub fn insert_games(games: &[Game]) -> Result<(), DatabaseError> {
-        let mut conn = setup::establish_connection()?;
-        diesel::insert_into(crate::schema::games::table)
-            .values(games)
-            .execute(&mut conn)?;
-        Ok(())
-    }
-
-    pub fn insert_games_returning_ids(games: &[Game]) -> Result<Vec<i32>, DatabaseError> {
-        let mut conn = setup::establish_connection()?;
-
-        // Pretty sure SQLite doesn't support batch insert with returning, so insert one at a time
-        // and collect the IDs
+    pub fn insert_games_returning_ids_with_conn(
+        conn: &mut DbConnection,
+        games: &[Game],
+    ) -> Result<Vec<i32>, DatabaseError> {
         let mut ids = Vec::new();
         for game in games {
             let id = diesel::insert_into(crate::schema::games::table)
                 .values(game)
                 .returning(crate::schema::games::id)
-                .get_result(&mut conn)?;
+                .get_result(conn)?;
             ids.push(id);
         }
         Ok(ids)
+    }
+
+    pub fn insert_games_returning_ids(
+        db: &Database,
+        games: &[Game],
+    ) -> Result<Vec<i32>, DatabaseError> {
+        db.with_connection(|conn| insert_games_returning_ids_with_conn(conn, games))
     }
 }
 
@@ -177,83 +205,54 @@ pub mod game {
 pub mod move_ {
     use super::*;
 
-    pub fn get_all_moves() -> Result<Vec<APIMove>, DatabaseError> {
-        let mut conn = setup::establish_connection()?;
-
-        let (parent_position, child_position) = alias!(
-            crate::schema::positions as parent_position,
-            crate::schema::positions as child_position
-        );
-
-        let moves = crate::schema::moves::table
-            .inner_join(
-                parent_position.on(crate::schema::moves::parent_position_id
-                    .eq(parent_position.field(crate::schema::positions::id))),
-            )
-            .inner_join(
-                child_position.on(crate::schema::moves::child_position_id
-                    .eq(child_position.field(crate::schema::positions::id))),
-            )
-            .select((
-                crate::schema::moves::all_columns,
-                parent_position.fields((
-                    crate::schema::positions::id,
-                    crate::schema::positions::fen,
-                    crate::schema::positions::annotation,
-                )),
-                child_position.fields((
-                    crate::schema::positions::id,
-                    crate::schema::positions::fen,
-                    crate::schema::positions::annotation,
-                )),
-            ))
-            .load::<(Move, Position, Position)>(&mut conn)?;
-
-        Ok(moves_to_api_moves(moves))
-    }
-
-    pub fn get_moves_by_game_id(id: i32) -> Result<Vec<APIMove>, DatabaseError> {
-        let mut conn = setup::establish_connection()?;
-
-        let (parent_position, child_position) = alias!(
-            crate::schema::positions as parent_position,
-            crate::schema::positions as child_position
-        );
-
-        let moves = crate::schema::moves::table
-            .filter(crate::schema::moves::game_id.eq(id))
-            .inner_join(
-                parent_position.on(crate::schema::moves::parent_position_id
-                    .eq(parent_position.field(crate::schema::positions::id))),
-            )
-            .inner_join(
-                child_position.on(crate::schema::moves::child_position_id
-                    .eq(child_position.field(crate::schema::positions::id))),
-            )
-            .select((
-                crate::schema::moves::all_columns,
-                parent_position.fields((
-                    crate::schema::positions::id,
-                    crate::schema::positions::fen,
-                    crate::schema::positions::annotation,
-                )),
-                child_position.fields((
-                    crate::schema::positions::id,
-                    crate::schema::positions::fen,
-                    crate::schema::positions::annotation,
-                )),
-            ))
-            .load::<(Move, Position, Position)>(&mut conn)?;
-
-        Ok(moves_to_api_moves(moves))
-    }
-
-    pub fn insert_moves(moves: &[Move]) -> Result<(), DatabaseError> {
-        let mut conn = setup::establish_connection()?;
+    pub fn insert_moves_with_conn(
+        conn: &mut DbConnection,
+        moves: &[Move],
+    ) -> Result<(), DatabaseError> {
         diesel::insert_into(crate::schema::moves::table)
             .values(moves)
-            .execute(&mut conn)?;
+            .execute(conn)?;
         Ok(())
+    }
+
+    pub fn insert_moves(db: &Database, moves: &[Move]) -> Result<(), DatabaseError> {
+        db.with_connection(|conn| insert_moves_with_conn(conn, moves))
+    }
+
+    pub fn get_moves_by_game_id(db: &Database, id: i32) -> Result<Vec<APIMove>, DatabaseError> {
+        db.with_connection(|conn| {
+            let (parent_position, child_position) = alias!(
+                crate::schema::positions as parent_position,
+                crate::schema::positions as child_position
+            );
+
+            let moves = crate::schema::moves::table
+                .filter(crate::schema::moves::game_id.eq(id))
+                .inner_join(
+                    parent_position.on(crate::schema::moves::parent_position_id
+                        .eq(parent_position.field(crate::schema::positions::id))),
+                )
+                .inner_join(
+                    child_position.on(crate::schema::moves::child_position_id
+                        .eq(child_position.field(crate::schema::positions::id))),
+                )
+                .select((
+                    crate::schema::moves::all_columns,
+                    parent_position.fields((
+                        crate::schema::positions::id,
+                        crate::schema::positions::fen,
+                        crate::schema::positions::annotation,
+                    )),
+                    child_position.fields((
+                        crate::schema::positions::id,
+                        crate::schema::positions::fen,
+                        crate::schema::positions::annotation,
+                    )),
+                ))
+                .load::<(Move, Position, Position)>(conn)?;
+
+            Ok(moves_to_api_moves(moves))
+        })
     }
 }
 
@@ -262,19 +261,26 @@ pub mod move_ {
 pub mod header {
     use super::*;
 
-    pub fn get_headers_by_game_id(id: i32) -> Result<Vec<Header>, DatabaseError> {
-        let mut conn = setup::establish_connection()?;
-        Ok(crate::schema::headers::table
-            .filter(crate::schema::headers::game_id.eq(id))
-            .load(&mut conn)?)
-    }
-
-    pub fn insert_headers(headers: &[Header]) -> Result<(), DatabaseError> {
-        let mut conn = setup::establish_connection()?;
+    pub fn insert_headers_with_conn(
+        conn: &mut DbConnection,
+        headers: &[Header],
+    ) -> Result<(), DatabaseError> {
         diesel::insert_into(crate::schema::headers::table)
             .values(headers)
-            .execute(&mut conn)?;
+            .execute(conn)?;
         Ok(())
+    }
+
+    pub fn insert_headers(db: &Database, headers: &[Header]) -> Result<(), DatabaseError> {
+        db.with_connection(|conn| insert_headers_with_conn(conn, headers))
+    }
+
+    pub fn get_headers_by_game_id(db: &Database, id: i32) -> Result<Vec<Header>, DatabaseError> {
+        db.with_connection(|conn| {
+            Ok(crate::schema::headers::table
+                .filter(crate::schema::headers::game_id.eq(id))
+                .load(conn)?)
+        })
     }
 }
 
@@ -283,34 +289,39 @@ pub mod header {
 pub mod position {
     use super::*;
 
-    fn insert_position_with_return_id(position: &Position) -> Result<i32, DatabaseError> {
-        let mut conn = setup::establish_connection()?;
-        let id = diesel::insert_into(crate::schema::positions::table)
-            .values(position)
-            .returning(crate::schema::positions::id)
-            .execute(&mut conn)?;
-        Ok(id as i32)
+    pub fn get_position_id_by_fen_with_conn(
+        conn: &mut DbConnection,
+        fen: &str,
+    ) -> Result<Option<i32>, DatabaseError> {
+        use crate::schema::positions::dsl::*;
+
+        let result = positions
+            .filter(fen.eq(fen))
+            .select(id)
+            .first(conn)
+            .optional()?;
+
+        Ok(result)
     }
 
-    pub fn create_position(fen: &str) -> Result<i32, DatabaseError> {
-        let position = Position {
-            fen: fen.to_string(),
-            ..Default::default()
-        };
-        insert_position_with_return_id(&position)
+    pub fn create_position_with_conn(
+        conn: &mut DbConnection,
+        fen_str: &str,
+    ) -> Result<i32, DatabaseError> {
+        use crate::schema::positions::dsl::*;
+
+        diesel::insert_into(positions)
+            .values(fen.eq(fen_str))
+            .returning(id)
+            .get_result(conn)
+            .map_err(|e| e.into())
     }
 
-    pub fn get_position_id_by_fen(fen: &str) -> Result<Option<i32>, DatabaseError> {
-        let mut conn = setup::establish_connection()?;
-        let result = crate::schema::positions::table
-            .filter(crate::schema::positions::fen.eq(fen))
-            .select(crate::schema::positions::id)
-            .first(&mut conn);
+    pub fn get_position_id_by_fen(db: &Database, fen: &str) -> Result<Option<i32>, DatabaseError> {
+        db.with_connection(|conn| get_position_id_by_fen_with_conn(conn, fen))
+    }
 
-        match result {
-            Ok(id) => Ok(Some(id)),
-            Err(diesel::result::Error::NotFound) => Ok(None),
-            Err(e) => Err(e.into()),
-        }
+    pub fn create_position(db: &Database, fen: &str) -> Result<i32, DatabaseError> {
+        db.with_connection(|conn| create_position_with_conn(conn, fen))
     }
 }

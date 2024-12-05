@@ -131,7 +131,7 @@ onUnmounted(() => {
             </button>
 
             <span class="ml-2 text-sm">
-              {{ game.currentMove }}
+              {{ game.currentMove?.game_move?.move_san }}
             </span>
           </div>
 

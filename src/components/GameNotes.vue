@@ -5,9 +5,9 @@
       :max="totalMoves"
       label-position="start"
     ></MeterGroup>
-    <Inplace class="inline-notes-editor">
+    <InplaceEdit class="inline-notes-editor">
       <template #display>
-        <p>{{ currentMove?.game_move.annotation }}</p>
+        <p>{{ currentMove?.game_move?.annotation ?? "" }}</p>
         <Button icon="pi pi-pencil" />
       </template>
       <template #content="{ closeCallback }">
@@ -19,12 +19,12 @@
           @click="closeCallback"
         />
       </template>
-    </Inplace>
+    </InplaceEdit>
   </div>
 </template>
 
 <script setup lang="ts">
-import Inplace from "primevue/inplace";
+import InplaceEdit from "./Basic/InplaceEdit.vue";
 import MeterGroup from "primevue/metergroup";
 import { computed } from "vue";
 import { useGlobalStore } from "../stores";

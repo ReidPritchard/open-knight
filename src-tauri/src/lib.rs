@@ -32,11 +32,7 @@ impl std::fmt::Display for PGNError {
 
 #[tauri::command]
 fn empty_db(state: tauri::State<AppState>) -> Result<(), String> {
-    database::setup::empty_db().map_err(|e| format!("Database error: {}", e))?;
-
-    // Reset the app state
-    state.clear();
-    Ok(())
+    state.clear().map_err(|e| format!("Database error: {}", e))
 }
 
 #[tauri::command]
@@ -49,49 +45,28 @@ fn san_to_move(san: &str) -> String {
 }
 
 #[tauri::command]
-fn parse_pgn(pgn: &str, state: tauri::State<AppState>) -> Result<String, String> {
+fn parse_pgn(pgn: &str, state: tauri::State<AppState>) -> Result<String, PGNError> {
     // Load and parse the PGN
-    let load_result = load_pgn(pgn).map_err(|e| e.to_string())?;
+    let load_result =
+        load_pgn(pgn, state.get_db()).map_err(|e| PGNError::ParseError(e.to_string()))?;
 
     // Early return if there were parsing errors
     if !load_result.success {
-        return Err(load_result.errors.join("\n"));
+        return Err(PGNError::ParseError(load_result.errors.join("\n")));
     }
 
-    let parsing_games = load_result.get_games();
+    // load_pgn adds the games to the database
+    // we should update the explorer state with the new games
+    let mut explorer = state.explorer.lock().unwrap();
+    explorer
+        .load_games_from_db(state.get_db())
+        .map_err(|e| PGNError::DatabaseError(e.to_string()))?;
 
-    // Process the games in a transaction to ensure database consistency
-    let result = || -> Result<String, String> {
-        // Convert to database models
-        let (games, moves, headers) = parsing_games_to_models(parsing_games.clone());
-
-        // Insert into database
-        database::game::insert_games(&games).map_err(|e| format!("Database error: {}", e))?;
-        database::move_::insert_moves(&moves).map_err(|e| format!("Database error: {}", e))?;
-        database::header::insert_headers(&headers).map_err(|e| format!("Database error: {}", e))?;
-
-        // Get all games with their headers in a single query
-        let games_with_headers = database::game::get_all_games_with_headers()
-            .map_err(|e| format!("Database error: {}", e))?;
-
-        // Convert to explorer games
-        let explorer_games = games_with_headers
-            .into_iter()
-            .map(|(game, headers)| ExplorerGame::from((game, headers)))
-            .collect::<Vec<_>>();
-
-        // Update application state
-        state
-            .explorer
-            .lock()
-            .map_err(|e| format!("State error: {}", e))?
-            .extend(&explorer_games);
-
-        // Serialize the result
-        serde_json::to_string(&explorer_games).map_err(|e| format!("Serialization error: {}", e))
-    }();
-
-    result
+    // Return a summary of what was parsed
+    Ok(format!(
+        "Successfully parsed {} games",
+        load_result.games.len()
+    ))
 }
 
 #[tauri::command]
@@ -104,7 +79,7 @@ fn get_explorer_state(state: tauri::State<AppState>) -> String {
 fn set_selected_game(game_id: Option<i32>, state: tauri::State<AppState>) -> Result<(), String> {
     println!("Setting selected game to: {:?}", game_id);
     if let Some(game_id) = game_id {
-        let api_game = database::game::get_full_game_by_id(game_id)
+        let api_game = database::game::get_full_game_by_id(state.get_db(), game_id)
             .map_err(|e| format!("Database error: {}", e))?
             .ok_or_else(|| format!("Game not found: {}", game_id))?;
         state.set_selected_game(Some(api_game));
@@ -124,7 +99,7 @@ fn get_selected_game(state: tauri::State<AppState>) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .manage(AppState::default())
+        .manage(AppState::new().expect("Failed to create AppState"))
         .invoke_handler(tauri::generate_handler![
             san_to_move,
             parse_pgn,
