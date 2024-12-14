@@ -33,6 +33,7 @@
     "@tauri-apps/cli": ">=2.0.0",
     "@vitejs/plugin-vue": "^5.0.5",
     "autoprefixer": "^10.4.20",
+    "daisyui": "^4.12.22",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "ts-patch": "^3.2.1",

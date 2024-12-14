@@ -1,7 +1,7 @@
 use diesel::{
     alias,
     prelude::*,
-    r2d2::{self, ConnectionManager},
+    r2d2::{self as r2d2_diesel, ConnectionManager},
 };
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use dotenvy::dotenv;
@@ -30,6 +30,7 @@ pub enum DatabaseError {
     QueryError(diesel::result::Error),
     ConfigError(String),
     PoolError(r2d2::Error),
+    DieselPoolError(r2d2_diesel::Error),
     TransactionError(String),
 }
 
@@ -40,6 +41,7 @@ impl std::fmt::Display for DatabaseError {
             DatabaseError::QueryError(e) => write!(f, "Query error: {}", e),
             DatabaseError::ConfigError(e) => write!(f, "Configuration error: {}", e),
             DatabaseError::PoolError(e) => write!(f, "Pool error: {}", e),
+            DatabaseError::DieselPoolError(e) => write!(f, "Diesel pool error: {}", e),
             DatabaseError::TransactionError(e) => write!(f, "Transaction error: {}", e),
         }
     }
@@ -48,6 +50,12 @@ impl std::fmt::Display for DatabaseError {
 impl From<diesel::result::Error> for DatabaseError {
     fn from(err: diesel::result::Error) -> Self {
         DatabaseError::QueryError(err)
+    }
+}
+
+impl From<r2d2_diesel::Error> for DatabaseError {
+    fn from(err: r2d2_diesel::Error) -> Self {
+        DatabaseError::DieselPoolError(err)
     }
 }
 
@@ -67,7 +75,7 @@ impl Database {
         let pool = r2d2::Pool::builder().max_size(5).build(manager)?;
 
         // Run migrations on one connection
-        let mut conn = pool.get()?;
+        let mut conn = pool.get().map_err(|e| DatabaseError::PoolError(e))?;
         conn.run_pending_migrations(MIGRATIONS)
             .map_err(|e| DatabaseError::ConnectionError(format!("Migration failed: {}", e)))?;
 
@@ -82,7 +90,7 @@ impl Database {
     where
         F: FnOnce(&mut DbConnection) -> Result<T, DatabaseError>,
     {
-        let mut conn = self.pool.get()?;
+        let mut conn = self.pool.get().map_err(|e| DatabaseError::PoolError(e))?;
         f(&mut conn)
     }
 
@@ -90,7 +98,7 @@ impl Database {
     where
         F: FnOnce(&mut DbConnection) -> Result<T, DatabaseError>,
     {
-        let mut conn = self.pool.get()?;
+        let mut conn = self.pool.get().map_err(|e| DatabaseError::PoolError(e))?;
         conn.transaction(|conn| f(conn))
     }
 }
