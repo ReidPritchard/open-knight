@@ -4,7 +4,7 @@
   <h1>Open Knight</h1>
   
   <p>
-    A cross-platform chess database and analysis application.
+    A cross-platform chess database and analysis application. ⚠️ SUPER ALPHA ⚠️
   </p>
   
 <!-- Badges -->
@@ -23,9 +23,6 @@
   </a>
   <a href="https://github.com/reidpritchard/open-knight/issues/">
     <img src="https://img.shields.io/github/issues/reidpritchard/open-knight" alt="open issues" />
-  </a>
-  <a href="https://github.com/reidpritchard/open-knight/blob/main/docs/LICENSE">
-    <img alt="GitHub License" src="https://img.shields.io/github/license/reidpritchard/open-knight">
   </a>
 </p>
 
@@ -52,7 +49,6 @@
     - [Screenshots](#screenshots)
     - [Tech Stack](#tech-stack)
     - [Features (more in development)](#features-more-in-development)
-    - [Color Reference](#color-reference)
     - [Environment Variables](#environment-variables)
   - [Getting Started](#getting-started)
     - [Prerequisites](#prerequisites)
@@ -122,18 +118,6 @@
 - Move tree/list
 - Theme support
 
-<!-- Color Reference -->
-### Color Reference
-
-The default theme is based on the [Aura theme](https://primevue.org/theme/aura/) for PrimeVue. It supports light and dark modes. It's setup to facilitate additional custom themes in the future, so these colors aren't final.
-
-| Color             | Hex                                                                |
-| ----------------- | ------------------------------------------------------------------ |
-| Primary Color | ![#222831](https://via.placeholder.com/10/222831?text=+) #222831 |
-| Secondary Color | ![#393E46](https://via.placeholder.com/10/393E46?text=+) #393E46 |
-| Accent Color | ![#00ADB5](https://via.placeholder.com/10/00ADB5?text=+) #00ADB5 |
-| Text Color | ![#EEEEEE](https://via.placeholder.com/10/EEEEEE?text=+) #EEEEEE |
-
 <!-- Env Variables -->
 ### Environment Variables
 
@@ -196,7 +180,7 @@ The project is under active development and new features are being added frequen
 <!-- Roadmap (in no particular order) -->
 ## Roadmap
 
-Listed in no particular order and likely to change:
+Listed in no particular order and likely to change (also the checked items are not stable, I keep breaking things):
 
 - [x] PGN Parsing
 - [x] Import PGN files
