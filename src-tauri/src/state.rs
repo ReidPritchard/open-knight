@@ -35,10 +35,6 @@ impl ExplorerState {
         self.games.clear();
     }
 
-    pub fn extend(&mut self, games: &[ExplorerGame]) {
-        self.games.extend(games.iter().cloned());
-    }
-
     pub fn load_games_from_db(&mut self, db: &Database) -> Result<(), database::DatabaseError> {
         let games_with_headers = database::game::get_all_games_with_headers(db)?;
         self.games = games_with_headers

@@ -97,6 +97,7 @@ export const useGameStore = defineStore("game", {
       console.log("Updating games");
       const parsedState = await api.getExplorerState();
       this.games = parsedState;
+      this.setSelectedGame(parsedState[0]);
     },
 
     async fetchSelectedGame() {

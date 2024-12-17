@@ -1,10 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { MOCKED, setupMocks } from "../test/mock";
 import { apiExplorerStateToExplorerGames } from "./api-conversions";
 import type { ExplorerGame } from "./bindings/ExplorerGame";
-
-// Setup the API
-setupMocks();
 
 export default {
   /**
@@ -14,10 +10,6 @@ export default {
    */
   getExplorerState: async (): Promise<ExplorerGame[]> => {
     const serializedState: string = await invoke("get_explorer_state");
-    if (MOCKED) {
-      return serializedState as unknown as ExplorerGame[];
-    }
-
     const parsed = JSON.parse(serializedState);
 
     console.log("Parsed explorer state:", parsed);

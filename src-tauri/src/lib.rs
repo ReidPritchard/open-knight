@@ -1,9 +1,8 @@
-use crate::models::game::ExplorerGame;
-use convert::parsing_games_to_models;
 use loader::load_pgn;
 use shakmaty::san::San;
 use state::AppState;
 
+mod chess;
 mod convert;
 mod database;
 mod loader;

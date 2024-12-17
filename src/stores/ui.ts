@@ -1,5 +1,4 @@
 import { defineStore } from "pinia";
-import { applicationLayout } from "../applicationLayout";
 import type { ILayout, IWindow } from "../shared/types";
 
 function getDefaultTheme() {
@@ -29,7 +28,7 @@ function getWindowById(layout: ILayout, windowId: string): IWindow | null {
 
 export const useUIStore = defineStore("ui", {
   state: () => ({
-    layout: applicationLayout as ILayout,
+    layout: {} as ILayout,
     visibleGameHeaders: [
       "Event",
       "Date",

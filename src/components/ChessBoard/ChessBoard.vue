@@ -1,293 +1,299 @@
 <template>
-  <div class="w-full h-full flex select-none"
-    :style="{
-      flexDirection: orientation === 'white' ? 'column-reverse' : 'column',
-    }"
-  >
-    <div
-      v-for="(row, rowIndex) in boardPosition"
-      :key="rowIndex"
-      class="flex flex-1"
-      :style="{
-        flexDirection: orientation === 'white' ? 'row' : 'row-reverse',
-      }"
-    >
+  <div class="grid grid-rows-8 grid-flow-col">
+    <div v-for="row in 8" :key="row" class="flex">
       <div
-        v-for="(square, colIndex) in row"
-        :key="colIndex"
-        class="relative flex-1"
-        :class="[
-          { 'is-target': square.isTarget },
-          showCoordinatesClass(square),
-        ]"
-        :style="squareStyle(square)"
-        :data-coordinates="formatCoordinates(square)"
-        @click="onSquareClick(square)"
-        @dragover.prevent="onDragOver(square)"
-        @drop="onDrop(square)"
+        v-for="col in 8"
+        :key="col"
+        :class="`w-16 h-16 ${
+          (row + col) % 2 === 0 ? 'bg-slate-400' : 'bg-slate-600'
+        } ${isValidMove(row - 1, col - 1) ? 'bg-green-400/50' : ''} 
+        flex items-center justify-center relative`"
+        @dragover.prevent
+        @drop="handleDrop(row - 1, col - 1)"
+        @click="handleSquareClick(row - 1, col - 1)"
       >
-        <div class="w-full h-full">
-          <UseDraggable
-            v-if="draggable && square.piece !== null"
-            storage-type="session"
-            :storage-key="`draggable-${square.row}-${square.col}`"
-          >
-            <div
-              class="piece w-full h-full flex items-center justify-center text-4xl"
-              :draggable="draggable && square.piece !== null"
-              @dragstart="onDragStart($event, square)"
-              @click="
-                square.piece !== null
-                  ? onPieceClick(square)
-                  : onSquareClick(square)
-              "
-            >
-              {{ square.piece ? pieceUnicode[square.piece] : "" }}
-            </div>
-          </UseDraggable>
-        </div>
+        <template v-if="pieceAt(row - 1, col - 1) !== undefined">
+          <img
+            :src="getPieceImage(pieceAt(row - 1, col - 1) ?? '')"
+            :class="`w-12 h-12 select-none ${
+              isSelected(row - 1, col - 1) ? 'ring-2 ring-yellow-400' : ''
+            }`"
+            :draggable="canMovePiece(row - 1, col - 1)"
+            @dragstart="handleDragStart(row - 1, col - 1)"
+            alt="Chess piece"
+          />
+        </template>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { UseDraggable } from "@vueuse/components";
-import { computed, watch } from "vue";
+import { computed, ref } from "vue";
 import { useGameStore } from "../../stores/game";
-import AspectRatio from "../AspectRatio.vue";
-import {
-  type Animation,
-  type Arrows,
-  type BoardStyle,
-  type CoordinatesStyleType,
-  type Orientation,
-  type Square,
-  boardStyleColorPresets,
-} from "./types";
-import { useChessBoard } from "./useChessBoard";
-import { formatCoordinates, getSquareStyle, pieceUnicode } from "./utils";
 
-const props = defineProps({
-  orientation: {
-    type: String as () => Orientation,
-    default: "white",
-  },
-  showCoordinates: {
-    type: String as () => CoordinatesStyleType,
-    default: "none",
-  },
-  draggable: {
-    type: Boolean,
-    default: true,
-  },
-  animation: {
-    type: String as () => Animation,
-    default: "none",
-  },
-  arrows: {
-    type: Array as () => Arrows,
-    default: () => [],
-  },
-  style: {
-    type: Object as () => BoardStyle,
-    default: () => ({
-      colors: boardStyleColorPresets.blue.colors,
-      squareBorderWidth: 0,
-      pieceStyle: {
-        unicodeColors: {
-          white: "#000",
-          black: "#fff",
-        },
-      },
-    }),
-  },
-});
-
-const emit = defineEmits<{
-  (e: "move", move: { from: Square; to: Square }): void;
-  (e: "piece-click", square: Square): void;
-  (e: "square-click", square: Square): void;
-}>();
+// FIXME: We should either use backend API or chess.js for this
+// no point in re-implementing the wheel ;)
 
 const gameStore = useGameStore();
 
+const selectedGame = computed(() => gameStore.selectedGame);
+const currentMove = computed(() => gameStore.currentMove);
+
+// The current position from which we want to display the board
 const currentPosition = computed(() => {
-  return gameStore.currentPosition;
-});
-
-const {
-  board,
-  onDragStart,
-  onDragOver,
-  onDrop,
-  onPieceClick,
-  onSquareClick,
-  updateBoard,
-} = useChessBoard(
-  {
-    currentPosition,
-    orientation: props.orientation,
-    draggable: props.draggable,
-  },
-  emit
-);
-
-// Watch for position changes and update the board
-watch(currentPosition, () => {
-  updateBoard();
-});
-
-// Watch for orientation changes and update the board
-watch(
-  () => props.orientation,
-  () => {
-    updateBoard();
+  if (currentMove.value?.parent_position) {
+    return currentMove.value.parent_position;
   }
-);
+  return selectedGame.value?.moves[0].parent_position;
+});
 
-const showCoordinatesClass = computed(() => {
-  return (square: Square) => {
-    if (props.showCoordinates === "none") {
-      return "";
+// State for drag and drop
+const selectedPiece = ref<{ row: number; col: number } | null>(null);
+const validMoves = ref<Array<{ row: number; col: number }>>([]);
+
+// Get the current turn (white or black) from FEN
+const currentTurn = computed(() => {
+  if (!currentPosition.value) return "w";
+  return currentPosition.value.fen.split(" ")[1];
+});
+
+const isWhitePiece = (piece: string) => piece === piece.toUpperCase();
+
+const canMovePiece = (row: number, col: number) => {
+  const piece = pieceAt(row, col);
+  if (!piece) return false;
+  // Only allow moving pieces of the current turn's color
+  return (currentTurn.value === "w") === isWhitePiece(piece);
+};
+
+const isSelected = (row: number, col: number) => {
+  return selectedPiece.value?.row === row && selectedPiece.value?.col === col;
+};
+
+const isValidMove = (row: number, col: number) => {
+  return validMoves.value.some((move) => move.row === row && move.col === col);
+};
+
+const handleDragStart = (row: number, col: number) => {
+  if (!canMovePiece(row, col)) return;
+  selectedPiece.value = { row, col };
+  // TODO: Calculate valid moves based on piece type and position
+  validMoves.value = calculateValidMoves(row, col);
+};
+
+const handleDrop = (row: number, col: number) => {
+  if (!selectedPiece.value || !isValidMove(row, col)) return;
+
+  // TODO: Update game state with the move
+  console.log(
+    `Move from (${selectedPiece.value.row}, ${selectedPiece.value.col}) to (${row}, ${col})`
+  );
+
+  // Reset selection
+  selectedPiece.value = null;
+  validMoves.value = [];
+};
+
+const handleSquareClick = (row: number, col: number) => {
+  const piece = pieceAt(row, col);
+
+  if (selectedPiece.value) {
+    if (isValidMove(row, col)) {
+      handleDrop(row, col);
+    } else {
+      selectedPiece.value = null;
+      validMoves.value = [];
     }
+  } else if (piece && canMovePiece(row, col)) {
+    selectedPiece.value = { row, col };
+    validMoves.value = calculateValidMoves(row, col);
+  }
+};
 
-    const classes = [];
-    const isWhiteOrientation = props.orientation === "white";
-    const firstRow = isWhiteOrientation ? 0 : 7;
-    const lastRow = isWhiteOrientation ? 7 : 0;
-    const firstCol = isWhiteOrientation ? 0 : 7;
-    const lastCol = isWhiteOrientation ? 7 : 0;
+const calculateValidMoves = (row: number, col: number) => {
+  const piece = pieceAt(row, col);
+  if (!piece) return [];
 
-    if (
-      props.showCoordinates === "inside" ||
-      props.showCoordinates === "outside"
-    ) {
-      if (square.row === firstRow) {
-        classes.push("coordinate-bottom");
-      } else if (square.row === lastRow) {
-        classes.push("coordinate-top");
-      }
-      if (square.col === firstCol) {
-        classes.push("coordinate-left");
-      } else if (square.col === lastCol) {
-        classes.push("coordinate-right");
-      }
-    } else if (props.showCoordinates === "verbose") {
-      classes.push(
-        "coordinate-top",
-        "coordinate-bottom",
-        "coordinate-left",
-        "coordinate-right"
-      );
-    }
+  const moves: Array<{ row: number; col: number }> = [];
+  const isWhite = isWhitePiece(piece);
+  const pieceType = piece.toLowerCase();
 
-    classes.push(`show-coordinates-${props.showCoordinates}`);
-    return classes;
+  // Helper function to check if a square is empty or contains an enemy piece
+  const isValidTarget = (r: number, c: number) => {
+    if (r < 0 || r > 7 || c < 0 || c > 7) return false;
+    const targetPiece = pieceAt(r, c);
+    return !targetPiece || isWhitePiece(targetPiece) !== isWhite;
   };
-});
 
-const squareStyle = computed(() => {
-  return (square: Square) => getSquareStyle(square, props.style);
-});
+  // Helper function to add moves in a direction until blocked
+  const addMovesInDirection = (
+    rowDir: number,
+    colDir: number,
+    maxSteps = 8
+  ) => {
+    let r = row + rowDir;
+    let c = col + colDir;
+    let steps = 0;
 
-const boardPosition = computed(() => {
-  return board.value;
-});
+    while (r >= 0 && r < 8 && c >= 0 && c < 8 && steps < maxSteps) {
+      const targetPiece = pieceAt(r, c);
+      if (!targetPiece) {
+        moves.push({ row: r, col: c });
+      } else {
+        if (isWhitePiece(targetPiece) !== isWhite) {
+          moves.push({ row: r, col: c });
+        }
+        break;
+      }
+      r += rowDir;
+      c += colDir;
+      steps++;
+    }
+  };
+
+  switch (pieceType) {
+    case "p": // Pawn
+      const direction = isWhite ? -1 : 1; // White pawns move up (-1), black pawns move down (+1)
+      const startRow = isWhite ? 6 : 1;
+
+      // Forward move
+      if (!pieceAt(row + direction, col)) {
+        moves.push({ row: row + direction, col });
+        // Initial two-square move
+        if (row === startRow && !pieceAt(row + 2 * direction, col)) {
+          moves.push({ row: row + 2 * direction, col });
+        }
+      }
+
+      // Captures
+      for (const captureCol of [col - 1, col + 1]) {
+        if (captureCol >= 0 && captureCol < 8) {
+          const targetPiece = pieceAt(row + direction, captureCol);
+          if (targetPiece && isWhitePiece(targetPiece) !== isWhite) {
+            moves.push({ row: row + direction, col: captureCol });
+          }
+        }
+      }
+      break;
+
+    case "n": // Knight
+      const knightMoves = [
+        [-2, -1],
+        [-2, 1],
+        [-1, -2],
+        [-1, 2],
+        [1, -2],
+        [1, 2],
+        [2, -1],
+        [2, 1],
+      ];
+      for (const [dr, dc] of knightMoves) {
+        if (isValidTarget(row + dr, col + dc)) {
+          moves.push({ row: row + dr, col: col + dc });
+        }
+      }
+      break;
+
+    case "b": // Bishop
+      addMovesInDirection(-1, -1); // Up-left
+      addMovesInDirection(-1, 1); // Up-right
+      addMovesInDirection(1, -1); // Down-left
+      addMovesInDirection(1, 1); // Down-right
+      break;
+
+    case "r": // Rook
+      addMovesInDirection(-1, 0); // Up
+      addMovesInDirection(1, 0); // Down
+      addMovesInDirection(0, -1); // Left
+      addMovesInDirection(0, 1); // Right
+      break;
+
+    case "q": // Queen (combines bishop and rook moves)
+      addMovesInDirection(-1, -1); // Up-left
+      addMovesInDirection(-1, 1); // Up-right
+      addMovesInDirection(1, -1); // Down-left
+      addMovesInDirection(1, 1); // Down-right
+      addMovesInDirection(-1, 0); // Up
+      addMovesInDirection(1, 0); // Down
+      addMovesInDirection(0, -1); // Left
+      addMovesInDirection(0, 1); // Right
+      break;
+
+    case "k": // King
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          if (isValidTarget(row + dr, col + dc)) {
+            moves.push({ row: row + dr, col: col + dc });
+          }
+        }
+      }
+      break;
+  }
+
+  return moves;
+};
+
+const pieceAt = (row: number, col: number) => {
+  if (!currentPosition.value) return undefined;
+  const fen = currentPosition.value.fen;
+  // The FEN is typically "FEN_position side_to_move castling_available en_passant_halfmoves_fullmoves"
+  const board = fen.split(" ")[0];
+  const boardArray = board.split("/");
+
+  // Each element of boardArray is a FEN rank from top (8) to bottom (1)
+  const fenRow = boardArray[row];
+
+  if (!fenRow) return undefined;
+
+  // Decode this FEN row into an array of exactly 8 squares
+  const rowSquares: string[] = [];
+  for (const char of fenRow) {
+    if (/\d/.test(char)) {
+      // A digit indicates that many consecutive empty squares
+      const emptyCount = Number.parseInt(char, 10);
+      for (let i = 0; i < emptyCount; i++) {
+        rowSquares.push("");
+      }
+    } else {
+      // A letter indicates a piece
+      rowSquares.push(char);
+    }
+  }
+
+  const piece = rowSquares[col];
+  // Return the piece if it is recognized; otherwise undefined
+  if (!piece || !["p", "n", "r", "k", "q", "b"].includes(piece.toLowerCase())) {
+    return undefined;
+  }
+
+  return piece;
+};
+
+const getPieceImage = (piece: string) => {
+  // Determine if piece is white or black by case (uppercase = white, lowercase = black)
+  const isWhite = piece === piece.toUpperCase();
+
+  // Map piece letters to their names
+  const pieceNames = {
+    p: "pawn",
+    n: "knight",
+    r: "rook",
+    k: "king",
+    q: "queen",
+    b: "bishop",
+  };
+
+  const pieceName = pieceNames[piece.toLowerCase() as keyof typeof pieceNames];
+  // Assuming you have placed your images in `public` folder as `white_*.svg` and `black_*.svg`
+  return `/${isWhite ? "white" : "black"}_${pieceName}.svg`;
+};
 </script>
 
-<style scoped>
-/* Custom styles that can't be handled by Tailwind */
-.piece {
-  font-family: "Segoe UI Symbol", "Noto Sans Symbols", "DejaVu Sans", "Symbola",
-    sans-serif;
-}
-
-.piece[draggable="true"] {
-  cursor: grab;
-  -moz-user-select: none;
-  -khtml-user-select: none;
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-.piece:active {
-  cursor: grabbing;
-}
-
-.drag-image {
-  font-size: 36px;
-  font-family: "Segoe UI Symbol", "Noto Sans Symbols", "DejaVu Sans", "Symbola",
-    sans-serif;
-  pointer-events: none;
-}
-
-.is-target {
-  border: 2px solid var(--p-primary-color);
-}
-
-/* Coordinate styles */
-:root {
-  --coordinate-font-size: 10px;
-}
-
-.show-coordinates-inside::after {
-  position: absolute;
-  top: 0;
-  left: 0;
-  content: attr(data-coordinates);
-  font-size: var(--coordinate-font-size);
-  color: var(--p-content-color);
-}
-
-.coordinate-top.show-coordinates-outside::after,
-.coordinate-bottom.show-coordinates-outside::after,
-.coordinate-left.show-coordinates-outside::after,
-.coordinate-right.show-coordinates-outside::after {
-  position: absolute;
-  content: attr(data-coordinates);
-  font-size: var(--coordinate-font-size);
-  color: var(--p-content-color);
-}
-
-.coordinate-top.show-coordinates-outside::after {
-  top: -16px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.coordinate-bottom.show-coordinates-outside::after {
-  bottom: -16px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.coordinate-left.show-coordinates-outside::after {
-  left: -16px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.coordinate-right.show-coordinates-outside::after {
-  right: -16px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.show-coordinates-verbose::after {
-  position: absolute;
-  top: 0;
-  left: 0;
-  content: attr(data-coordinates);
-  font-size: var(--coordinate-font-size);
-  color: var(--p-content-color);
-}
-
-/* Make the container fill the smaller of width/height while maintaining aspect ratio */
-.relative > .absolute {
-  width: min(100%, 100vh);
-  height: min(100%, 100vw);
-  margin: auto;
-  inset: 0;
-}
-</style>
+<!-- 
+By jurgenwesterhof (adapted from work of Cburnett) - 
+http://commons.wikimedia.org/wiki/Template:SVG_chess_pieces
+CC BY-SA 3.0
+Link: https://commons.wikimedia.org/w/index.php?curid=35634436
+-->
