@@ -2,9 +2,10 @@
 // anything that modifies a game (moves, annotations, etc)
 // Most actual chess-specific logic will be done with the shakmaty library
 
-use shakmaty::Chess;
+use shakmaty::{Chess, Position};
 
-use crate::models::{APIGame, APIMove, Move};
+use crate::models::api::ValidMove;
+use crate::models::{api::AllValidMoves, APIGame, APIMove};
 
 pub struct EditableGame {
     /**
@@ -115,5 +116,33 @@ impl MoveIterator {
             .position(|m| m.game_move.id == previous_move.game_move.id)?;
 
         Some(previous_move.clone())
+    }
+}
+
+pub fn get_all_valid_moves(position: &str) -> AllValidMoves {
+    // Parse the FEN string into a shakmaty Position
+    let position_fen = shakmaty::fen::Fen::from_ascii(position.as_bytes()).unwrap();
+    let chess_position: shakmaty::Chess = position_fen
+        .into_position(shakmaty::CastlingMode::Standard)
+        .unwrap();
+
+    // Get all legal moves in this position
+    let legal_moves = chess_position.legal_moves();
+
+    // Convert the moves to APIMove format
+    let moves = legal_moves
+        .iter()
+        .map(|mv| {
+            // Create a new position after making this move
+            let mut new_position = chess_position.clone();
+            new_position.play_unchecked(mv);
+
+            ValidMove::from(mv)
+        })
+        .collect();
+
+    AllValidMoves {
+        position: position.to_string(),
+        moves,
     }
 }

@@ -2,6 +2,7 @@ import typia from "typia";
 import type { APIGame } from "./bindings/APIGame";
 import type { ExplorerGame } from "./bindings/ExplorerGame";
 import type { FullGame } from "./bindings/FullGame";
+import type { AllValidMoves } from "./bindings/AllValidMoves";
 
 ////////////////////////////////////////////////////////////
 // Application UI Interfaces
@@ -211,7 +212,9 @@ export type ILayout = IWindow | IWindowContainer;
 // Type Guards
 export const isExplorerGame = typia.createIs<ExplorerGame>();
 export const isAPIGame = typia.createIs<APIGame>();
+export const isAllValidMoves = typia.createIs<AllValidMoves>();
 
 // Parsers
 export const parseFullGame = typia.createValidate<FullGame>();
 export const parseAPIGame = typia.createValidate<APIGame>();
+export const parseAllValidMoves = typia.createValidate<AllValidMoves>();

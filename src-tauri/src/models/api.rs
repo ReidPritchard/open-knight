@@ -24,6 +24,35 @@ impl From<(Move, Position, Position)> for APIMove {
     }
 }
 
+// Represents all valid moves for a given position
+#[derive(Serialize, Deserialize, Debug, Clone, TsBind)]
+#[ts_bind(export = "../src/shared/bindings")]
+pub struct AllValidMoves {
+    pub position: String,
+    pub moves: Vec<ValidMove>,
+}
+
+// Represents a valid move for a given position
+#[derive(Serialize, Deserialize, Debug, Clone, TsBind)]
+#[ts_bind(export = "../src/shared/bindings")]
+pub struct ValidMove {
+    pub move_san: String,
+    pub from_square: String,
+    pub to_square: String,
+    // Add any other fields as needed
+    // not sure what else would be though
+}
+
+impl From<&shakmaty::Move> for ValidMove {
+    fn from(_move: &shakmaty::Move) -> Self {
+        ValidMove {
+            move_san: _move.to_string(),
+            from_square: _move.from().unwrap().to_string(),
+            to_square: _move.to().to_string(),
+        }
+    }
+}
+
 /// Represents a game with its moves for API communication
 #[derive(Serialize, Deserialize, Debug, Clone, TsBind)]
 #[ts_bind(export = "../src/shared/bindings")]

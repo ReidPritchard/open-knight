@@ -16,6 +16,25 @@ export const useGameStore = defineStore("game", {
     currentMove: (state): APIMove | null =>
       state.selectedGame?.moves?.[state.selectedGameLocation] ?? null,
 
+    nextMoves: (state): APIMove[] => {
+      const currentPositionId =
+        state.selectedGame?.moves?.[state.selectedGameLocation]?.child_position
+          ?.id;
+      // Get the next move in both mainline and variations
+      const nextMoves = state.selectedGame?.moves?.filter(
+        (searchMove) =>
+          searchMove.parent_position?.id === currentPositionId &&
+          searchMove.game_move.move_number === state.selectedGameLocation + 1
+      );
+      return (
+        nextMoves?.sort(
+          (a, b) =>
+            (a.game_move.variation_order ?? 0) -
+            (b.game_move.variation_order ?? 0)
+        ) ?? []
+      );
+    },
+
     currentPosition: (state): string =>
       state.selectedGame?.moves?.[state.selectedGameLocation]?.parent_position
         ?.fen ?? "start",
@@ -91,6 +110,12 @@ export const useGameStore = defineStore("game", {
       if (this.canGoBack) {
         this.selectedGameLocation--;
       }
+    },
+
+    async makeMove(position: string, move: string) {
+      await api.makeMove(position, move);
+      await this.fetchSelectedGame();
+      // Returns the new position
     },
 
     async updateGames() {

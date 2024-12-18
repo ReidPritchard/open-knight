@@ -1,268 +1,245 @@
 <template>
-  <div class="grid grid-rows-8 grid-flow-col">
+  <div
+    class="grid grid-rows-8 grid-flow-col transition-all duration-100"
+    :class="boardWhiteOrientation === 'top' ? 'rotate-180' : ''"
+  >
     <div v-for="row in 8" :key="row" class="flex">
       <div
         v-for="col in 8"
         :key="col"
         :class="`w-16 h-16 ${
           (row + col) % 2 === 0 ? 'bg-slate-400' : 'bg-slate-600'
-        } ${isValidMove(row - 1, col - 1) ? 'bg-green-400/50' : ''} 
-        flex items-center justify-center relative`"
-        @dragover.prevent
-        @drop="handleDrop(row - 1, col - 1)"
-        @click="handleSquareClick(row - 1, col - 1)"
+        } flex items-center justify-center relative`"
+        @drop="handleDrop(8 - row, 8 - col)"
+        @click="handleSquareClick(8 - row, 8 - col)"
       >
-        <template v-if="pieceAt(row - 1, col - 1) !== undefined">
+        <template v-if="pieceAt(8 - row, 8 - col) !== undefined">
           <img
-            :src="getPieceImage(pieceAt(row - 1, col - 1) ?? '')"
+            :src="getPieceImage(pieceAt(8 - row, 8 - col) ?? '')"
             :class="`w-12 h-12 select-none ${
-              isSelected(row - 1, col - 1) ? 'ring-2 ring-yellow-400' : ''
+              isSelected(8 - row, 8 - col) ? 'ring-2 ring-primary' : ''
             }`"
-            :draggable="canMovePiece(row - 1, col - 1)"
-            @dragstart="handleDragStart(row - 1, col - 1)"
+            :draggable="canMovePiece(8 - row, 8 - col)"
+            @dragstart="handleDragStart(8 - row, 8 - col)"
             alt="Chess piece"
           />
+        </template>
+        <template v-if="isValidMove(8 - row, 8 - col)">
+          <div
+            class="absolute inset-0 bg-success/80 w-1/5 h-1/5 m-auto rounded-full"
+          ></div>
         </template>
       </div>
     </div>
   </div>
+
+  <div class="flex flex-col items-center justify-center">
+    <span class="badge badge-primary">
+      {{ JSON.stringify(currentMove) }}
+    </span>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useGameStore } from "../../stores/game";
-
-// FIXME: We should either use backend API or chess.js for this
-// no point in re-implementing the wheel ;)
+import api from "../../shared/api";
+import { useUIStore } from "../../stores/ui";
 
 const gameStore = useGameStore();
+const uiStore = useUIStore();
 
 const selectedGame = computed(() => gameStore.selectedGame);
 const currentMove = computed(() => gameStore.currentMove);
+const nextMoves = computed(() => gameStore.nextMoves);
+const boardWhiteOrientation = computed(() => uiStore.boardWhiteOrientation);
 
 // The current position from which we want to display the board
-const currentPosition = computed(() => {
+const currentPositionFEN = computed(() => {
+  // If there is a game selected and we are on a move, use that position
   if (currentMove.value?.parent_position) {
     return currentMove.value.parent_position;
   }
-  return selectedGame.value?.moves[0].parent_position;
+  // if a game is selected, but we haven't started "moving" yet, use the first position
+  if (selectedGame.value && selectedGame.value.moves.length > 0) {
+    return selectedGame.value?.moves[0].parent_position;
+  }
+
+  // if no game is selected, use the standard starting position
+  return { fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" };
+});
+
+const currentPositionParsed = computed(() => {
+  if (!currentPositionFEN.value) return undefined;
+  const fen = currentPositionFEN.value.fen;
+  // Get the board part of the FEN (before the first space)
+  const board = fen.split(" ")[0];
+  const boardArray = board.split("/");
+
+  // Create an 8x8 2D array representing the board
+  const parsedBoard: string[][] = [];
+
+  // Process each row in the FEN (from 8th rank to 1st rank)
+  for (const fenRow of boardArray) {
+    const rowSquares: string[] = [];
+    for (const char of fenRow) {
+      if (/\d/.test(char)) {
+        // A digit indicates that many consecutive empty squares
+        const emptyCount = Number.parseInt(char, 10);
+        for (let i = 0; i < emptyCount; i++) {
+          rowSquares.push("");
+        }
+      } else {
+        // A letter indicates a piece
+        rowSquares.push(char);
+      }
+    }
+    parsedBoard.unshift(rowSquares); // Add each row to the beginning instead of the end
+  }
+
+  return parsedBoard;
 });
 
 // State for drag and drop
 const selectedPiece = ref<{ row: number; col: number } | null>(null);
-const validMoves = ref<Array<{ row: number; col: number }>>([]);
+// The valid moves in the current position (contains all valid moves for all valid pieces)
+// This lets us only fetch it once. Maps row, col to a list of valid moves from that square/piece
+const validPositionMoves = ref<
+  Record<string, Array<{ row: number; col: number }>>
+>({});
+
+// These are the valid moves for the currently selected piece (actively displayed)
+const validPieceMoves = ref<Array<{ row: number; col: number }>>([]);
 
 // Get the current turn (white or black) from FEN
 const currentTurn = computed(() => {
-  if (!currentPosition.value) return "w";
-  return currentPosition.value.fen.split(" ")[1];
+  if (!currentPositionFEN.value) return "w";
+  return currentPositionFEN.value.fen.split(" ")[1];
 });
 
 const isWhitePiece = (piece: string) => piece === piece.toUpperCase();
-
-const canMovePiece = (row: number, col: number) => {
-  const piece = pieceAt(row, col);
-  if (!piece) return false;
-  // Only allow moving pieces of the current turn's color
-  return (currentTurn.value === "w") === isWhitePiece(piece);
-};
 
 const isSelected = (row: number, col: number) => {
   return selectedPiece.value?.row === row && selectedPiece.value?.col === col;
 };
 
-const isValidMove = (row: number, col: number) => {
-  return validMoves.value.some((move) => move.row === row && move.col === col);
-};
-
-const handleDragStart = (row: number, col: number) => {
+const handleDragStart = async (row: number, col: number) => {
   if (!canMovePiece(row, col)) return;
   selectedPiece.value = { row, col };
-  // TODO: Calculate valid moves based on piece type and position
-  validMoves.value = calculateValidMoves(row, col);
+  validPieceMoves.value = await getValidMoves(row, col);
 };
 
 const handleDrop = (row: number, col: number) => {
-  if (!selectedPiece.value || !isValidMove(row, col)) return;
+  if (!selectedPiece.value || !isValidMove.value(row, col)) return;
 
-  // TODO: Update game state with the move
-  console.log(
-    `Move from (${selectedPiece.value.row}, ${selectedPiece.value.col}) to (${row}, ${col})`
+  // Make the move
+
+  // Check if the move is already in the next moves
+  console.log("nextMoves", nextMoves.value);
+  const foundMove = nextMoves.value.find(
+    (searchMove) =>
+      searchMove.game_move.move_san ===
+      `${currentMove.value?.game_move.move_san} ${row}${col}`
   );
+  console.log("foundMove", foundMove);
+
+  // If the move is in the next moves, there is no need to 
 
   // Reset selection
   selectedPiece.value = null;
-  validMoves.value = [];
+  validPieceMoves.value = [];
 };
 
-const handleSquareClick = (row: number, col: number) => {
+const handleSquareClick = async (row: number, col: number) => {
   const piece = pieceAt(row, col);
 
-  if (selectedPiece.value) {
-    if (isValidMove(row, col)) {
-      handleDrop(row, col);
-    } else {
-      selectedPiece.value = null;
-      validMoves.value = [];
-    }
-  } else if (piece && canMovePiece(row, col)) {
+  if (selectedPiece.value && isValidMove.value(row, col)) {
+    handleDrop(row, col);
+  } else if (piece && canMovePiece(row, col) && !isSelected(row, col)) {
+    // If we click a piece that is already selected, unselect it
+    // If we click a different piece, select it
+    // I think this should work since you can't eat your own pieces
+    // I also feel like there is probably an edge case I'm not thinking of
     selectedPiece.value = { row, col };
-    validMoves.value = calculateValidMoves(row, col);
+    validPieceMoves.value = await getValidMoves(row, col);
+  } else {
+    selectedPiece.value = null;
+    validPieceMoves.value = [];
   }
 };
 
-const calculateValidMoves = (row: number, col: number) => {
+/**
+ * Check if there are valid moves *from* the given square
+ * @param row The row of the source square
+ * @param col The column of the source square
+ * @returns True if there are valid moves for the piece at the given square
+ */
+const canMovePiece = (row: number, col: number) => {
+  return validPositionMoves.value[`${row},${col}`] !== undefined;
+};
+
+/**
+ * Check if the selected piece can move *to* the given square
+ * @param row The row of the target square
+ * @param col The column of the target square
+ * @returns True if the move is valid for the currently selected piece
+ */
+const isValidMove = computed(() => {
+  return (row: number, col: number) => {
+    return validPieceMoves.value.some(
+      (move) => move.row === row && move.col === col
+    );
+  };
+});
+
+const getValidMoves = async (row: number, col: number) => {
   const piece = pieceAt(row, col);
   if (!piece) return [];
 
-  const moves: Array<{ row: number; col: number }> = [];
-  const isWhite = isWhitePiece(piece);
-  const pieceType = piece.toLowerCase();
-
-  // Helper function to check if a square is empty or contains an enemy piece
-  const isValidTarget = (r: number, c: number) => {
-    if (r < 0 || r > 7 || c < 0 || c > 7) return false;
-    const targetPiece = pieceAt(r, c);
-    return !targetPiece || isWhitePiece(targetPiece) !== isWhite;
-  };
-
-  // Helper function to add moves in a direction until blocked
-  const addMovesInDirection = (
-    rowDir: number,
-    colDir: number,
-    maxSteps = 8
-  ) => {
-    let r = row + rowDir;
-    let c = col + colDir;
-    let steps = 0;
-
-    while (r >= 0 && r < 8 && c >= 0 && c < 8 && steps < maxSteps) {
-      const targetPiece = pieceAt(r, c);
-      if (!targetPiece) {
-        moves.push({ row: r, col: c });
-      } else {
-        if (isWhitePiece(targetPiece) !== isWhite) {
-          moves.push({ row: r, col: c });
-        }
-        break;
-      }
-      r += rowDir;
-      c += colDir;
-      steps++;
-    }
-  };
-
-  switch (pieceType) {
-    case "p": // Pawn
-      const direction = isWhite ? -1 : 1; // White pawns move up (-1), black pawns move down (+1)
-      const startRow = isWhite ? 6 : 1;
-
-      // Forward move
-      if (!pieceAt(row + direction, col)) {
-        moves.push({ row: row + direction, col });
-        // Initial two-square move
-        if (row === startRow && !pieceAt(row + 2 * direction, col)) {
-          moves.push({ row: row + 2 * direction, col });
-        }
-      }
-
-      // Captures
-      for (const captureCol of [col - 1, col + 1]) {
-        if (captureCol >= 0 && captureCol < 8) {
-          const targetPiece = pieceAt(row + direction, captureCol);
-          if (targetPiece && isWhitePiece(targetPiece) !== isWhite) {
-            moves.push({ row: row + direction, col: captureCol });
-          }
-        }
-      }
-      break;
-
-    case "n": // Knight
-      const knightMoves = [
-        [-2, -1],
-        [-2, 1],
-        [-1, -2],
-        [-1, 2],
-        [1, -2],
-        [1, 2],
-        [2, -1],
-        [2, 1],
-      ];
-      for (const [dr, dc] of knightMoves) {
-        if (isValidTarget(row + dr, col + dc)) {
-          moves.push({ row: row + dr, col: col + dc });
-        }
-      }
-      break;
-
-    case "b": // Bishop
-      addMovesInDirection(-1, -1); // Up-left
-      addMovesInDirection(-1, 1); // Up-right
-      addMovesInDirection(1, -1); // Down-left
-      addMovesInDirection(1, 1); // Down-right
-      break;
-
-    case "r": // Rook
-      addMovesInDirection(-1, 0); // Up
-      addMovesInDirection(1, 0); // Down
-      addMovesInDirection(0, -1); // Left
-      addMovesInDirection(0, 1); // Right
-      break;
-
-    case "q": // Queen (combines bishop and rook moves)
-      addMovesInDirection(-1, -1); // Up-left
-      addMovesInDirection(-1, 1); // Up-right
-      addMovesInDirection(1, -1); // Down-left
-      addMovesInDirection(1, 1); // Down-right
-      addMovesInDirection(-1, 0); // Up
-      addMovesInDirection(1, 0); // Down
-      addMovesInDirection(0, -1); // Left
-      addMovesInDirection(0, 1); // Right
-      break;
-
-    case "k": // King
-      for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          if (dr === 0 && dc === 0) continue;
-          if (isValidTarget(row + dr, col + dc)) {
-            moves.push({ row: row + dr, col: col + dc });
-          }
-        }
-      }
-      break;
+  // Check if we have valid moves for this piece in the current position
+  if (validPositionMoves.value[`${row},${col}`]) {
+    return validPositionMoves.value[`${row},${col}`];
   }
 
-  return moves;
+  // If not, fetch them from the backend
+  await fetchValidMoves();
+
+  return validPositionMoves.value[`${row},${col}`];
+};
+
+const fetchValidMoves = async () => {
+  const updatedValidMoves = await api.getAllValidMoves(
+    currentPositionFEN.value?.fen
+  );
+
+  // Map the valid moves by from square
+  for (const move of updatedValidMoves.moves) {
+    const fromSquare = move.from_square;
+    const toSquare = move.to_square;
+    // Squares are in the format "a1", "b2", etc.
+    // Convert to row and col
+    const fromRow = Number.parseInt(fromSquare.slice(1), 10) - 1;
+    const fromCol = fromSquare.charCodeAt(0) - "a".charCodeAt(0);
+
+    validPositionMoves.value[`${fromRow},${fromCol}`] = [
+      ...(validPositionMoves.value[`${fromRow},${fromCol}`] ?? []),
+      {
+        row: Number.parseInt(toSquare.slice(1), 10) - 1,
+        col: toSquare.charCodeAt(0) - "a".charCodeAt(0),
+      },
+    ];
+  }
+
+  console.log("validPositionMoves", validPositionMoves.value);
+
+  return updatedValidMoves;
 };
 
 const pieceAt = (row: number, col: number) => {
-  if (!currentPosition.value) return undefined;
-  const fen = currentPosition.value.fen;
-  // The FEN is typically "FEN_position side_to_move castling_available en_passant_halfmoves_fullmoves"
-  const board = fen.split(" ")[0];
-  const boardArray = board.split("/");
+  const board = currentPositionParsed.value;
+  if (!board) return undefined;
 
-  // Each element of boardArray is a FEN rank from top (8) to bottom (1)
-  const fenRow = boardArray[row];
-
-  if (!fenRow) return undefined;
-
-  // Decode this FEN row into an array of exactly 8 squares
-  const rowSquares: string[] = [];
-  for (const char of fenRow) {
-    if (/\d/.test(char)) {
-      // A digit indicates that many consecutive empty squares
-      const emptyCount = Number.parseInt(char, 10);
-      for (let i = 0; i < emptyCount; i++) {
-        rowSquares.push("");
-      }
-    } else {
-      // A letter indicates a piece
-      rowSquares.push(char);
-    }
-  }
-
-  const piece = rowSquares[col];
+  const piece = board[row]?.[col];
   // Return the piece if it is recognized; otherwise undefined
   if (!piece || !["p", "n", "r", "k", "q", "b"].includes(piece.toLowerCase())) {
     return undefined;
@@ -289,6 +266,10 @@ const getPieceImage = (piece: string) => {
   // Assuming you have placed your images in `public` folder as `white_*.svg` and `black_*.svg`
   return `/${isWhite ? "white" : "black"}_${pieceName}.svg`;
 };
+
+onMounted(async () => {
+  await fetchValidMoves();
+});
 </script>
 
 <!-- 

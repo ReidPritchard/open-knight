@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import type { ILayout, IWindow } from "../shared/types";
 
-function getDefaultTheme() {
+function getDefaultTheme(): "light" | "dark" {
   const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
   // Set the theme in localStorage
@@ -38,6 +38,10 @@ export const useUIStore = defineStore("ui", {
       "Opening",
     ] as string[],
     theme: getDefaultTheme() as "light" | "dark",
+    /**
+     * The orientation of the board, by which side white is playing from
+     */
+    boardWhiteOrientation: "bottom" as "top" | "bottom",
   }),
 
   actions: {

@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { apiExplorerStateToExplorerGames } from "./api-conversions";
 import type { ExplorerGame } from "./bindings/ExplorerGame";
+import type { AllValidMoves } from "./bindings/AllValidMoves";
+import { parseAllValidMoves } from "./types";
 
 export default {
   /**
@@ -65,5 +67,34 @@ export default {
    */
   emptyDatabase: async (): Promise<void> => {
     await invoke("empty_db");
+  },
+
+  /**
+   * Get all valid moves for a given position.
+   * @param position The FEN string of the position
+   * @returns Promise<Array<{ row: number; col: number }>> Array of valid moves
+   */
+  getAllValidMoves: async (position?: string): Promise<AllValidMoves> => {
+    if (!position) {
+      throw new Error("No position provided");
+    }
+
+    const response = await invoke("get_all_valid_moves", { position });
+    const parsed = parseAllValidMoves(response);
+    if (parsed.success) {
+      console.log("Parsed valid moves:", parsed.data);
+      return parsed.data;
+    }
+    throw new Error("Invalid response from backend");
+  },
+
+  /**
+   * Make a move in the backend.
+   * @param position The FEN string of the position
+   * @param move The move to make
+   * @returns Promise<string> The new position
+   */
+  makeMove: async (position: string, move: string): Promise<string> => {
+    return await invoke("make_move", { position, move });
   },
 };

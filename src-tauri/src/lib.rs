@@ -1,4 +1,5 @@
 use loader::load_pgn;
+use models::api::AllValidMoves;
 use shakmaty::san::San;
 use state::AppState;
 
@@ -41,6 +42,12 @@ fn san_to_move(san: &str) -> String {
         Ok(m) => format!("{:?}", m),
         Err(e) => format!("{:?}", e),
     }
+}
+
+#[tauri::command]
+fn get_all_valid_moves(position: &str) -> Result<AllValidMoves, PGNError> {
+    let valid_moves = chess::get_all_valid_moves(position);
+    Ok(valid_moves)
 }
 
 #[tauri::command]
@@ -101,6 +108,7 @@ pub fn run() {
         .manage(AppState::new().expect("Failed to create AppState"))
         .invoke_handler(tauri::generate_handler![
             san_to_move,
+            get_all_valid_moves,
             parse_pgn,
             get_explorer_state,
             set_selected_game,
