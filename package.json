@@ -17,6 +17,7 @@
     "@primevue/themes": "^4.1.1",
     "@tauri-apps/api": ">=2.0.0",
     "@tauri-apps/plugin-shell": ">=2.0.0",
+    "@tauri-apps/plugin-sql": "^2.2.0",
     "@vueuse/components": "^11.1.0",
     "@vueuse/core": "^11.1.0",
     "chess.js": "^1.0.0-beta.8",

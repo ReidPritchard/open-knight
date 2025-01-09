@@ -31,8 +31,11 @@ impl std::fmt::Display for PGNError {
 }
 
 #[tauri::command]
-fn empty_db(state: tauri::State<AppState>) -> Result<(), String> {
-    state.clear().map_err(|e| format!("Database error: {}", e))
+async fn empty_db(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state
+        .clear()
+        .await
+        .map_err(|e| format!("Database error: {}", e))
 }
 
 #[tauri::command]
@@ -51,10 +54,11 @@ fn get_all_valid_moves(position: &str) -> Result<AllValidMoves, PGNError> {
 }
 
 #[tauri::command]
-fn parse_pgn(pgn: &str, state: tauri::State<AppState>) -> Result<String, PGNError> {
+async fn parse_pgn(pgn: &str, state: tauri::State<'_, AppState>) -> Result<String, PGNError> {
     // Load and parse the PGN
-    let load_result =
-        load_pgn(pgn, state.get_db()).map_err(|e| PGNError::ParseError(e.to_string()))?;
+    let load_result = load_pgn(pgn, state.get_db())
+        .await
+        .map_err(|e| PGNError::ParseError(e.to_string()))?;
 
     // Early return if there were parsing errors
     if !load_result.success {
@@ -66,6 +70,7 @@ fn parse_pgn(pgn: &str, state: tauri::State<AppState>) -> Result<String, PGNErro
     let mut explorer = state.explorer.lock().unwrap();
     explorer
         .load_games_from_db(state.get_db())
+        .await
         .map_err(|e| PGNError::DatabaseError(e.to_string()))?;
 
     // Return a summary of what was parsed
@@ -76,16 +81,20 @@ fn parse_pgn(pgn: &str, state: tauri::State<AppState>) -> Result<String, PGNErro
 }
 
 #[tauri::command]
-fn get_explorer_state(state: tauri::State<AppState>) -> String {
+fn get_explorer_state(state: tauri::State<'_, AppState>) -> String {
     let explorer = state.explorer.lock().unwrap().clone();
     serde_json::to_string_pretty(&explorer).unwrap()
 }
 
 #[tauri::command]
-fn set_selected_game(game_id: Option<i32>, state: tauri::State<AppState>) -> Result<(), String> {
+async fn set_selected_game(
+    game_id: Option<i32>,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
     println!("Setting selected game to: {:?}", game_id);
     if let Some(game_id) = game_id {
         let api_game = database::game::get_full_game_by_id(state.get_db(), game_id)
+            .await
             .map_err(|e| format!("Database error: {}", e))?
             .ok_or_else(|| format!("Game not found: {}", game_id))?;
         state.set_selected_game(Some(api_game));
@@ -96,7 +105,7 @@ fn set_selected_game(game_id: Option<i32>, state: tauri::State<AppState>) -> Res
 }
 
 #[tauri::command]
-fn get_selected_game(state: tauri::State<AppState>) -> String {
+fn get_selected_game(state: tauri::State<'_, AppState>) -> String {
     let selected_game = state.selected_game.lock().unwrap().clone();
     serde_json::to_string_pretty(&selected_game).unwrap()
 }
@@ -104,8 +113,13 @@ fn get_selected_game(state: tauri::State<AppState>) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
-        .manage(AppState::new().expect("Failed to create AppState"))
+        .plugin(tauri_plugin_sql::Builder::new().build())
+        .manage(
+            tokio::runtime::Runtime::new()
+                .unwrap()
+                .block_on(AppState::new())
+                .expect("Failed to create AppState"),
+        )
         .invoke_handler(tauri::generate_handler![
             san_to_move,
             get_all_valid_moves,

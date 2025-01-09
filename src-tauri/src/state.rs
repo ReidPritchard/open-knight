@@ -35,8 +35,11 @@ impl ExplorerState {
         self.games.clear();
     }
 
-    pub fn load_games_from_db(&mut self, db: &Database) -> Result<(), database::DatabaseError> {
-        let games_with_headers = database::game::get_all_games_with_headers(db)?;
+    pub async fn load_games_from_db(
+        &mut self,
+        db: &Database,
+    ) -> Result<(), database::DatabaseError> {
+        let games_with_headers = database::game::get_all_games_with_headers(db).await?;
         self.games = games_with_headers
             .into_iter()
             .map(|(game, headers)| ExplorerGame::from((game, headers)))
@@ -52,10 +55,10 @@ impl Default for ExplorerState {
 }
 
 impl AppState {
-    pub fn new() -> Result<Self, database::DatabaseError> {
-        let db = Database::new()?;
+    pub async fn new() -> Result<Self, database::DatabaseError> {
+        let db = Database::new().await?;
         let mut explorer = ExplorerState::new();
-        explorer.load_games_from_db(&db)?;
+        explorer.load_games_from_db(&db).await?;
 
         Ok(AppState {
             db,
@@ -64,8 +67,8 @@ impl AppState {
         })
     }
 
-    pub fn clear(&self) -> Result<(), database::DatabaseError> {
-        database::setup::empty_db(&self.db)?;
+    pub async fn clear(&self) -> Result<(), database::DatabaseError> {
+        database::setup::empty_db(&self.db).await?;
         self.explorer.lock().unwrap().clear();
         *self.selected_game.lock().unwrap() = None;
         Ok(())
@@ -82,6 +85,9 @@ impl AppState {
 
 impl Default for AppState {
     fn default() -> Self {
-        Self::new().expect("Failed to create AppState")
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(Self::new())
+            .expect("Failed to create AppState")
     }
 }
