@@ -51,6 +51,34 @@ fn get_all_valid_moves(position: &str) -> Result<AllValidMoves, PGNError> {
 }
 
 #[tauri::command]
+fn make_move(
+    game_id: i32,
+    move_string: &str,
+    promotion: Option<String>,
+    state: tauri::State<AppState>,
+) -> Result<String, String> {
+    let editable_game = state.get_open_game(game_id);
+    editable_game.make_move(move_string, promotion);
+    Ok(format!("Moved from {} to {}", from, to))
+}
+
+#[tauri::command]
+fn open_game(game_id: i32, state: tauri::State<AppState>) -> Result<(), String> {
+    let game = database::game::get_full_game_by_id(state.get_db(), game_id)
+        .map_err(|e| format!("Database error: {}", e))?
+        .ok_or_else(|| format!("Game not found: {}", game_id))?;
+    let editable_game = chess::EditableGame::new(game);
+    state.set_open_game(editable_game);
+    Ok(())
+}
+
+#[tauri::command]
+fn close_game(game_id: i32, state: tauri::State<AppState>) -> Result<(), String> {
+    state.close_game(game_id);
+    Ok(())
+}
+
+#[tauri::command]
 fn parse_pgn(pgn: &str, state: tauri::State<AppState>) -> Result<String, PGNError> {
     // Load and parse the PGN
     let load_result =

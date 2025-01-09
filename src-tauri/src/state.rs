@@ -1,17 +1,22 @@
 use crate::{
+    chess::EditableGame,
     database::{self, Database},
     models::{api::APIGame, game::ExplorerGame},
 };
 use serde::Serialize;
-use std::sync::Mutex;
+use std::{collections::HashMap, sync::Mutex};
 
 pub struct AppState {
     /// The database connection pool
     pub db: Database,
     /// The currently selected game
+    /// TODO: Remove this in favor of the "open games" map
     pub selected_game: Mutex<Option<APIGame>>,
     // Each "view" will be a separate struct
     pub explorer: Mutex<ExplorerState>,
+    /// The currently open games
+    /// These games are actively being modified
+    pub open_games: Mutex<HashMap<String, EditableGame>>,
 }
 
 /// Represents the state of the Explorer view
@@ -61,6 +66,7 @@ impl AppState {
             db,
             explorer: Mutex::new(explorer),
             selected_game: Mutex::new(None),
+            open_games: Mutex::new(HashMap::new()),
         })
     }
 
@@ -68,11 +74,29 @@ impl AppState {
         database::setup::empty_db(&self.db)?;
         self.explorer.lock().unwrap().clear();
         *self.selected_game.lock().unwrap() = None;
+        *self.open_games.lock().unwrap() = HashMap::new();
         Ok(())
     }
 
     pub fn set_selected_game(&self, game: Option<APIGame>) {
         *self.selected_game.lock().unwrap() = game;
+    }
+
+    pub fn set_open_game(&self, game: EditableGame) {
+        *self.open_games.lock().unwrap().insert(game.game.id, game);
+    }
+
+    pub fn get_open_game(&self, id: i32) -> Option<EditableGame> {
+        self.open_games
+            .lock()
+            .unwrap()
+            .get(&id.to_string())
+            .cloned()
+    }
+
+    pub fn close_game(&self, id: i32) {
+        // FIXME: Save the game to the database!!
+        self.open_games.lock().unwrap().remove(&id.to_string());
     }
 
     pub fn get_db(&self) -> &Database {
