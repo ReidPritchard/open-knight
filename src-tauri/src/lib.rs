@@ -6,10 +6,10 @@ use state::AppState;
 mod chess;
 mod convert;
 mod database;
+mod db;
 mod loader;
 mod models;
 mod parser;
-mod schema;
 mod state;
 
 /// Error type for PGN parsing and processing

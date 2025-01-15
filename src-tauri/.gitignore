@@ -8,3 +8,4 @@
 
 # Database
 /main.db
+/database.sqlite*
