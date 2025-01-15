@@ -3,6 +3,11 @@ use sea_orm::DatabaseConnection;
 use sea_orm_migration::MigratorTrait;
 use std::error::Error;
 
+pub mod api;
+pub mod migrations;
+pub mod models;
+pub mod parse;
+
 pub const DEBUG: bool = true;
 pub const DATABASE_URL: &str = "sqlite://database.sqlite?mode=rwc";
 pub const _DATABASE_DEBUG_URL: &str = "sqlite::memory:";

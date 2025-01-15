@@ -8,8 +8,6 @@ mod convert;
 mod database;
 mod db;
 mod loader;
-mod models;
-mod parser;
 mod state;
 
 /// Error type for PGN parsing and processing
@@ -113,7 +111,6 @@ fn get_selected_game(state: tauri::State<'_, AppState>) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_sql::Builder::new().build())
         .manage(
             tokio::runtime::Runtime::new()
                 .unwrap()
