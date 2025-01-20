@@ -1,14 +1,7 @@
-use loader::load_pgn;
-use models::api::AllValidMoves;
-use shakmaty::san::San;
-use state::AppState;
+use chess_db::{api, connect_db, reset_database};
+use sea_orm::DatabaseConnection;
 
-mod chess;
-mod convert;
-mod database;
-mod db;
-mod loader;
-mod state;
+pub mod chess_db;
 
 /// Error type for PGN parsing and processing
 #[derive(Debug, serde::Serialize)]
@@ -28,27 +21,22 @@ impl std::fmt::Display for PGNError {
     }
 }
 
-#[tauri::command]
-async fn empty_db(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state
-        .clear()
-        .await
-        .map_err(|e| format!("Database error: {}", e))
+struct AppState {
+    db: DatabaseConnection,
 }
 
-#[tauri::command]
-fn san_to_move(san: &str) -> String {
-    let move_result: Result<San, _> = san.parse();
-    match move_result {
-        Ok(m) => format!("{:?}", m),
-        Err(e) => format!("{:?}", e),
+impl AppState {
+    async fn new() -> Result<Self, PGNError> {
+        let db = connect_db().await.unwrap();
+        Ok(Self { db })
     }
 }
 
 #[tauri::command]
-fn get_all_valid_moves(position: &str) -> Result<AllValidMoves, PGNError> {
-    let valid_moves = chess::get_all_valid_moves(position);
-    Ok(valid_moves)
+async fn empty_db(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let db = connect_db().await.unwrap();
+    reset_database(&db).await.unwrap();
+    Ok(())
 }
 
 #[tauri::command]
@@ -78,36 +66,6 @@ async fn parse_pgn(pgn: &str, state: tauri::State<'_, AppState>) -> Result<Strin
     ))
 }
 
-#[tauri::command]
-fn get_explorer_state(state: tauri::State<'_, AppState>) -> String {
-    let explorer = state.explorer.lock().unwrap().clone();
-    serde_json::to_string_pretty(&explorer).unwrap()
-}
-
-#[tauri::command]
-async fn set_selected_game(
-    game_id: Option<i32>,
-    state: tauri::State<'_, AppState>,
-) -> Result<(), String> {
-    println!("Setting selected game to: {:?}", game_id);
-    if let Some(game_id) = game_id {
-        let api_game = database::game::get_full_game_by_id(state.get_db(), game_id)
-            .await
-            .map_err(|e| format!("Database error: {}", e))?
-            .ok_or_else(|| format!("Game not found: {}", game_id))?;
-        state.set_selected_game(Some(api_game));
-    } else {
-        state.set_selected_game(None);
-    }
-    Ok(())
-}
-
-#[tauri::command]
-fn get_selected_game(state: tauri::State<'_, AppState>) -> String {
-    let selected_game = state.selected_game.lock().unwrap().clone();
-    serde_json::to_string_pretty(&selected_game).unwrap()
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -117,15 +75,7 @@ pub fn run() {
                 .block_on(AppState::new())
                 .expect("Failed to create AppState"),
         )
-        .invoke_handler(tauri::generate_handler![
-            san_to_move,
-            get_all_valid_moves,
-            parse_pgn,
-            get_explorer_state,
-            set_selected_game,
-            get_selected_game,
-            empty_db,
-        ])
+        .invoke_handler(tauri::generate_handler![parse_pgn, empty_db])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
