@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-mod m20240101_000001_create_tables;
+pub mod m20240101_000001_create_tables;
 
 pub struct Migrator;
 

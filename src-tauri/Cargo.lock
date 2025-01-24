@@ -2890,6 +2890,7 @@ dependencies = [
 name = "open-knight"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "chumsky",
  "rustls",
  "sea-orm",

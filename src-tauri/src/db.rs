@@ -2,24 +2,18 @@ use sea_orm::*;
 use sea_orm_migration::*;
 use std::error::Error;
 
-pub mod api;
-pub mod entities;
-pub mod migrations;
-pub mod models;
-pub mod parse;
-
 // Constants
 const DATABASE_URL: &str = "sqlite://chess.db?mode=rwc";
 const DEBUG_PGN_FILE: &str = "./data/pgn/single-game.pgn";
 
 pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), Box<dyn Error>> {
-    migrations::Migrator::up(db, None).await?;
+    Migrator::up(db, None).await?;
     Ok(())
 }
 
 pub async fn reset_database(db: &DatabaseConnection) -> Result<(), Box<dyn Error>> {
-    migrations::Migrator::down(db, None).await?;
-    migrations::Migrator::up(db, None).await?;
+    Migrator::down(db, None).await?;
+    Migrator::up(db, None).await?;
     Ok(())
 }
 
@@ -37,3 +31,5 @@ pub async fn connect_db() -> Result<DatabaseConnection, Box<dyn Error>> {
 
 // Re-export commonly used types
 pub use sea_orm::{DatabaseConnection, DbErr};
+
+use crate::{migrations::Migrator, models};

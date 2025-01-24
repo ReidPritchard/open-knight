@@ -1,7 +1,12 @@
-use chess_db::{api, connect_db, reset_database};
+use db::{connect_db, reset_database};
 use sea_orm::DatabaseConnection;
 
-pub mod chess_db;
+pub mod api;
+pub mod db;
+pub mod entities;
+pub mod migrations;
+pub mod models;
+pub mod parse;
 
 /// Error type for PGN parsing and processing
 #[derive(Debug, serde::Serialize)]
@@ -34,36 +39,18 @@ impl AppState {
 
 #[tauri::command]
 async fn empty_db(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let db = connect_db().await.unwrap();
-    reset_database(&db).await.unwrap();
+    reset_database(&state.db).await.unwrap();
     Ok(())
 }
 
 #[tauri::command]
 async fn parse_pgn(pgn: &str, state: tauri::State<'_, AppState>) -> Result<String, PGNError> {
     // Load and parse the PGN
-    let load_result = load_pgn(pgn, state.get_db())
+    let load_result = models::ChessGame::save_from_pgn(&state.db, &pgn)
         .await
         .map_err(|e| PGNError::ParseError(e.to_string()))?;
 
-    // Early return if there were parsing errors
-    if !load_result.success {
-        return Err(PGNError::ParseError(load_result.errors.join("\n")));
-    }
-
-    // load_pgn adds the games to the database
-    // we should update the explorer state with the new games
-    let mut explorer = state.explorer.lock().unwrap();
-    explorer
-        .load_games_from_db(state.get_db())
-        .await
-        .map_err(|e| PGNError::DatabaseError(e.to_string()))?;
-
-    // Return a summary of what was parsed
-    Ok(format!(
-        "Successfully parsed {} games",
-        load_result.games.len()
-    ))
+    Ok(format!("Successfully parsed {} games", load_result.len()))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
