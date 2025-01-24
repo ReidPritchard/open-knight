@@ -1,13 +1,16 @@
-use crate::chess_db::entities::*;
-use crate::chess_db::models::ChessMove;
-use crate::chess_db::parse::pgn::PgnToken;
+pub mod pgn;
 use sea_orm::prelude::*;
 use sea_orm::sqlx::types::chrono;
 use sea_orm::ActiveValue::Set;
 use sea_orm::DatabaseConnection;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use serde::Serialize;
 use std::error::Error;
 
-mod pgn;
+use crate::entities::*;
+use crate::parse::pgn::PgnToken;
+
+use super::ChessMove;
 
 impl std::fmt::Display for PgnToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -26,7 +29,7 @@ impl std::fmt::Display for PgnToken {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ChessGame {
     pub id: i32,
     pub white_player: ChessPlayer,
@@ -42,7 +45,7 @@ pub struct ChessGame {
     pub pgn: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ChessPlayer {
     pub id: i32,
     pub name: String,
@@ -50,7 +53,7 @@ pub struct ChessPlayer {
     pub country: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ChessTournament {
     pub id: i32,
     pub name: String,
@@ -60,7 +63,7 @@ pub struct ChessTournament {
     pub location: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ChessOpening {
     pub id: i32,
     pub eco: Option<String>,
@@ -70,8 +73,6 @@ pub struct ChessOpening {
 
 impl ChessGame {
     pub async fn load(db: &DatabaseConnection, game_id: i32) -> Result<Self, Box<dyn Error>> {
-        use sea_orm::EntityTrait;
-
         // Load the game
         let game = game::Entity::find_by_id(game_id)
             .one(db)
@@ -154,9 +155,6 @@ impl ChessGame {
     }
 
     pub async fn load_tags(&mut self, db: &DatabaseConnection) -> Result<(), Box<dyn Error>> {
-        use crate::chess_db::entities::gametag;
-        use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-
         let tags = gametag::Entity::find()
             .filter(gametag::Column::GameId.eq(self.id))
             .find_also_related(tag::Entity)
@@ -213,7 +211,7 @@ impl ChessGame {
         pgn: &str,
     ) -> Result<Vec<Self>, Box<dyn Error>> {
         println!("Parsing PGN games...");
-        let chess_games = crate::chess_db::models::game::pgn::from_pgn_games(pgn)?;
+        let chess_games = Self::from_pgn_games(pgn)?;
         println!("PGN games parsed successfully");
 
         println!(
@@ -244,32 +242,30 @@ impl ChessGame {
                 game.black_player.id = black_player_id;
 
                 // Save tournament if exists
-                let tournament_id = if let Some(ref mut t) = game.tournament {
+                let tournament_id = if let Some(t) = &game.tournament {
                     let tournament = tournament::ActiveModel {
-                        name: Set(t.name.clone()),
-                        type_: Set(t.tournament_type.clone()),
-                        start_date: Set(t.start_date.clone()),
-                        end_date: Set(t.end_date.clone()),
-                        location: Set(t.location.clone()),
+                        name: Set(t.name.to_owned()),
+                        type_: Set(t.tournament_type.to_owned()),
+                        start_date: Set(t.start_date.to_owned()),
+                        end_date: Set(t.end_date.to_owned()),
+                        location: Set(t.location.to_owned()),
                         ..Default::default()
                     };
                     let result = tournament::Entity::insert(tournament).exec(&db).await?;
-                    t.id = result.last_insert_id;
                     Some(result.last_insert_id)
                 } else {
                     None
                 };
 
                 // Save opening if exists
-                let opening_id = if let Some(ref mut o) = game.opening {
+                let opening_id = if let Some(o) = &game.opening {
                     let opening = opening::ActiveModel {
-                        eco_code: Set(o.eco.clone()),
-                        name: Set(o.name.clone()),
-                        variation: Set(o.variation.clone()),
+                        eco_code: Set(o.eco.to_owned()),
+                        name: Set(o.name.to_owned()),
+                        variation: Set(o.variation.to_owned()),
                         ..Default::default()
                     };
                     let result = opening::Entity::insert(opening).exec(&db).await?;
-                    o.id = result.last_insert_id;
                     Some(result.last_insert_id)
                 } else {
                     None

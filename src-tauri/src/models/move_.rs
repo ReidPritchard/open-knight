@@ -1,14 +1,14 @@
-use crate::chess_db::entities::{annotation, move_, move_time_tracking, position};
-use crate::chess_db::parse::pgn::PgnToken;
+use crate::entities::{annotation, move_, move_time_tracking, position};
+use crate::parse::pgn::PgnToken;
 use sea_orm::sqlx::types::chrono;
 use sea_orm::ActiveValue::Set;
-use sea_orm::DatabaseConnection;
-use sea_orm::EntityTrait;
+use sea_orm::{DatabaseConnection, EntityTrait};
+use serde::Serialize;
 use shakmaty::{san::San, Chess, Position};
 use std::collections::HashMap;
 use std::error::Error;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ChessMove {
     pub id: i32,
     pub game_id: i32,
@@ -22,14 +22,14 @@ pub struct ChessMove {
     pub next_move: Option<Box<ChessMove>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ChessPosition {
     pub id: i32,
     pub fen: String,
     pub evaluations: Vec<ChessEvaluation>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ChessAnnotation {
     pub id: i32,
     pub comment: Option<String>,
@@ -37,13 +37,13 @@ pub struct ChessAnnotation {
     pub highlights: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ChessMoveTime {
     pub time_spent_ms: Option<i32>,
     pub time_left_ms: Option<i32>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ChessEvaluation {
     pub score: Option<f32>,
     pub eval_type: Option<String>,

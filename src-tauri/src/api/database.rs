@@ -19,6 +19,19 @@ pub struct QueryParams {
     pub load_tags: Option<bool>,
 }
 
+impl Default for QueryParams {
+    fn default() -> Self {
+        Self {
+            limit: Some(100),
+            offset: Some(0),
+            fields: None,
+            filter: None,
+            load_moves: Some(false),
+            load_tags: Some(false),
+        }
+    }
+}
+
 pub struct QueryResult {
     pub data: serde_json::Value,
     pub total: usize,

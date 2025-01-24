@@ -1,4 +1,5 @@
-use db::{connect_db, reset_database};
+use api::database::QueryParams;
+use db::{connect_db, reset_database, run_migrations};
 use sea_orm::DatabaseConnection;
 
 pub mod api;
@@ -33,6 +34,7 @@ struct AppState {
 impl AppState {
     async fn new() -> Result<Self, PGNError> {
         let db = connect_db().await.unwrap();
+        run_migrations(&db).await.unwrap();
         Ok(Self { db })
     }
 }
@@ -53,6 +55,17 @@ async fn parse_pgn(pgn: &str, state: tauri::State<'_, AppState>) -> Result<Strin
     Ok(format!("Successfully parsed {} games", load_result.len()))
 }
 
+#[tauri::command]
+async fn get_games(state: tauri::State<'_, AppState>) -> Result<String, PGNError> {
+    let games = api::database::query_full_games(QueryParams::default(), &state.db)
+        .await
+        .unwrap();
+
+    println!("Got {} games", games.len());
+
+    Ok(serde_json::to_string(&games).unwrap())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -62,7 +75,7 @@ pub fn run() {
                 .block_on(AppState::new())
                 .expect("Failed to create AppState"),
         )
-        .invoke_handler(tauri::generate_handler![parse_pgn, empty_db])
+        .invoke_handler(tauri::generate_handler![parse_pgn, empty_db, get_games])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
