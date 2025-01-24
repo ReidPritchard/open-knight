@@ -42,27 +42,36 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { useGameStore } from "../../stores/game";
+import { useGlobalStore } from "../../stores/";
 import api from "../../shared/api";
-import { useUIStore } from "../../stores/ui";
 
-const gameStore = useGameStore();
-const uiStore = useUIStore();
+const props = defineProps<{
+  boardId: string;
+}>();
 
-const selectedGame = computed(() => gameStore.selectedGame);
-const currentMove = computed(() => gameStore.currentMove);
-const nextMoves = computed(() => gameStore.nextMoves);
-const boardWhiteOrientation = computed(() => uiStore.boardWhiteOrientation);
+const globalStore = useGlobalStore();
+
+const activeGameGetters = computed(() =>
+  globalStore.$state.gamesStore.gameSpecificGetters(props.boardId)
+);
+
+const selectedGame = computed(() => activeGameGetters.value.getActiveGame());
+const currentMove = computed(() => activeGameGetters.value.getCurrentMove());
+const nextMoves = computed(() => activeGameGetters.value.getNextMoves());
+
+const boardWhiteOrientation = computed(
+  () => globalStore.$state.uiStore.boardWhiteOrientation
+);
 
 // The current position from which we want to display the board
 const currentPositionFEN = computed(() => {
   // If there is a game selected and we are on a move, use that position
-  if (currentMove.value?.parent_position) {
-    return currentMove.value.parent_position;
+  if (currentMove.value?.position) {
+    return currentMove.value.position;
   }
-  // if a game is selected, but we haven't started "moving" yet, use the first position
-  if (selectedGame.value && selectedGame.value.moves.length > 0) {
-    return selectedGame.value?.moves[0].parent_position;
+  // if a game is selected, but we haven't started "moving" yet, use the starting position
+  if (selectedGame.value?.game) {
+    return { fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" };
   }
 
   // if no game is selected, use the standard starting position
@@ -129,21 +138,22 @@ const handleDragStart = async (row: number, col: number) => {
   validPieceMoves.value = await getValidMoves(row, col);
 };
 
-const handleDrop = (row: number, col: number) => {
+const handleDrop = async (row: number, col: number) => {
   if (!selectedPiece.value || !isValidMove.value(row, col)) return;
 
-  // Make the move
+  // Convert row/col to algebraic notation (e.g. "e4")
+  const toSquare = `${String.fromCharCode(97 + col)}${row + 1}`;
+  const fromSquare = `${String.fromCharCode(97 + selectedPiece.value.col)}${
+    selectedPiece.value.row + 1
+  }`;
+  const moveNotation = `${fromSquare}${toSquare}`;
 
-  // Check if the move is already in the next moves
-  console.log("nextMoves", nextMoves.value);
-  const foundMove = nextMoves.value.find(
-    (searchMove) =>
-      searchMove.game_move.move_san ===
-      `${currentMove.value?.game_move.move_san} ${row}${col}`
-  );
-  console.log("foundMove", foundMove);
-
-  // If the move is in the next moves, there is no need to 
+  try {
+    // Make the move in the backend
+    await api.makeMove(currentPositionFEN.value.fen, moveNotation);
+  } catch (error) {
+    console.error("Failed to make move:", error);
+  }
 
   // Reset selection
   selectedPiece.value = null;
@@ -208,31 +218,14 @@ const getValidMoves = async (row: number, col: number) => {
 };
 
 const fetchValidMoves = async () => {
-  const updatedValidMoves = await api.getAllValidMoves(
-    currentPositionFEN.value?.fen
-  );
-
-  // Map the valid moves by from square
-  for (const move of updatedValidMoves.moves) {
-    const fromSquare = move.from_square;
-    const toSquare = move.to_square;
-    // Squares are in the format "a1", "b2", etc.
-    // Convert to row and col
-    const fromRow = Number.parseInt(fromSquare.slice(1), 10) - 1;
-    const fromCol = fromSquare.charCodeAt(0) - "a".charCodeAt(0);
-
-    validPositionMoves.value[`${fromRow},${fromCol}`] = [
-      ...(validPositionMoves.value[`${fromRow},${fromCol}`] ?? []),
-      {
-        row: Number.parseInt(toSquare.slice(1), 10) - 1,
-        col: toSquare.charCodeAt(0) - "a".charCodeAt(0),
-      },
-    ];
+  try {
+    // For now, we'll rely on the store's validMoves
+    // Later we can add a proper API endpoint for this
+    return nextMoves.value ?? [];
+  } catch (error) {
+    console.error("Failed to fetch valid moves:", error);
+    return [];
   }
-
-  console.log("validPositionMoves", validPositionMoves.value);
-
-  return updatedValidMoves;
 };
 
 const pieceAt = (row: number, col: number) => {

@@ -1,24 +1,10 @@
 <script setup lang="ts">
 import { onMounted, watch } from "vue";
-import { useGameStore } from "./stores/game";
-import { useUIStore } from "./stores/ui";
+import { useGlobalStore } from "./stores";
 import ChessBoard from "./components/ChessBoard/ChessBoard.vue";
+import GameLibrary from "./components/GameLibrary/GameLibrary.vue";
 
-const gameStore = useGameStore();
-const uiStore = useUIStore();
-
-onMounted(async () => {
-  await gameStore.updateGames();
-  await gameStore.fetchSelectedGame();
-});
-
-watch(
-  () => uiStore.layout,
-  (newLayout) => {
-    localStorage.setItem("app-layout", JSON.stringify(newLayout));
-  },
-  { deep: true }
-);
+const globalStore = useGlobalStore();
 </script>
 
 <template>
@@ -56,6 +42,22 @@ watch(
             <li>
               <button class="btn btn-ghost">
                 <span class="material-symbols-outlined"> explore </span>
+              </button>
+            </li>
+            <li>
+              <button
+                class="btn btn-ghost"
+                @click="globalStore.games.post.importDemoGames"
+              >
+                <span class="material-symbols-outlined"> import </span>
+              </button>
+            </li>
+            <li>
+              <button
+                class="btn btn-ghost"
+                @click="globalStore.games.get.explorer"
+              >
+                <span class="material-symbols-outlined"> refresh </span>
               </button>
             </li>
           </ul>
@@ -104,10 +106,13 @@ watch(
     </div>
   </header>
 
-  <main>
-    <div class="flex flex-col h-full w-full">
+  <main class="flex flex-row h-full w-full">
+    <div class="flex flex-col">
       <!-- Game board -->
-      <ChessBoard />
+      <ChessBoard board-id="1" />
+    </div>
+    <div class="flex flex-col">
+      <GameLibrary />
     </div>
   </main>
 </template>

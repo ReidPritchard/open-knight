@@ -25,6 +25,13 @@ pub async fn load_pgn_file(
     models::ChessGame::save_from_pgn(db, &pgn_content).await
 }
 
+pub async fn import_demo_games(
+    db: &DatabaseConnection,
+) -> Result<Vec<models::ChessGame>, Box<dyn Error>> {
+    let pgn_content = std::fs::read_to_string(DEBUG_PGN_FILE)?;
+    models::ChessGame::save_from_pgn(db, &pgn_content).await
+}
+
 pub async fn connect_db() -> Result<DatabaseConnection, Box<dyn Error>> {
     Database::connect(DATABASE_URL).await.map_err(|e| e.into())
 }

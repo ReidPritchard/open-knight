@@ -1,6 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AllValidMoves } from "./bindings/AllValidMoves";
-import { parseAllValidMoves } from "./types";
+import {
+  type ExplorerGame,
+  explorerGameFields,
+  parseExplorerGames,
+} from "./types";
+import type { QueryParams } from "./bindings";
 
 export default {
   /**
@@ -20,25 +24,6 @@ export default {
   },
 
   /**
-   * Get all valid moves for a given position.
-   * @param position The FEN string of the position
-   * @returns Promise<Array<{ row: number; col: number }>> Array of valid moves
-   */
-  getAllValidMoves: async (position?: string): Promise<AllValidMoves> => {
-    if (!position) {
-      throw new Error("No position provided");
-    }
-
-    const response = await invoke("get_all_valid_moves", { position });
-    const parsed = parseAllValidMoves(response);
-    if (parsed.success) {
-      console.log("Parsed valid moves:", parsed.data);
-      return parsed.data;
-    }
-    throw new Error("Invalid response from backend");
-  },
-
-  /**
    * Make a move in the backend.
    * @param position The FEN string of the position
    * @param move The move to make
@@ -46,5 +31,45 @@ export default {
    */
   makeMove: async (position: string, move: string): Promise<string> => {
     return await invoke("make_move", { position, move });
+  },
+
+  games: {
+    GET: {
+      /**
+       * Get a list of games to display in the explorer view
+       * @param params The query parameters (optional)
+       * @returns Promise<ExplorerGame[]>
+       * @throws Error if the response is not a valid ExplorerGame[]
+       */
+      explorer: async (
+        params: Omit<QueryParams, "fields" | "load_tags"> = {
+          limit: BigInt(100),
+          offset: BigInt(0),
+          filter: {},
+          load_moves: false,
+        }
+      ): Promise<ExplorerGame[]> => {
+        const response = await invoke<string>("query_games", {
+          params: {
+            ...params,
+            fields: explorerGameFields,
+            load_tags: true,
+          },
+        });
+
+        const parsed = parseExplorerGames(response);
+
+        if (parsed.success) {
+          return parsed.data;
+        }
+
+        throw new Error(parsed.errors.join("\n"));
+      },
+    },
+    POST: {
+      importDemoGames: async (): Promise<void> => {
+        await invoke("import_demo_games");
+      },
+    },
   },
 };

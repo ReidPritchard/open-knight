@@ -1,54 +1,62 @@
 use crate::entities::{annotation, move_, move_time_tracking, position};
 use crate::parse::pgn::PgnToken;
+use crate::ts_export;
+
 use sea_orm::sqlx::types::chrono;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{DatabaseConnection, EntityTrait};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use shakmaty::{san::San, Chess, Position};
 use std::collections::HashMap;
 use std::error::Error;
+use ts_rs::TS;
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ChessMove {
-    pub id: i32,
-    pub game_id: i32,
-    pub move_number: Option<i32>,
-    pub player_color: Option<String>,
-    pub notation: String,
-    pub position: Option<ChessPosition>,
-    pub annotations: Vec<ChessAnnotation>,
-    pub time_info: Option<ChessMoveTime>,
-    pub variations: Vec<ChessMove>,
-    pub next_move: Option<Box<ChessMove>>,
+ts_export! {
+    pub struct ChessMove {
+        pub id: i32,
+        pub game_id: i32,
+        pub move_number: Option<i32>,
+        pub player_color: Option<String>,
+        pub notation: String,
+        pub position: Option<ChessPosition>,
+        pub annotations: Vec<ChessAnnotation>,
+        pub time_info: Option<ChessMoveTime>,
+        pub variations: Vec<ChessMove>,
+        pub next_move: Option<Box<ChessMove>>,
+    }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ChessPosition {
-    pub id: i32,
-    pub fen: String,
-    pub evaluations: Vec<ChessEvaluation>,
+ts_export! {
+    pub struct ChessPosition {
+        pub id: i32,
+        pub fen: String,
+        pub evaluations: Vec<ChessEvaluation>,
+    }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ChessAnnotation {
-    pub id: i32,
-    pub comment: Option<String>,
-    pub arrows: Option<String>,
-    pub highlights: Option<String>,
+ts_export! {
+    pub struct ChessAnnotation {
+        pub id: i32,
+        pub comment: Option<String>,
+        pub arrows: Option<String>,
+        pub highlights: Option<String>,
+    }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ChessMoveTime {
-    pub time_spent_ms: Option<i32>,
-    pub time_left_ms: Option<i32>,
+ts_export! {
+    pub struct ChessMoveTime {
+        pub time_spent_ms: Option<i32>,
+        pub time_left_ms: Option<i32>,
+    }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ChessEvaluation {
-    pub score: Option<f32>,
-    pub eval_type: Option<String>,
-    pub depth: Option<i32>,
-    pub engine: Option<String>,
+ts_export! {
+    pub struct ChessEvaluation {
+        pub score: Option<f32>,
+        pub eval_type: Option<String>,
+        pub depth: Option<i32>,
+        pub engine: Option<String>,
+    }
 }
 
 impl ChessMove {

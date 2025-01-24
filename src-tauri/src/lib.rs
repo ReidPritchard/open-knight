@@ -5,6 +5,7 @@ use sea_orm::DatabaseConnection;
 pub mod api;
 pub mod db;
 pub mod entities;
+pub mod macros;
 pub mod migrations;
 pub mod models;
 pub mod parse;
@@ -56,12 +57,34 @@ async fn parse_pgn(pgn: &str, state: tauri::State<'_, AppState>) -> Result<Strin
 }
 
 #[tauri::command]
-async fn get_games(state: tauri::State<'_, AppState>) -> Result<String, PGNError> {
-    let games = api::database::query_full_games(QueryParams::default(), &state.db)
+async fn import_demo_games(state: tauri::State<'_, AppState>) -> Result<String, PGNError> {
+    let games = db::import_demo_games(&state.db).await.unwrap();
+    Ok(format!("Successfully imported {} games", games.len()))
+}
+
+#[tauri::command]
+async fn query_games(
+    params: QueryParams,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, PGNError> {
+    let games = api::database::query_full_games(params, &state.db)
         .await
         .unwrap();
 
     println!("Got {} games", games.len());
+
+    Ok(serde_json::to_string(&games).unwrap())
+}
+
+#[tauri::command]
+async fn query_entities(
+    entity: &str,
+    params: QueryParams,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, PGNError> {
+    let games = api::database::query_entities(entity, params, &state.db)
+        .await
+        .unwrap();
 
     Ok(serde_json::to_string(&games).unwrap())
 }
@@ -75,7 +98,13 @@ pub fn run() {
                 .block_on(AppState::new())
                 .expect("Failed to create AppState"),
         )
-        .invoke_handler(tauri::generate_handler![parse_pgn, empty_db, get_games])
+        .invoke_handler(tauri::generate_handler![
+            parse_pgn,
+            empty_db,
+            import_demo_games,
+            query_games,
+            query_entities
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

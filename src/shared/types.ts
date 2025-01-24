@@ -1,4 +1,5 @@
 import typia from "typia";
+import type { ChessGame } from "./bindings";
 
 ////////////////////////////////////////////////////////////
 // Application UI Interfaces
@@ -6,23 +7,36 @@ import typia from "typia";
 
 ////////////////////////////////////////////////////////////
 // Application Interfaces
-// Api interfaces are mostly sub-sets of columns in the database
+// Api interfaces are mostly sub-sets of backend models (bindings)
 ////////////////////////////////////////////////////////////
 
 /**
- * A game displayed in the explorer/library view
- * Subset of `ChessGame` model
+ * Fields of `ChessGame` model that are displayed in the explorer/library view
  */
-export interface ExplorerGame {
-  id: string;
-}
+export const explorerGameFields: (keyof ChessGame)[] = [
+  "id",
+  "white_player",
+  "black_player",
+  "tournament",
+  "opening",
+  "result",
+  "round",
+  "date",
+  "tags",
+] as const;
 
-// Type Guards
-export const isExplorerGame = typia.createIs<ExplorerGame>();
-export const isAPIGame = typia.createIs<APIGame>();
-export const isAllValidMoves = typia.createIs<AllValidMoves>();
+/**
+ * A game displayed in the explorer/library view
+ */
+export type ExplorerGame = Pick<ChessGame, (typeof explorerGameFields)[number]>;
 
-// Parsers
-export const parseFullGame = typia.createValidate<FullGame>();
-export const parseAPIGame = typia.createValidate<APIGame>();
-export const parseAllValidMoves = typia.createValidate<AllValidMoves>();
+/**
+ * Parse a JSON string into an `ExplorerGame` object
+ */
+export const parseExplorerGame = typia.json.createValidateParse<ExplorerGame>();
+
+/**
+ * Parse a JSON string into an array of `ExplorerGame` objects
+ */
+export const parseExplorerGames =
+  typia.json.createValidateParse<ExplorerGame[]>();

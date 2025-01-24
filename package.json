@@ -8,10 +8,11 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "prepare": "ts-patch install && typia patch",
+    "prepare": "npm run prepare:client && npm run prepare:server",
+    "prepare:client": "ts-patch install && typia patch",
+    "prepare:server": "cd src-tauri && cargo test export_bindings",
     "lint": "eslint --fix --ext .js,.vue .",
-    "format": "biome check --write .",
-    "db:migrate": "cd src-tauri && npx diesel migration run"
+    "format": "biome check --write ."
   },
   "dependencies": {
     "@primevue/themes": "^4.1.1",
