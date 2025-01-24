@@ -1,16 +1,13 @@
-use loader::load_pgn;
-use models::api::AllValidMoves;
-use shakmaty::san::San;
-use state::AppState;
+use api::database::QueryParams;
+use db::{connect_db, reset_database, run_migrations};
+use sea_orm::DatabaseConnection;
 
-mod chess;
-mod convert;
-mod database;
-mod loader;
-mod models;
-mod parser;
-mod schema;
-mod state;
+pub mod api;
+pub mod db;
+pub mod entities;
+pub mod migrations;
+pub mod models;
+pub mod parse;
 
 /// Error type for PGN parsing and processing
 #[derive(Debug, serde::Serialize)]
@@ -30,119 +27,55 @@ impl std::fmt::Display for PGNError {
     }
 }
 
-#[tauri::command]
-fn empty_db(state: tauri::State<AppState>) -> Result<(), String> {
-    state.clear().map_err(|e| format!("Database error: {}", e))
+struct AppState {
+    db: DatabaseConnection,
 }
 
-#[tauri::command]
-fn san_to_move(san: &str) -> String {
-    let move_result: Result<San, _> = san.parse();
-    match move_result {
-        Ok(m) => format!("{:?}", m),
-        Err(e) => format!("{:?}", e),
+impl AppState {
+    async fn new() -> Result<Self, PGNError> {
+        let db = connect_db().await.unwrap();
+        run_migrations(&db).await.unwrap();
+        Ok(Self { db })
     }
 }
 
 #[tauri::command]
-fn get_all_valid_moves(position: &str) -> Result<AllValidMoves, PGNError> {
-    let valid_moves = chess::get_all_valid_moves(position);
-    Ok(valid_moves)
-}
-
-#[tauri::command]
-fn make_move(
-    game_id: i32,
-    move_string: &str,
-    promotion: Option<String>,
-    state: tauri::State<AppState>,
-) -> Result<String, String> {
-    let editable_game = state.get_open_game(game_id);
-    editable_game.make_move(move_string, promotion);
-    Ok(format!("Moved from {} to {}", from, to))
-}
-
-#[tauri::command]
-fn open_game(game_id: i32, state: tauri::State<AppState>) -> Result<(), String> {
-    let game = database::game::get_full_game_by_id(state.get_db(), game_id)
-        .map_err(|e| format!("Database error: {}", e))?
-        .ok_or_else(|| format!("Game not found: {}", game_id))?;
-    let editable_game = chess::EditableGame::new(game);
-    state.set_open_game(editable_game);
+async fn empty_db(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    reset_database(&state.db).await.unwrap();
     Ok(())
 }
 
 #[tauri::command]
-fn close_game(game_id: i32, state: tauri::State<AppState>) -> Result<(), String> {
-    state.close_game(game_id);
-    Ok(())
-}
-
-#[tauri::command]
-fn parse_pgn(pgn: &str, state: tauri::State<AppState>) -> Result<String, PGNError> {
+async fn parse_pgn(pgn: &str, state: tauri::State<'_, AppState>) -> Result<String, PGNError> {
     // Load and parse the PGN
-    let load_result =
-        load_pgn(pgn, state.get_db()).map_err(|e| PGNError::ParseError(e.to_string()))?;
+    let load_result = models::ChessGame::save_from_pgn(&state.db, &pgn)
+        .await
+        .map_err(|e| PGNError::ParseError(e.to_string()))?;
 
-    // Early return if there were parsing errors
-    if !load_result.success {
-        return Err(PGNError::ParseError(load_result.errors.join("\n")));
-    }
-
-    // load_pgn adds the games to the database
-    // we should update the explorer state with the new games
-    let mut explorer = state.explorer.lock().unwrap();
-    explorer
-        .load_games_from_db(state.get_db())
-        .map_err(|e| PGNError::DatabaseError(e.to_string()))?;
-
-    // Return a summary of what was parsed
-    Ok(format!(
-        "Successfully parsed {} games",
-        load_result.games.len()
-    ))
+    Ok(format!("Successfully parsed {} games", load_result.len()))
 }
 
 #[tauri::command]
-fn get_explorer_state(state: tauri::State<AppState>) -> String {
-    let explorer = state.explorer.lock().unwrap().clone();
-    serde_json::to_string_pretty(&explorer).unwrap()
-}
+async fn get_games(state: tauri::State<'_, AppState>) -> Result<String, PGNError> {
+    let games = api::database::query_full_games(QueryParams::default(), &state.db)
+        .await
+        .unwrap();
 
-#[tauri::command]
-fn set_selected_game(game_id: Option<i32>, state: tauri::State<AppState>) -> Result<(), String> {
-    println!("Setting selected game to: {:?}", game_id);
-    if let Some(game_id) = game_id {
-        let api_game = database::game::get_full_game_by_id(state.get_db(), game_id)
-            .map_err(|e| format!("Database error: {}", e))?
-            .ok_or_else(|| format!("Game not found: {}", game_id))?;
-        state.set_selected_game(Some(api_game));
-    } else {
-        state.set_selected_game(None);
-    }
-    Ok(())
-}
+    println!("Got {} games", games.len());
 
-#[tauri::command]
-fn get_selected_game(state: tauri::State<AppState>) -> String {
-    let selected_game = state.selected_game.lock().unwrap().clone();
-    serde_json::to_string_pretty(&selected_game).unwrap()
+    Ok(serde_json::to_string(&games).unwrap())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
-        .manage(AppState::new().expect("Failed to create AppState"))
-        .invoke_handler(tauri::generate_handler![
-            san_to_move,
-            get_all_valid_moves,
-            parse_pgn,
-            get_explorer_state,
-            set_selected_game,
-            get_selected_game,
-            empty_db,
-        ])
+        .manage(
+            tokio::runtime::Runtime::new()
+                .unwrap()
+                .block_on(AppState::new())
+                .expect("Failed to create AppState"),
+        )
+        .invoke_handler(tauri::generate_handler![parse_pgn, empty_db, get_games])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
