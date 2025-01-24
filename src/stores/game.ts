@@ -1,8 +1,5 @@
 import { defineStore } from "pinia";
 import api from "../shared/api";
-import type { APIGame } from "../shared/bindings/APIGame";
-import type { APIMove } from "../shared/bindings/APIMove";
-import type { ExplorerGame } from "../shared/bindings/ExplorerGame";
 import { isAPIGame, isExplorerGame } from "../shared/types";
 
 export const useGameStore = defineStore("game", {
