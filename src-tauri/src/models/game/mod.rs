@@ -256,6 +256,7 @@ impl ChessGame {
                         start_date: Set(t.start_date.to_owned()),
                         end_date: Set(t.end_date.to_owned()),
                         location: Set(t.location.to_owned()),
+                        created_at: Set(chrono::Utc::now().to_rfc3339()),
                         ..Default::default()
                     };
                     let result = tournament::Entity::insert(tournament).exec(&db).await?;

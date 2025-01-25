@@ -10,7 +10,9 @@ use crate::ts_export;
 
 ts_export! {
     pub struct QueryParams {
+        #[ts(type = "number")]
         pub limit: Option<u64>,
+        #[ts(type = "number")]
         pub offset: Option<u64>,
         pub fields: Option<Vec<String>>,
         pub filter: Option<HashMap<String, String>>,

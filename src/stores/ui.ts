@@ -28,9 +28,45 @@ export const useUIStore = defineStore("ui", {
     theme: getDefaultTheme() as "light" | "dark",
     /**
      * The orientation of the board, by which side white is playing from
+     * TODO: Might want to make this per-game board rather than global
+     * might be ok for now though
      */
     boardWhiteOrientation: "bottom" as "top" | "bottom",
+
+    /**
+     * Game Library/Explorer view
+     */
+    gameLibraryViewOpen: false,
+    gameLibraryView: "grid" as "grid" | "list",
+    gameLibraryViewSortBy: "date" as
+      | "date"
+      | "event"
+      | "white"
+      | "black"
+      | "result"
+      | "opening",
+    gameLibraryViewSortOrder: "desc" as "asc" | "desc",
+    gameLibraryViewFilter: "all" as "all" | "favorites" | "tags",
+    gameLibraryViewFilterTags: [] as string[],
   }),
+
+  getters: {
+    getGameLibraryViewOpen: (state) => state.gameLibraryViewOpen,
+    getGameLibraryViewSortByOptions: () => [
+      "date",
+      "event",
+      "white",
+      "black",
+      "result",
+      "opening",
+    ],
+    getGameLibraryViewSortBy: (state) => state.gameLibraryViewSortBy,
+    getGameLibraryViewSortOrderOptions: () => ["asc", "desc"],
+    getGameLibraryViewSortOrder: (state) => state.gameLibraryViewSortOrder,
+    getGameLibraryViewFilterOptions: () => ["all", "favorites", "tags"],
+    getGameLibraryViewFilter: (state) => state.gameLibraryViewFilter,
+    getGameLibraryViewFilterTags: (state) => state.gameLibraryViewFilterTags,
+  },
 
   actions: {
     toggleTheme() {
@@ -46,6 +82,32 @@ export const useUIStore = defineStore("ui", {
       }
 
       this.theme = newTheme;
+    },
+
+    toggleGameLibraryView() {
+      this.gameLibraryViewOpen = !this.gameLibraryViewOpen;
+    },
+
+    gameLibraryViewUpdateSortBy(
+      sortBy: "date" | "event" | "white" | "black" | "result" | "opening"
+    ) {
+      this.gameLibraryViewSortBy = sortBy;
+    },
+
+    gameLibraryViewUpdateSortOrder(sortOrder: "asc" | "desc") {
+      this.gameLibraryViewSortOrder = sortOrder;
+    },
+
+    gameLibraryViewUpdateFilter(filter: "all" | "favorites" | "tags") {
+      this.gameLibraryViewFilter = filter;
+    },
+
+    gameLibraryViewUpdateFilterTags(tags: string[]) {
+      this.gameLibraryViewFilterTags = tags;
+    },
+
+    gameLibraryViewUpdateView(view: "grid" | "list") {
+      this.gameLibraryView = view;
     },
   },
 });

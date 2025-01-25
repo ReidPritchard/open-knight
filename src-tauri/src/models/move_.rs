@@ -199,7 +199,6 @@ impl ChessMove {
         for token in tokens {
             match token {
                 PgnToken::MoveNumber(num) => {
-                    println!("Move number: {}", num);
                     current_number = *num as i32;
                     is_white = true;
                 }

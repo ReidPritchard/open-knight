@@ -19,8 +19,10 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Player::Name).string().not_null())
-                    .col(ColumnDef::new(Player::Elo).integer())
+                    .col(ColumnDef::new(Player::LastKnownElo).integer())
+                    .col(ColumnDef::new(Player::Country).string())
                     .col(ColumnDef::new(Player::CreatedAt).string().not_null())
+                    .col(ColumnDef::new(Player::UpdatedAt).string().not_null())
                     .to_owned(),
             )
             .await?;
@@ -37,8 +39,10 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Tournament::Name).string().not_null())
-                    .col(ColumnDef::new(Tournament::Site).string())
-                    .col(ColumnDef::new(Tournament::Date).string())
+                    .col(ColumnDef::new(Tournament::Type_).string())
+                    .col(ColumnDef::new(Tournament::StartDate).string())
+                    .col(ColumnDef::new(Tournament::EndDate).string())
+                    .col(ColumnDef::new(Tournament::Location).string())
                     .col(ColumnDef::new(Tournament::CreatedAt).string().not_null())
                     .to_owned(),
             )
@@ -55,9 +59,9 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Opening::Name).string().not_null())
-                    .col(ColumnDef::new(Opening::Eco).string())
-                    .col(ColumnDef::new(Opening::CreatedAt).string().not_null())
+                    .col(ColumnDef::new(Opening::EcoCode).string())
+                    .col(ColumnDef::new(Opening::Name).string())
+                    .col(ColumnDef::new(Opening::Variation).string())
                     .to_owned(),
             )
             .await?;
@@ -74,10 +78,16 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Game::WhitePlayerId).integer().not_null())
+                    .col(ColumnDef::new(Game::WhitePlayerElo).integer())
                     .col(ColumnDef::new(Game::BlackPlayerId).integer().not_null())
+                    .col(ColumnDef::new(Game::BlackPlayerElo).integer())
                     .col(ColumnDef::new(Game::TournamentId).integer())
                     .col(ColumnDef::new(Game::OpeningId).integer())
                     .col(ColumnDef::new(Game::Result).string())
+                    .col(ColumnDef::new(Game::RoundNumber).integer())
+                    .col(ColumnDef::new(Game::DatePlayed).string())
+                    .col(ColumnDef::new(Game::Fen).string())
+                    .col(ColumnDef::new(Game::Pgn).string())
                     .col(ColumnDef::new(Game::CreatedAt).string().not_null())
                     .foreign_key(
                         ForeignKey::create()
@@ -119,6 +129,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Position::Fen).string().not_null())
+                    .col(ColumnDef::new(Position::FenHash).string())
                     .col(ColumnDef::new(Position::CreatedAt).string().not_null())
                     .to_owned(),
             )
@@ -176,6 +187,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Annotation::MoveId).integer().not_null())
+                    .col(ColumnDef::new(Annotation::UserId).integer())
                     .col(ColumnDef::new(Annotation::Comment).string())
                     .col(ColumnDef::new(Annotation::Arrows).string())
                     .col(ColumnDef::new(Annotation::Highlights).string())
@@ -202,10 +214,10 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Evaluation::PositionId).integer().not_null())
-                    .col(ColumnDef::new(Evaluation::Score).float())
-                    .col(ColumnDef::new(Evaluation::EvalType).string())
+                    .col(ColumnDef::new(Evaluation::EvaluationScore).float())
+                    .col(ColumnDef::new(Evaluation::EvaluationType).string())
                     .col(ColumnDef::new(Evaluation::Depth).integer())
-                    .col(ColumnDef::new(Evaluation::Engine).string())
+                    .col(ColumnDef::new(Evaluation::EngineName).string())
                     .col(ColumnDef::new(Evaluation::CreatedAt).string().not_null())
                     .foreign_key(
                         ForeignKey::create()
@@ -217,10 +229,130 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        manager
+            .create_table(
+                Table::create()
+                    .table(Tag::Table)
+                    .col(
+                        ColumnDef::new(Tag::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(Tag::Name).string().not_null())
+                    .col(ColumnDef::new(Tag::Description).string())
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(GameTag::Table)
+                    .col(
+                        ColumnDef::new(GameTag::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(GameTag::GameId).integer().not_null())
+                    .col(ColumnDef::new(GameTag::TagId).integer().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_gametag_game")
+                            .from(GameTag::Table, GameTag::GameId)
+                            .to(Game::Table, Game::Id),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_gametag_tag")
+                            .from(GameTag::Table, GameTag::TagId)
+                            .to(Tag::Table, Tag::Id),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(MoveTag::Table)
+                    .col(
+                        ColumnDef::new(MoveTag::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(MoveTag::MoveId).integer().not_null())
+                    .col(ColumnDef::new(MoveTag::TagId).integer().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_movetag_move")
+                            .from(MoveTag::Table, MoveTag::MoveId)
+                            .to(Move::Table, Move::Id),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_movetag_tag")
+                            .from(MoveTag::Table, MoveTag::TagId)
+                            .to(Tag::Table, Tag::Id),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(MoveTimeTracking::Table)
+                    .col(
+                        ColumnDef::new(MoveTimeTracking::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(MoveTimeTracking::MoveId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(MoveTimeTracking::TimeSpentMs).integer())
+                    .col(ColumnDef::new(MoveTimeTracking::TimeLeftMs).integer())
+                    .col(
+                        ColumnDef::new(MoveTimeTracking::CreatedAt)
+                            .string()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_movetimetracking_move")
+                            .from(MoveTimeTracking::Table, MoveTimeTracking::MoveId)
+                            .to(Move::Table, Move::Id),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
         Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .drop_table(Table::drop().table(MoveTimeTracking::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(MoveTag::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(GameTag::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Tag::Table).to_owned())
+            .await?;
         manager
             .drop_table(Table::drop().table(Evaluation::Table).to_owned())
             .await?;
@@ -254,8 +386,10 @@ enum Player {
     Table,
     Id,
     Name,
-    Elo,
+    LastKnownElo,
+    Country,
     CreatedAt,
+    UpdatedAt,
 }
 
 #[derive(DeriveIden)]
@@ -263,8 +397,10 @@ enum Tournament {
     Table,
     Id,
     Name,
-    Site,
-    Date,
+    Type_,
+    StartDate,
+    EndDate,
+    Location,
     CreatedAt,
 }
 
@@ -272,9 +408,9 @@ enum Tournament {
 enum Opening {
     Table,
     Id,
+    EcoCode,
     Name,
-    Eco,
-    CreatedAt,
+    Variation,
 }
 
 #[derive(DeriveIden)]
@@ -282,10 +418,16 @@ enum Game {
     Table,
     Id,
     WhitePlayerId,
+    WhitePlayerElo,
     BlackPlayerId,
+    BlackPlayerElo,
     TournamentId,
     OpeningId,
     Result,
+    RoundNumber,
+    DatePlayed,
+    Fen,
+    Pgn,
     CreatedAt,
 }
 
@@ -294,6 +436,7 @@ enum Position {
     Table,
     Id,
     Fen,
+    FenHash,
     CreatedAt,
 }
 
@@ -315,6 +458,7 @@ enum Annotation {
     Table,
     Id,
     MoveId,
+    UserId,
     Comment,
     Arrows,
     Highlights,
@@ -326,9 +470,43 @@ enum Evaluation {
     Table,
     Id,
     PositionId,
-    Score,
-    EvalType,
+    EvaluationScore,
+    EvaluationType,
     Depth,
-    Engine,
+    EngineName,
+    CreatedAt,
+}
+
+#[derive(DeriveIden)]
+enum Tag {
+    Table,
+    Id,
+    Name,
+    Description,
+}
+
+#[derive(DeriveIden)]
+enum GameTag {
+    Table,
+    Id,
+    GameId,
+    TagId,
+}
+
+#[derive(DeriveIden)]
+enum MoveTag {
+    Table,
+    Id,
+    MoveId,
+    TagId,
+}
+
+#[derive(DeriveIden)]
+enum MoveTimeTracking {
+    Table,
+    Id,
+    MoveId,
+    TimeSpentMs,
+    TimeLeftMs,
     CreatedAt,
 }

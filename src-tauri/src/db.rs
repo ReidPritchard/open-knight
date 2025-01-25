@@ -4,7 +4,7 @@ use std::error::Error;
 
 // Constants
 const DATABASE_URL: &str = "sqlite://chess.db?mode=rwc";
-const DEBUG_PGN_FILE: &str = "./data/pgn/single-game.pgn";
+const DEBUG_PGN_FILE: &str = "./src/data/pgn/my-games.pgn";
 
 pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), Box<dyn Error>> {
     Migrator::up(db, None).await?;

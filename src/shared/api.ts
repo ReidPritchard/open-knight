@@ -4,7 +4,7 @@ import {
   explorerGameFields,
   parseExplorerGames,
 } from "./types";
-import type { QueryParams } from "./bindings";
+import type { ChessGame, QueryParams } from "./bindings";
 
 export default {
   /**
@@ -43,8 +43,8 @@ export default {
        */
       explorer: async (
         params: Omit<QueryParams, "fields" | "load_tags"> = {
-          limit: BigInt(100),
-          offset: BigInt(0),
+          limit: 100,
+          offset: 0,
           filter: {},
           load_moves: false,
         }
@@ -64,6 +64,18 @@ export default {
         }
 
         throw new Error(parsed.errors.join("\n"));
+      },
+
+      /**
+       * Get a game by its ID
+       * @param gameId The ID of the game
+       * @returns Promise<Game>
+       */
+      game: async (gameId: number): Promise<ChessGame> => {
+        const response = await invoke<string>("get_game_by_id", {
+          id: gameId,
+        });
+        return JSON.parse(response);
       },
     },
     POST: {

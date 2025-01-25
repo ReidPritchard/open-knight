@@ -6,28 +6,31 @@ import api from "../shared/api";
 
 export const useGlobalStore = defineStore("global", {
   state: () => ({
-    gamesStore: useGamesStore(),
-    uiStore: useUIStore(),
+    internalGamesStore: useGamesStore(),
+    internalUiStore: useUIStore(),
 
     explorer: {
       games: [] as ExplorerGame[],
     },
   }),
+  getters: {
+    gamesStore: (state) => state.internalGamesStore,
+    uiStore: (state) => state.internalUiStore,
+    explorerGames: (state) => state.explorer.games,
+  },
   actions: {
-    games: {
-      get: {
-        async explorer() {
-          const games = await api.games.GET.explorer();
-          this.explorer.games = games;
-          return games;
-        },
-      },
-      post: {
-        async importDemoGames() {
-          await api.games.POST.importDemoGames();
-          this.games.get.explorer();
-        },
-      },
+    async fetchExplorerGames() {
+      const games = await api.games.GET.explorer();
+      this.explorer.games = games;
+      return games;
+    },
+    async importDemoGames() {
+      await api.games.POST.importDemoGames();
+      await this.fetchExplorerGames();
+    },
+    async resetDatabase() {
+      await api.emptyDatabase();
+      await this.fetchExplorerGames();
     },
   },
 });

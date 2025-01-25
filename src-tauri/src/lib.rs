@@ -58,8 +58,19 @@ async fn parse_pgn(pgn: &str, state: tauri::State<'_, AppState>) -> Result<Strin
 
 #[tauri::command]
 async fn import_demo_games(state: tauri::State<'_, AppState>) -> Result<String, PGNError> {
-    let games = db::import_demo_games(&state.db).await.unwrap();
-    Ok(format!("Successfully imported {} games", games.len()))
+    match db::import_demo_games(&state.db).await {
+        Ok(games) => {
+            println!("Successfully imported {} demo games", games.len());
+            Ok(format!("Successfully imported {} games", games.len()))
+        }
+        Err(e) => {
+            eprintln!("Error importing demo games: {}", e);
+            Err(PGNError::DatabaseError(format!(
+                "Failed to import demo games: {}",
+                e
+            )))
+        }
+    }
 }
 
 #[tauri::command]
@@ -67,13 +78,25 @@ async fn query_games(
     params: QueryParams,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, PGNError> {
-    let games = api::database::query_full_games(params, &state.db)
-        .await
-        .unwrap();
-
-    println!("Got {} games", games.len());
-
-    Ok(serde_json::to_string(&games).unwrap())
+    match api::database::query_full_games(params, &state.db).await {
+        Ok(games) => {
+            println!("Successfully retrieved {} games from database", games.len());
+            match serde_json::to_string(&games) {
+                Ok(json) => Ok(json),
+                Err(e) => {
+                    eprintln!("Error serializing games to JSON: {}", e);
+                    Err(PGNError::SerializationError(e.to_string()))
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Error querying games from database: {}", e);
+            Err(PGNError::DatabaseError(format!(
+                "Failed to query games: {}",
+                e
+            )))
+        }
+    }
 }
 
 #[tauri::command]
@@ -87,6 +110,26 @@ async fn query_entities(
         .unwrap();
 
     Ok(serde_json::to_string(&games).unwrap())
+}
+
+#[tauri::command]
+async fn get_entity_by_id(
+    entity: &str,
+    id: i32,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, PGNError> {
+    let entity = api::database::get_entity_by_id(entity, id, None, &state.db)
+        .await
+        .unwrap();
+    Ok(serde_json::to_string(&entity).unwrap())
+}
+
+#[tauri::command]
+async fn get_game_by_id(id: i32, state: tauri::State<'_, AppState>) -> Result<String, PGNError> {
+    let game = api::database::get_full_game(id, QueryParams::default(), &state.db)
+        .await
+        .unwrap();
+    Ok(serde_json::to_string(&game).unwrap())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -103,7 +146,9 @@ pub fn run() {
             empty_db,
             import_demo_games,
             query_games,
-            query_entities
+            query_entities,
+            get_entity_by_id,
+            get_game_by_id,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

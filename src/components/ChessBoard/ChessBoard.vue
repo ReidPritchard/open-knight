@@ -46,21 +46,24 @@ import { useGlobalStore } from "../../stores/";
 import api from "../../shared/api";
 
 const props = defineProps<{
-  boardId: string;
+  boardId: number;
 }>();
 
 const globalStore = useGlobalStore();
 
-const activeGameGetters = computed(() =>
-  globalStore.$state.gamesStore.gameSpecificGetters(props.boardId)
+// Get board-specific store interface once
+const boardStore = computed(() =>
+  globalStore.gamesStore.getBoardStore(props.boardId)
 );
 
-const selectedGame = computed(() => activeGameGetters.value.getActiveGame());
-const currentMove = computed(() => activeGameGetters.value.getCurrentMove());
-const nextMoves = computed(() => activeGameGetters.value.getNextMoves());
+// Use the board-specific store for all getters
+const selectedGame = computed(() => boardStore.value.getActiveGame());
+const currentMove = computed(() => boardStore.value.getCurrentMove());
+const nextMoves = computed(() => boardStore.value.getNextMoves());
 
+// UI store access remains global since it's shared
 const boardWhiteOrientation = computed(
-  () => globalStore.$state.uiStore.boardWhiteOrientation
+  () => globalStore.uiStore.boardWhiteOrientation
 );
 
 // The current position from which we want to display the board

@@ -1,10 +1,33 @@
 <script setup lang="ts">
-import { onMounted, watch } from "vue";
+import { computed, onMounted } from "vue";
 import { useGlobalStore } from "./stores";
 import ChessBoard from "./components/ChessBoard/ChessBoard.vue";
 import GameLibrary from "./components/GameLibrary/GameLibrary.vue";
 
 const globalStore = useGlobalStore();
+
+const uiStore = globalStore.uiStore;
+
+const displayGameLibrary = computed(() => uiStore.getGameLibraryViewOpen);
+const toggleGameLibraryView = () => {
+  uiStore.toggleGameLibraryView();
+};
+
+const importDemoGamesClick = async () => {
+  await globalStore.importDemoGames();
+};
+
+const refreshGamesClick = async () => {
+  await globalStore.fetchExplorerGames();
+};
+
+const resetDatabaseClick = async () => {
+  await globalStore.resetDatabase();
+};
+
+onMounted(() => {
+  globalStore.fetchExplorerGames();
+});
 </script>
 
 <template>
@@ -40,24 +63,28 @@ const globalStore = useGlobalStore();
               </button>
             </li>
             <li>
-              <button class="btn btn-ghost">
-                <span class="material-symbols-outlined"> explore </span>
+              <button class="btn btn-ghost" @click="toggleGameLibraryView">
+                <span
+                  class="material-symbols-outlined"
+                  :class="{ 'text-primary': displayGameLibrary }"
+                >
+                  explore
+                </span>
               </button>
             </li>
             <li>
-              <button
-                class="btn btn-ghost"
-                @click="globalStore.games.post.importDemoGames"
-              >
+              <button class="btn btn-ghost" @click="importDemoGamesClick">
                 <span class="material-symbols-outlined"> import </span>
               </button>
             </li>
             <li>
-              <button
-                class="btn btn-ghost"
-                @click="globalStore.games.get.explorer"
-              >
+              <button class="btn btn-ghost" @click="refreshGamesClick">
                 <span class="material-symbols-outlined"> refresh </span>
+              </button>
+            </li>
+            <li>
+              <button class="btn btn-ghost" @click="resetDatabaseClick">
+                <span class="material-symbols-outlined"> delete </span>
               </button>
             </li>
           </ul>
@@ -106,12 +133,12 @@ const globalStore = useGlobalStore();
     </div>
   </header>
 
-  <main class="flex flex-row h-full w-full">
+  <main class="flex flex-row h-full w-full bg-base-100 text-base-content">
     <div class="flex flex-col">
       <!-- Game board -->
-      <ChessBoard board-id="1" />
+      <ChessBoard :board-id="0" />
     </div>
-    <div class="flex flex-col">
+    <div class="flex flex-col" v-if="displayGameLibrary">
       <GameLibrary />
     </div>
   </main>
@@ -124,9 +151,6 @@ const globalStore = useGlobalStore();
   font-weight: 400;
   font-style: normal;
   font-variation-settings: "wdth" 100;
-
-  color: var(--p-primary-color);
-  background-color: var(--p-content-background);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
