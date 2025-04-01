@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
-import type { ChessGame, ChessMove, ChessPosition } from "../shared/bindings";
 import api from "../shared/api";
+import type { ChessGame, ChessMove, ChessPosition } from "../shared/bindings";
 
 interface ActiveGameState {
   id: number;
@@ -103,6 +103,20 @@ export const useGamesStore = defineStore("games", {
           const prevMove = game.game.moves[game.currentMoveIndex];
           game.currentMove = prevMove;
           game.validMoves = prevMove.next_move ? [prevMove.next_move] : null;
+        }
+      }
+    },
+
+    async jumpToMove(boardId: number, moveId: number) {
+      const game = this.activeGameMap.get(boardId);
+      if (game) {
+        // Find the move in the game
+        const move = game.game.moves.find((m) => m.id === moveId);
+        if (move) {
+          game.currentMoveIndex = move.ply_number;
+          game.currentMove = move;
+          game.currentPosition = move.position;
+          game.validMoves = move.next_move ? [move.next_move] : null;
         }
       }
     },

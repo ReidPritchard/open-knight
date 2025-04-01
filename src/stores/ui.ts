@@ -37,6 +37,7 @@ export const useUIStore = defineStore("ui", {
      * Game Library/Explorer view
      */
     gameLibraryViewOpen: false,
+    moveTreeViewOpen: true,
     gameLibraryView: "grid" as "grid" | "list",
     gameLibraryViewSortBy: "date" as
       | "date"
@@ -57,6 +58,7 @@ export const useUIStore = defineStore("ui", {
 
   getters: {
     getGameLibraryViewOpen: (state) => state.gameLibraryViewOpen,
+    getMoveTreeViewOpen: (state) => state.moveTreeViewOpen,
     getGameLibraryViewSortByOptions: () => [
       "date",
       "event",
@@ -97,6 +99,10 @@ export const useUIStore = defineStore("ui", {
 
     toggleGameLibraryView() {
       this.gameLibraryViewOpen = !this.gameLibraryViewOpen;
+    },
+
+    toggleMoveTreeView() {
+      this.moveTreeViewOpen = !this.moveTreeViewOpen;
     },
 
     gameLibraryViewUpdateSortBy(

@@ -75,7 +75,7 @@
 ### Screenshots
 
 <div align="center">
-  <img src="docs/assets/UI-Nov29-2024.png" alt="Screenshot of the current Open Knight UI" />
+  <img src="docs/assets/UI-Apr2-2025.png" alt="Screenshot of the current Open Knight UI" />
 </div>
 
 <!-- TechStack -->
@@ -87,7 +87,7 @@
     <li><a href="https://www.typescriptlang.org/">Typescript</a></li>
     <li><a href="https://vuejs.org/">Vue.js</a></li>
     <li><a href="https://tailwindcss.com/">TailwindCSS</a></li>
-    <li><a href="https://primevue.org/">PrimeVue Components</a></li>
+    <li><a href="https://daisyui.com/">DaisyUI</a></li>
   </ul>
 </details>
 
@@ -95,7 +95,7 @@
   <summary>"Backend" (Tauri)</summary>
   <ul>
     <li><a href="https://www.rust-lang.org/">Rust</a></li>
-    <li><a href="https://diesel.rs/">Diesel</a></li>
+    <li><a href="https://www.sea-ql.org/SeaORM/">SeaORM</a></li>
   </ul>
 </details>
 
@@ -122,22 +122,10 @@
 - Move tree/list
 - Theme support
 
-<!-- Color Reference -->
-### Color Reference
-
-The default theme is based on the [Aura theme](https://primevue.org/theme/aura/) for PrimeVue. It supports light and dark modes. It's setup to facilitate additional custom themes in the future, so these colors aren't final.
-
-| Color             | Hex                                                                |
-| ----------------- | ------------------------------------------------------------------ |
-| Primary Color | ![#222831](https://via.placeholder.com/10/222831?text=+) #222831 |
-| Secondary Color | ![#393E46](https://via.placeholder.com/10/393E46?text=+) #393E46 |
-| Accent Color | ![#00ADB5](https://via.placeholder.com/10/00ADB5?text=+) #00ADB5 |
-| Text Color | ![#EEEEEE](https://via.placeholder.com/10/EEEEEE?text=+) #EEEEEE |
-
 <!-- Env Variables -->
 ### Environment Variables
 
-Currently no environment variables are needed. You can modify the default database location in the `src-tauri/.env` file.
+Currently no environment variables are u
 
 <!-- Getting Started -->
 ## Getting Started
@@ -170,10 +158,10 @@ Install dependencies
   npm install
 ```
 
-Run database migrations
+Setup Typia and shared types
 
 ```bash
-  npm run db:migrate
+  npm run prepare
 ```
 
 Run the whole project in development mode
@@ -191,7 +179,7 @@ Run only the frontend
 <!-- Usage -->
 ## Usage
 
-The project is under active development and new features are being added frequently. Currently it's not recommended to use the application in a production environment.
+The project is under active development and new features are being added frequently. Currently it's not recommended to use the application in a production environment or with data without backing up first.
 
 <!-- Roadmap (in no particular order) -->
 ## Roadmap
@@ -202,9 +190,9 @@ Listed in no particular order and likely to change:
 - [x] Import PGN files
 - [x] Chess game viewer
 - [x] Basic UI layout customization
-- [x] Game/Move annotations
 - [x] Move tree/list
-- [x] Theme support
+- [ ] Theme support
+- [ ] Game/Move annotations
 - [ ] UCI support
 - [ ] Drag and drop imports
 - [ ] PGN export

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
-import { useGlobalStore } from "./stores";
 import ChessBoard from "./components/ChessBoard/ChessBoard.vue";
 import GameLibrary from "./components/GameLibrary/GameLibrary.vue";
+import MoveTree from "./components/MoveTree/MoveTree.vue";
 import SettingsModal from "./components/Settings/SettingsModal.vue";
+import { useGlobalStore } from "./stores";
 
 const globalStore = useGlobalStore();
 
@@ -11,8 +12,14 @@ const uiStore = globalStore.uiStore;
 const settingsModalOpen = computed(() => uiStore.getSettingsModalOpen);
 
 const displayGameLibrary = computed(() => uiStore.getGameLibraryViewOpen);
+const displayMoveTree = computed(() => uiStore.getMoveTreeViewOpen);
+
 const toggleGameLibraryView = () => {
   uiStore.toggleGameLibraryView();
+};
+
+const toggleMoveTreeView = () => {
+  uiStore.toggleMoveTreeView();
 };
 
 const importDemoGamesClick = async () => {
@@ -72,6 +79,15 @@ onMounted(() => {
                 >
                   explore
                 </span>
+              </button>
+            </li>
+            <li>
+              <button
+                class="btn btn-ghost"
+                @click="toggleMoveTreeView"
+                :class="{ 'text-primary': displayMoveTree }"
+              >
+                move tree
               </button>
             </li>
             <li>
@@ -147,9 +163,12 @@ onMounted(() => {
     <div class="flex flex-col" v-if="displayGameLibrary">
       <GameLibrary />
     </div>
-    <div class="flex flex-col">
+    <div class="flex flex-col grow">
       <!-- Game board -->
       <ChessBoard :board-id="0" />
+    </div>
+    <div class="flex flex-col w-full" v-if="displayMoveTree">
+      <MoveTree :board-id="0" />
     </div>
   </main>
 
