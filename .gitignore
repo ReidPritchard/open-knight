@@ -23,5 +23,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.cursor/
 
 src-tauri/main.db
+*.db

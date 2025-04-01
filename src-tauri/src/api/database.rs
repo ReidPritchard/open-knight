@@ -1,7 +1,7 @@
 use crate::entities::*;
 use crate::models::ChessGame;
+use sea_orm::QueryFilter;
 use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QuerySelect, Select};
-use sea_orm::{QueryFilter, SelectModel};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use ts_rs::TS;
@@ -54,7 +54,7 @@ impl ColumnMapper for game::Entity {
 
     fn get_column(field: &str) -> Option<Self::Column> {
         match field {
-            "id" => Some(game::Column::Id),
+            "id" => Some(game::Column::GameId),
             "white_player_id" => Some(game::Column::WhitePlayerId),
             "black_player_id" => Some(game::Column::BlackPlayerId),
             "result" => Some(game::Column::Result),
@@ -75,9 +75,11 @@ impl ColumnMapper for player::Entity {
 
     fn get_column(field: &str) -> Option<Self::Column> {
         match field {
-            "id" => Some(player::Column::Id),
+            "id" => Some(player::Column::PlayerId),
             "name" => Some(player::Column::Name),
-            "elo" => Some(player::Column::LastKnownElo),
+            "elo" => Some(player::Column::EloRating),
+            "title" => Some(player::Column::Title),
+            "country_code" => Some(player::Column::CountryCode),
             "created_at" => Some(player::Column::CreatedAt),
             _ => None,
         }
@@ -89,8 +91,10 @@ impl ColumnMapper for tournament::Entity {
 
     fn get_column(field: &str) -> Option<Self::Column> {
         match field {
-            "id" => Some(tournament::Column::Id),
+            "id" => Some(tournament::Column::TournamentId),
             "name" => Some(tournament::Column::Name),
+            "type" => Some(tournament::Column::Type),
+            "time_control" => Some(tournament::Column::TimeControl),
             "start_date" => Some(tournament::Column::StartDate),
             "end_date" => Some(tournament::Column::EndDate),
             "location" => Some(tournament::Column::Location),
@@ -99,15 +103,18 @@ impl ColumnMapper for tournament::Entity {
     }
 }
 
-impl ColumnMapper for move_::Entity {
-    type Column = move_::Column;
+impl ColumnMapper for r#move::Entity {
+    type Column = r#move::Column;
 
     fn get_column(field: &str) -> Option<Self::Column> {
         match field {
-            "id" => Some(move_::Column::Id),
-            "game_id" => Some(move_::Column::GameId),
-            "move_number" => Some(move_::Column::MoveNumber),
-            "created_at" => Some(move_::Column::CreatedAt),
+            "id" => Some(r#move::Column::MoveId),
+            "game_id" => Some(r#move::Column::GameId),
+            "ply_number" => Some(r#move::Column::PlyNumber),
+            "san" => Some(r#move::Column::San),
+            "uci" => Some(r#move::Column::Uci),
+            "position_id" => Some(r#move::Column::PositionId),
+            "created_at" => Some(r#move::Column::CreatedAt),
             _ => None,
         }
     }
@@ -118,7 +125,10 @@ impl ColumnMapper for opening::Entity {
 
     fn get_column(field: &str) -> Option<Self::Column> {
         match field {
-            "id" => Some(opening::Column::Id),
+            "id" => Some(opening::Column::OpeningId),
+            "eco_code" => Some(opening::Column::EcoCode),
+            "name" => Some(opening::Column::Name),
+            "variation" => Some(opening::Column::Variation),
             _ => None,
         }
     }
@@ -129,7 +139,9 @@ impl ColumnMapper for tag::Entity {
 
     fn get_column(field: &str) -> Option<Self::Column> {
         match field {
-            "id" => Some(tag::Column::Id),
+            "id" => Some(tag::Column::TagId),
+            "name" => Some(tag::Column::Name),
+            "description" => Some(tag::Column::Description),
             _ => None,
         }
     }
@@ -143,7 +155,6 @@ fn apply_filters<E: EntityTrait + ColumnMapper>(
     if let Some(filters) = filter {
         for (field, value) in filters {
             if let Some(column) = E::get_column(field) {
-                // Handle different value types based on column
                 condition = condition.add(column.eq(value.to_owned()));
             }
         }
@@ -206,8 +217,8 @@ pub async fn query_entities(
                 .await?
         }
         "moves" => {
-            let condition = apply_filters::<move_::Entity>(params.filter.as_ref());
-            select_fields(move_::Entity::find(), params.fields.as_ref())
+            let condition = apply_filters::<r#move::Entity>(params.filter.as_ref());
+            select_fields(r#move::Entity::find(), params.fields.as_ref())
                 .filter(condition)
                 .limit(limit)
                 .offset(offset)
@@ -270,7 +281,7 @@ pub async fn get_entity_by_id(
                 .await?
         }
         "moves" => {
-            select_fields(move_::Entity::find_by_id(id), fields.as_ref())
+            select_fields(r#move::Entity::find_by_id(id), fields.as_ref())
                 .into_json()
                 .one(db)
                 .await?
@@ -330,7 +341,7 @@ pub async fn query_full_games(
         .all(db)
         .await?
         .into_iter()
-        .map(|g| g.id)
+        .map(|g| g.game_id)
         .collect();
 
     // Then load full games

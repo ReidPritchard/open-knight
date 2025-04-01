@@ -3,10 +3,12 @@ import { computed, onMounted } from "vue";
 import { useGlobalStore } from "./stores";
 import ChessBoard from "./components/ChessBoard/ChessBoard.vue";
 import GameLibrary from "./components/GameLibrary/GameLibrary.vue";
+import SettingsModal from "./components/Settings/SettingsModal.vue";
 
 const globalStore = useGlobalStore();
 
 const uiStore = globalStore.uiStore;
+const settingsModalOpen = computed(() => uiStore.getSettingsModalOpen);
 
 const displayGameLibrary = computed(() => uiStore.getGameLibraryViewOpen);
 const toggleGameLibraryView = () => {
@@ -55,7 +57,7 @@ onMounted(() => {
           </div>
           <ul
             tabindex="0"
-            class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow"
+            class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1000] mt-3 w-52 p-2 shadow"
           >
             <li>
               <button class="btn btn-ghost">
@@ -84,7 +86,15 @@ onMounted(() => {
             </li>
             <li>
               <button class="btn btn-ghost" @click="resetDatabaseClick">
-                <span class="material-symbols-outlined"> delete </span>
+                <span class="material-symbols-outlined"> reset database </span>
+              </button>
+            </li>
+            <li>
+              <button
+                class="btn btn-ghost"
+                @click="uiStore.updateSettingsModalOpen(true)"
+              >
+                <span class="material-symbols-outlined"> settings </span>
               </button>
             </li>
           </ul>
@@ -134,14 +144,20 @@ onMounted(() => {
   </header>
 
   <main class="flex flex-row h-full w-full bg-base-100 text-base-content">
+    <div class="flex flex-col" v-if="displayGameLibrary">
+      <GameLibrary />
+    </div>
     <div class="flex flex-col">
       <!-- Game board -->
       <ChessBoard :board-id="0" />
     </div>
-    <div class="flex flex-col" v-if="displayGameLibrary">
-      <GameLibrary />
-    </div>
   </main>
+
+  <!-- Settings Modal -->
+  <SettingsModal
+    :is-open="settingsModalOpen"
+    @close="uiStore.updateSettingsModalOpen(false)"
+  />
 </template>
 
 <style>

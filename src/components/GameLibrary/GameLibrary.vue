@@ -26,7 +26,6 @@
     </select>
   </div>
 
-  <!-- Main content -->
   <!-- TODO: Add layout -->
   <div class="overflow-x-auto">
     <table class="table table-zebra table-pin-rows table-pin-cols">
@@ -159,7 +158,7 @@ const page = ref(1);
 // TODO: Make this based on component size
 const pageSize = ref(10);
 const pageCount = computed(() =>
-  Math.ceil(gameList.value.length / pageSize.value)
+  Math.max(1, Math.ceil(gameList.value.length / pageSize.value))
 );
 
 const pageDecrement = () => {
@@ -174,6 +173,7 @@ const pageOffset = computed(() => (page.value - 1) * pageSize.value);
 
 const openGame = (gameId: number) => {
   // TODO: Check if the game should be opened in a new board or replace an existing one
+  console.log("openGame", gameId);
   gamesStore.openGame(gameId, 0);
 };
 </script>

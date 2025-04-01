@@ -8,6 +8,7 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "reset-db": "rm -f src-tauri/chess.db",
     "prepare": "npm run prepare:client && npm run prepare:server",
     "prepare:client": "ts-patch install && typia patch",
     "prepare:server": "cd src-tauri && cargo test export_bindings",

@@ -1,4 +1,4 @@
-use crate::entities::{annotation, move_, move_time_tracking, position};
+use crate::entities::{annotation, move_time_tracking, position, r#move};
 use crate::parse::pgn::PgnToken;
 use crate::ts_export;
 
@@ -9,15 +9,16 @@ use serde::{Deserialize, Serialize};
 use shakmaty::{san::San, Chess, Position};
 use std::collections::HashMap;
 use std::error::Error;
+use std::hash::{DefaultHasher, Hasher};
 use ts_rs::TS;
 
 ts_export! {
     pub struct ChessMove {
         pub id: i32,
         pub game_id: i32,
-        pub move_number: Option<i32>,
-        pub player_color: Option<String>,
-        pub notation: String,
+        pub ply_number: i32,
+        pub san: String,
+        pub uci: String,
         pub position: Option<ChessPosition>,
         pub annotations: Vec<ChessAnnotation>,
         pub time_info: Option<ChessMoveTime>,
@@ -59,6 +60,12 @@ ts_export! {
     }
 }
 
+fn hash_fen(fen: &str) -> String {
+    let mut hasher = DefaultHasher::new();
+    hasher.write(fen.as_bytes());
+    hasher.finish().to_string()
+}
+
 impl ChessMove {
     pub async fn load_for_game(
         db: &DatabaseConnection,
@@ -69,8 +76,8 @@ impl ChessMove {
         use sea_orm::QueryFilter;
 
         // Load all moves for the game
-        let moves = move_::Entity::find()
-            .filter(move_::Column::GameId.eq(game_id))
+        let moves = r#move::Entity::find()
+            .filter(r#move::Column::GameId.eq(game_id))
             .all(db)
             .await?;
 
@@ -81,11 +88,11 @@ impl ChessMove {
         // First pass: create basic move objects
         for m in &moves {
             let chess_move = ChessMove {
-                id: m.id,
+                id: m.move_id,
                 game_id: m.game_id,
-                move_number: m.move_number,
-                player_color: m.player_color.clone(),
-                notation: m.move_notation.clone(),
+                ply_number: m.ply_number,
+                san: m.san.clone(),
+                uci: m.uci.clone(),
                 position: None,
                 annotations: Vec::new(),
                 time_info: None,
@@ -93,29 +100,22 @@ impl ChessMove {
                 next_move: None,
             };
 
-            if m.parent_move_id.is_none() {
+            // Root moves are moves with ply_number 1
+            if m.ply_number == 1 {
                 root_moves.push(chess_move.clone());
             }
-            move_map.insert(m.id, chess_move);
+            move_map.insert(m.move_id, chess_move);
         }
 
         // Second pass: build the move tree
         for m in &moves {
-            if let Some(parent_id) = m.parent_move_id {
-                if let Some(current_move) = move_map.get(&m.id).cloned() {
-                    if let Some(parent_move) = move_map.get_mut(&parent_id) {
-                        parent_move.variations.push(current_move);
+            if m.ply_number > 1 {
+                if let Some(current_move) = move_map.get(&m.move_id).cloned() {
+                    if let Some(parent_move) = move_map.get_mut(&(m.move_id - 1)) {
+                        parent_move.next_move = Some(Box::new(current_move));
                     }
                 }
             }
-        }
-
-        // Sort moves by move number and build the main line
-        root_moves.sort_by_key(|m| m.move_number);
-
-        // Build the linked list of main line moves
-        for i in 0..root_moves.len() - 1 {
-            root_moves[i].next_move = Some(Box::new(root_moves[i + 1].clone()));
         }
 
         Ok(root_moves)
@@ -124,23 +124,22 @@ impl ChessMove {
     pub async fn load_position(&mut self, db: &DatabaseConnection) -> Result<(), Box<dyn Error>> {
         use sea_orm::EntityTrait;
 
-        let move_data = move_::Entity::find_by_id(self.id)
+        let move_data = r#move::Entity::find_by_id(self.id)
             .one(db)
             .await?
             .ok_or("Move not found")?;
 
-        if let Some(position_id) = move_data.position_id {
-            let pos = position::Entity::find_by_id(position_id)
-                .one(db)
-                .await?
-                .ok_or("Position not found")?;
+        let position_id = move_data.position_id;
+        let pos = position::Entity::find_by_id(position_id)
+            .one(db)
+            .await?
+            .ok_or("Position not found")?;
 
-            self.position = Some(ChessPosition {
-                id: pos.id,
-                fen: pos.fen,
-                evaluations: Vec::new(), // TODO: Load evaluations
-            });
-        }
+        self.position = Some(ChessPosition {
+            id: pos.position_id,
+            fen: pos.fen,
+            evaluations: Vec::new(), // TODO: Load evaluations
+        });
 
         Ok(())
     }
@@ -161,7 +160,7 @@ impl ChessMove {
         self.annotations = annotations
             .into_iter()
             .map(|a| ChessAnnotation {
-                id: a.id,
+                id: a.annotation_id,
                 comment: a.comment,
                 arrows: a.arrows,
                 highlights: a.highlights,
@@ -206,13 +205,9 @@ impl ChessMove {
                     let chess_move = ChessMove {
                         id: 0,
                         game_id,
-                        move_number: Some(current_number),
-                        player_color: Some(if is_white {
-                            "white".to_string()
-                        } else {
-                            "black".to_string()
-                        }),
-                        notation: notation.clone(),
+                        ply_number: current_number,
+                        san: notation.clone(),
+                        uci: notation.clone(),
                         position: None,
                         annotations: Vec::new(),
                         time_info: None,
@@ -259,22 +254,24 @@ impl ChessMove {
                 if let Ok(new_pos) = pos.clone().play(&new_move) {
                     // Generate FEN for the new position
                     let fen = new_pos.board().board_fen(new_pos.promoted()).to_string();
+                    let fen_hash = hash_fen(&fen);
 
                     // Check if position already exists
                     use sea_orm::ColumnTrait;
                     use sea_orm::QueryFilter;
                     let existing_position = position::Entity::find()
-                        .filter(position::Column::Fen.eq(&fen))
+                        .filter(position::Column::FenHash.eq(&fen_hash))
                         .one(db)
                         .await?;
 
                     let position_id = if let Some(existing_pos) = existing_position {
-                        existing_pos.id
+                        existing_pos.position_id
                     } else {
                         // Save new position if it doesn't exist
                         let pos_model = position::ActiveModel {
                             fen: Set(fen),
-                            created_at: Set(chrono::Utc::now().to_rfc3339()),
+                            fen_hash: Set(fen_hash),
+                            created_at: Set(Some(chrono::Utc::now())),
                             ..Default::default()
                         };
                         let result = position::Entity::insert(pos_model).exec(db).await?;
@@ -299,44 +296,26 @@ impl ChessMove {
         moves: &[ChessMove],
         starting_pos: Option<Chess>,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let mut last_move_id = None;
-        let mut last_move_color = None;
         let mut pos = starting_pos.unwrap_or_else(Chess::default);
 
         for chess_move in moves {
             // Generate and save position
             let (position_id, new_pos) =
-                Self::generate_and_save_position(db, &chess_move.notation, &pos).await?;
+                Self::generate_and_save_position(db, &chess_move.san, &pos).await?;
             pos = new_pos;
 
-            // Determine the player color based on the previous move
-            // If previous move was white, then the current move is black
-            let player_color = if last_move_id.is_some() {
-                if last_move_color == Some("white".to_string()) {
-                    "black".to_string()
-                } else {
-                    "white".to_string()
-                }
-            } else {
-                "white".to_string()
-            };
-
-            last_move_color = Some(player_color.clone());
-
             // Save the move
-            let move_model = move_::ActiveModel {
+            let move_model = r#move::ActiveModel {
                 game_id: Set(chess_move.game_id),
-                move_number: Set(chess_move.move_number),
-                player_color: Set(Some(player_color)),
-                move_notation: Set(chess_move.notation.clone()),
-                parent_move_id: Set(last_move_id),
-                position_id: Set(position_id),
-                created_at: Set(chrono::Utc::now().to_rfc3339()),
+                ply_number: Set(chess_move.ply_number),
+                san: Set(chess_move.san.clone()),
+                uci: Set(chess_move.uci.clone()),
+                position_id: Set(position_id.unwrap_or(0)),
+                created_at: Set(Some(chrono::Utc::now())),
                 ..Default::default()
             };
-            let result = move_::Entity::insert(move_model).exec(db).await?;
+            let result = r#move::Entity::insert(move_model).exec(db).await?;
             let current_move_id = result.last_insert_id;
-            last_move_id = Some(current_move_id);
 
             // Save annotations if any
             for annotation in &chess_move.annotations {
@@ -346,14 +325,14 @@ impl ChessMove {
                         comment: Set(Some(comment.clone())),
                         arrows: Set(annotation.arrows.clone()),
                         highlights: Set(annotation.highlights.clone()),
-                        created_at: Set(chrono::Utc::now().to_rfc3339()),
+                        created_at: Set(Some(chrono::Utc::now())),
                         ..Default::default()
                     };
                     annotation::Entity::insert(anno_model).exec(db).await?;
                 }
             }
 
-            // Save variations with the current move as their parent
+            // Save variations recursively
             if !chess_move.variations.is_empty() {
                 let variation_moves: Vec<_> = chess_move
                     .variations
@@ -364,7 +343,6 @@ impl ChessMove {
                         m
                     })
                     .collect();
-                // Pass the current position for the variation
                 Box::pin(Self::save_moves(db, &variation_moves, Some(pos.clone()))).await?;
             }
         }

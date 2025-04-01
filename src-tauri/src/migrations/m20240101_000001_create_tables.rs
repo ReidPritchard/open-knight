@@ -1,4 +1,5 @@
 use sea_orm_migration::prelude::*;
+use sea_orm_migration::sea_orm::Statement;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -6,24 +7,79 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        // Read and execute the SQL file
+        manager
+            .create_table(
+                Table::create()
+                    .table(User::Table)
+                    .col(
+                        ColumnDef::new(User::UserId)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(User::Username)
+                            .string()
+                            .not_null()
+                            .unique_key(),
+                    )
+                    .col(ColumnDef::new(User::Email).string().not_null().unique_key())
+                    .col(
+                        ColumnDef::new(User::CreatedAt)
+                            .timestamp()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
         manager
             .create_table(
                 Table::create()
                     .table(Player::Table)
                     .col(
-                        ColumnDef::new(Player::Id)
+                        ColumnDef::new(Player::PlayerId)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Player::Name).string().not_null())
-                    .col(ColumnDef::new(Player::LastKnownElo).integer())
-                    .col(ColumnDef::new(Player::Country).string())
-                    .col(ColumnDef::new(Player::CreatedAt).string().not_null())
-                    .col(ColumnDef::new(Player::UpdatedAt).string().not_null())
+                    .col(
+                        ColumnDef::new(Player::EloRating)
+                            .integer()
+                            .check(Expr::cust("elo_rating BETWEEN 0 AND 5000")),
+                    )
+                    .col(ColumnDef::new(Player::Title).string().check(Expr::cust(
+                        "title IN ('GM', 'IM', 'FM', 'CM', 'WGM', 'WIM', 'WFM', 'WCM', '')",
+                    )))
+                    .col(
+                        ColumnDef::new(Player::CountryCode)
+                            .string()
+                            .check(Expr::cust("country_code GLOB '[A-Z][A-Z]'")),
+                    )
+                    .col(
+                        ColumnDef::new(Player::CreatedAt)
+                            .timestamp()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(ColumnDef::new(Player::UpdatedAt).timestamp())
                     .to_owned(),
+            )
+            .await?;
+
+        manager
+            .get_connection()
+            .execute(
+                Statement::from_string(
+                    manager.get_database_backend(),
+                    r#"CREATE TRIGGER Player_Update
+                    AFTER UPDATE ON Player
+                    BEGIN
+                        UPDATE Player SET updated_at = CURRENT_TIMESTAMP WHERE player_id = OLD.player_id;
+                    END;"#.to_owned(),
+                ),
             )
             .await?;
 
@@ -32,18 +88,33 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Tournament::Table)
                     .col(
-                        ColumnDef::new(Tournament::Id)
+                        ColumnDef::new(Tournament::TournamentId)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Tournament::Name).string().not_null())
-                    .col(ColumnDef::new(Tournament::Type_).string())
-                    .col(ColumnDef::new(Tournament::StartDate).string())
-                    .col(ColumnDef::new(Tournament::EndDate).string())
+                    .col(ColumnDef::new(Tournament::Type).string().check(Expr::cust(
+                        "type IN ('Swiss', 'Round Robin', 'Knockout', 'Match')",
+                    )))
+                    .col(ColumnDef::new(Tournament::TimeControl).string())
+                    .col(
+                        ColumnDef::new(Tournament::StartDate)
+                            .string()
+                            .check(Expr::cust(
+                                "start_date IS NULL OR date(start_date) IS NOT NULL",
+                            )),
+                    )
+                    .col(
+                        ColumnDef::new(Tournament::EndDate)
+                            .string()
+                            .check(Expr::cust("end_date IS NULL OR date(end_date) IS NOT NULL")),
+                    )
                     .col(ColumnDef::new(Tournament::Location).string())
-                    .col(ColumnDef::new(Tournament::CreatedAt).string().not_null())
+                    .check(Expr::cust(
+                        "((end_date IS NULL AND start_date IS NULL) OR (JULIANDAY(end_date) >= JULIANDAY(start_date)))",
+                    ))
                     .to_owned(),
             )
             .await?;
@@ -53,84 +124,118 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Opening::Table)
                     .col(
-                        ColumnDef::new(Opening::Id)
+                        ColumnDef::new(Opening::OpeningId)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Opening::EcoCode).string())
-                    .col(ColumnDef::new(Opening::Name).string())
+                    .col(
+                        ColumnDef::new(Opening::EcoCode)
+                            .string()
+                            .check(Expr::cust("eco_code GLOB '[A-E][0-9][0-9]'")),
+                    )
+                    .col(ColumnDef::new(Opening::Name).string().not_null())
                     .col(ColumnDef::new(Opening::Variation).string())
+                    .index(
+                        Index::create()
+                            .unique()
+                            .name("opening_unique")
+                            .col(Opening::EcoCode)
+                            .col(Opening::Name)
+                            .col(Opening::Variation),
+                    )
                     .to_owned(),
             )
             .await?;
 
-        manager
-            .create_table(
-                Table::create()
-                    .table(Game::Table)
-                    .col(
-                        ColumnDef::new(Game::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(ColumnDef::new(Game::WhitePlayerId).integer().not_null())
-                    .col(ColumnDef::new(Game::WhitePlayerElo).integer())
-                    .col(ColumnDef::new(Game::BlackPlayerId).integer().not_null())
-                    .col(ColumnDef::new(Game::BlackPlayerElo).integer())
-                    .col(ColumnDef::new(Game::TournamentId).integer())
-                    .col(ColumnDef::new(Game::OpeningId).integer())
-                    .col(ColumnDef::new(Game::Result).string())
-                    .col(ColumnDef::new(Game::RoundNumber).integer())
-                    .col(ColumnDef::new(Game::DatePlayed).string())
-                    .col(ColumnDef::new(Game::Fen).string())
-                    .col(ColumnDef::new(Game::Pgn).string())
-                    .col(ColumnDef::new(Game::CreatedAt).string().not_null())
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_game_white_player")
-                            .from(Game::Table, Game::WhitePlayerId)
-                            .to(Player::Table, Player::Id),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_game_black_player")
-                            .from(Game::Table, Game::BlackPlayerId)
-                            .to(Player::Table, Player::Id),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_game_tournament")
-                            .from(Game::Table, Game::TournamentId)
-                            .to(Tournament::Table, Tournament::Id),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_game_opening")
-                            .from(Game::Table, Game::OpeningId)
-                            .to(Opening::Table, Opening::Id),
-                    )
-                    .to_owned(),
-            )
-            .await?;
+        manager.create_table(
+            Table::create()
+                .table(Game::Table)
+                .col(
+                    ColumnDef::new(Game::GameId)
+                        .integer()
+                        .not_null()
+                        .auto_increment()
+                        .primary_key(),
+                )
+                .col(ColumnDef::new(Game::WhitePlayerId).integer().not_null())
+                .col(ColumnDef::new(Game::BlackPlayerId).integer().not_null())
+                .col(ColumnDef::new(Game::TournamentId).integer())
+                .col(ColumnDef::new(Game::OpeningId).integer())
+                .col(
+                    ColumnDef::new(Game::Result).string().check(Expr::cust(
+                        "result IN ('1-0', '0-1', '1/2-1/2', '*')",
+                    )),
+                )
+                .col(
+                    ColumnDef::new(Game::Termination).string().check(Expr::cust(
+                        "termination IN ('Normal', 'Time forfeit', 'Abandoned', 'Rules infraction')",
+                    )),
+                )
+                .col(ColumnDef::new(Game::RoundNumber).integer())
+                .col(
+                    ColumnDef::new(Game::DatePlayed)
+                        .string()
+                        .check(Expr::cust(
+                            "date_played IS NULL OR date(date_played) IS NOT NULL",
+                        )),
+                )
+                .col(ColumnDef::new(Game::TimeControl).string())
+                .col(ColumnDef::new(Game::Fen).string())
+                .col(ColumnDef::new(Game::Pgn).string().not_null())
+                .col(
+                    ColumnDef::new(Game::CreatedAt)
+                        .timestamp()
+                        .default(Expr::current_timestamp()),
+                )
+                .foreign_key(
+                    ForeignKey::create()
+                        .from(Game::Table, Game::WhitePlayerId)
+                        .to(Player::Table, Player::PlayerId),
+                )
+                .foreign_key(
+                    ForeignKey::create()
+                        .from(Game::Table, Game::BlackPlayerId)
+                        .to(Player::Table, Player::PlayerId),
+                )
+                .foreign_key(
+                    ForeignKey::create()
+                        .from(Game::Table, Game::TournamentId)
+                        .to(Tournament::Table, Tournament::TournamentId),
+                )
+                .foreign_key(
+                    ForeignKey::create()
+                        .from(Game::Table, Game::OpeningId)
+                        .to(Opening::Table, Opening::OpeningId),
+                )
+                .check(Expr::cust("white_player_id != black_player_id"))
+                .to_owned(),
+        ).await?;
 
         manager
             .create_table(
                 Table::create()
                     .table(Position::Table)
                     .col(
-                        ColumnDef::new(Position::Id)
+                        ColumnDef::new(Position::PositionId)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Position::Fen).string().not_null())
-                    .col(ColumnDef::new(Position::FenHash).string())
-                    .col(ColumnDef::new(Position::CreatedAt).string().not_null())
+                    .col(
+                        ColumnDef::new(Position::Fen)
+                            .string()
+                            .not_null()
+                            .unique_key(),
+                    )
+                    .col(ColumnDef::new(Position::FenHash).string().not_null())
+                    .col(
+                        ColumnDef::new(Position::CreatedAt)
+                            .timestamp()
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -140,36 +245,43 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Move::Table)
                     .col(
-                        ColumnDef::new(Move::Id)
+                        ColumnDef::new(Move::MoveId)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Move::GameId).integer().not_null())
-                    .col(ColumnDef::new(Move::MoveNumber).integer())
-                    .col(ColumnDef::new(Move::PlayerColor).string())
-                    .col(ColumnDef::new(Move::MoveNotation).string().not_null())
-                    .col(ColumnDef::new(Move::ParentMoveId).integer())
-                    .col(ColumnDef::new(Move::PositionId).integer())
-                    .col(ColumnDef::new(Move::CreatedAt).string().not_null())
+                    .col(
+                        ColumnDef::new(Move::PlyNumber)
+                            .integer()
+                            .not_null()
+                            .check(Expr::cust("ply_number >= 0")),
+                    )
+                    .col(ColumnDef::new(Move::San).string().not_null())
+                    .col(ColumnDef::new(Move::Uci).string().not_null())
+                    .col(ColumnDef::new(Move::PositionId).integer().not_null())
+                    .col(
+                        ColumnDef::new(Move::CreatedAt)
+                            .timestamp()
+                            .default(Expr::current_timestamp()),
+                    )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_move_game")
                             .from(Move::Table, Move::GameId)
-                            .to(Game::Table, Game::Id),
+                            .to(Game::Table, Game::GameId),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_move_parent")
-                            .from(Move::Table, Move::ParentMoveId)
-                            .to(Move::Table, Move::Id),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_move_position")
                             .from(Move::Table, Move::PositionId)
-                            .to(Position::Table, Position::Id),
+                            .to(Position::Table, Position::PositionId),
+                    )
+                    .index(
+                        Index::create()
+                            .unique()
+                            .name("move_game_ply_unique")
+                            .col(Move::GameId)
+                            .col(Move::PlyNumber),
                     )
                     .to_owned(),
             )
@@ -180,23 +292,31 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Annotation::Table)
                     .col(
-                        ColumnDef::new(Annotation::Id)
+                        ColumnDef::new(Annotation::AnnotationId)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Annotation::MoveId).integer().not_null())
-                    .col(ColumnDef::new(Annotation::UserId).integer())
-                    .col(ColumnDef::new(Annotation::Comment).string())
-                    .col(ColumnDef::new(Annotation::Arrows).string())
-                    .col(ColumnDef::new(Annotation::Highlights).string())
-                    .col(ColumnDef::new(Annotation::CreatedAt).string().not_null())
+                    .col(ColumnDef::new(Annotation::UserId).integer()) // TODO: add .not_null() once user table is active
+                    .col(ColumnDef::new(Annotation::Comment).text())
+                    .col(ColumnDef::new(Annotation::Arrows).text())
+                    .col(ColumnDef::new(Annotation::Highlights).text())
+                    .col(
+                        ColumnDef::new(Annotation::CreatedAt)
+                            .timestamp()
+                            .default(Expr::current_timestamp()),
+                    )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_annotation_move")
                             .from(Annotation::Table, Annotation::MoveId)
-                            .to(Move::Table, Move::Id),
+                            .to(Move::Table, Move::MoveId),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .from(Annotation::Table, Annotation::UserId)
+                            .to(User::Table, User::UserId),
                     )
                     .to_owned(),
             )
@@ -207,98 +327,40 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Evaluation::Table)
                     .col(
-                        ColumnDef::new(Evaluation::Id)
+                        ColumnDef::new(Evaluation::EvaluationId)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Evaluation::PositionId).integer().not_null())
-                    .col(ColumnDef::new(Evaluation::EvaluationScore).float())
-                    .col(ColumnDef::new(Evaluation::EvaluationType).string())
-                    .col(ColumnDef::new(Evaluation::Depth).integer())
-                    .col(ColumnDef::new(Evaluation::EngineName).string())
-                    .col(ColumnDef::new(Evaluation::CreatedAt).string().not_null())
+                    .col(ColumnDef::new(Evaluation::Score).double())
+                    .col(
+                        ColumnDef::new(Evaluation::Type)
+                            .string()
+                            .check(Expr::cust("type IN ('cp', 'mate')")),
+                    )
+                    .col(ColumnDef::new(Evaluation::BestLine).text())
+                    .col(
+                        ColumnDef::new(Evaluation::Depth)
+                            .integer()
+                            .check(Expr::cust("depth > 0")),
+                    )
+                    .col(ColumnDef::new(Evaluation::EngineName).string().not_null())
+                    .col(
+                        ColumnDef::new(Evaluation::EngineVersion)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Evaluation::CreatedAt)
+                            .timestamp()
+                            .default(Expr::current_timestamp()),
+                    )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_evaluation_position")
                             .from(Evaluation::Table, Evaluation::PositionId)
-                            .to(Position::Table, Position::Id),
-                    )
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_table(
-                Table::create()
-                    .table(Tag::Table)
-                    .col(
-                        ColumnDef::new(Tag::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(ColumnDef::new(Tag::Name).string().not_null())
-                    .col(ColumnDef::new(Tag::Description).string())
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_table(
-                Table::create()
-                    .table(GameTag::Table)
-                    .col(
-                        ColumnDef::new(GameTag::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(ColumnDef::new(GameTag::GameId).integer().not_null())
-                    .col(ColumnDef::new(GameTag::TagId).integer().not_null())
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_gametag_game")
-                            .from(GameTag::Table, GameTag::GameId)
-                            .to(Game::Table, Game::Id),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_gametag_tag")
-                            .from(GameTag::Table, GameTag::TagId)
-                            .to(Tag::Table, Tag::Id),
-                    )
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_table(
-                Table::create()
-                    .table(MoveTag::Table)
-                    .col(
-                        ColumnDef::new(MoveTag::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(ColumnDef::new(MoveTag::MoveId).integer().not_null())
-                    .col(ColumnDef::new(MoveTag::TagId).integer().not_null())
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_movetag_move")
-                            .from(MoveTag::Table, MoveTag::MoveId)
-                            .to(Move::Table, Move::Id),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_movetag_tag")
-                            .from(MoveTag::Table, MoveTag::TagId)
-                            .to(Tag::Table, Tag::Id),
+                            .to(Position::Table, Position::PositionId),
                     )
                     .to_owned(),
             )
@@ -309,7 +371,7 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(MoveTimeTracking::Table)
                     .col(
-                        ColumnDef::new(MoveTimeTracking::Id)
+                        ColumnDef::new(MoveTimeTracking::TimeTrackingId)
                             .integer()
                             .not_null()
                             .auto_increment()
@@ -320,19 +382,153 @@ impl MigrationTrait for Migration {
                             .integer()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(MoveTimeTracking::TimeSpentMs).integer())
-                    .col(ColumnDef::new(MoveTimeTracking::TimeLeftMs).integer())
+                    .col(
+                        ColumnDef::new(MoveTimeTracking::TimeSpentMs)
+                            .integer()
+                            .check(Expr::cust("time_spent_ms > 0")),
+                    )
+                    .col(
+                        ColumnDef::new(MoveTimeTracking::TimeLeftMs)
+                            .integer()
+                            .check(Expr::cust("time_left_ms >= 0")),
+                    )
+                    .col(
+                        ColumnDef::new(MoveTimeTracking::ClockType)
+                            .string()
+                            .check(Expr::cust(
+                                "clock_type IN ('bronstein', 'fischer', 'simple')",
+                            )),
+                    )
                     .col(
                         ColumnDef::new(MoveTimeTracking::CreatedAt)
-                            .string()
-                            .not_null(),
+                            .timestamp()
+                            .default(Expr::current_timestamp()),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_movetimetracking_move")
                             .from(MoveTimeTracking::Table, MoveTimeTracking::MoveId)
-                            .to(Move::Table, Move::Id),
+                            .to(Move::Table, Move::MoveId),
                     )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(Tag::Table)
+                    .col(
+                        ColumnDef::new(Tag::TagId)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(Tag::Name).string().not_null().unique_key())
+                    .col(ColumnDef::new(Tag::Description).text())
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(GameTag::Table)
+                    .col(ColumnDef::new(GameTag::GameId).integer().not_null())
+                    .col(ColumnDef::new(GameTag::TagId).integer().not_null())
+                    .primary_key(
+                        Index::create()
+                            .name("pk_game_tag")
+                            .col(GameTag::GameId)
+                            .col(GameTag::TagId),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .from(GameTag::Table, GameTag::GameId)
+                            .to(Game::Table, Game::GameId),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .from(GameTag::Table, GameTag::TagId)
+                            .to(Tag::Table, Tag::TagId),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(MoveTag::Table)
+                    .col(ColumnDef::new(MoveTag::MoveId).integer().not_null())
+                    .col(ColumnDef::new(MoveTag::TagId).integer().not_null())
+                    .primary_key(
+                        Index::create()
+                            .name("pk_move_tag")
+                            .col(MoveTag::MoveId)
+                            .col(MoveTag::TagId),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .from(MoveTag::Table, MoveTag::MoveId)
+                            .to(Move::Table, Move::MoveId),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .from(MoveTag::Table, MoveTag::TagId)
+                            .to(Tag::Table, Tag::TagId),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        // Indexes
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_game_players")
+                    .table(Game::Table)
+                    .col(Game::WhitePlayerId)
+                    .col(Game::BlackPlayerId)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_game_date")
+                    .table(Game::Table)
+                    .col(Game::DatePlayed)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .get_connection()
+            .execute(Statement::from_string(
+                manager.get_database_backend(),
+                "CREATE INDEX idx_position_fen_hash ON Position(fen_hash);".to_owned(),
+            ))
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_move_game_ply")
+                    .table(Move::Table)
+                    .col(Move::GameId)
+                    .col(Move::PlyNumber)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_evaluation_position")
+                    .table(Evaluation::Table)
+                    .col(Evaluation::PositionId)
                     .to_owned(),
             )
             .await?;
@@ -342,121 +538,158 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(MoveTimeTracking::Table).to_owned())
-            .await?;
-        manager
             .drop_table(Table::drop().table(MoveTag::Table).to_owned())
             .await?;
+
         manager
             .drop_table(Table::drop().table(GameTag::Table).to_owned())
             .await?;
+
         manager
             .drop_table(Table::drop().table(Tag::Table).to_owned())
             .await?;
+
+        manager
+            .drop_table(Table::drop().table(MoveTimeTracking::Table).to_owned())
+            .await?;
+
         manager
             .drop_table(Table::drop().table(Evaluation::Table).to_owned())
             .await?;
+
         manager
             .drop_table(Table::drop().table(Annotation::Table).to_owned())
             .await?;
+
         manager
             .drop_table(Table::drop().table(Move::Table).to_owned())
             .await?;
+
         manager
-            .drop_table(Table::drop().table(Position::Table).to_owned())
+            .get_connection()
+            .execute(Statement::from_string(
+                manager.get_database_backend(),
+                "DROP TABLE Position".to_owned(),
+            ))
             .await?;
+
         manager
             .drop_table(Table::drop().table(Game::Table).to_owned())
             .await?;
+
         manager
             .drop_table(Table::drop().table(Opening::Table).to_owned())
             .await?;
+
         manager
             .drop_table(Table::drop().table(Tournament::Table).to_owned())
+            .await?;
+
+        manager
+            .get_connection()
+            .execute(Statement::from_string(
+                manager.get_database_backend(),
+                "DROP TRIGGER IF EXISTS Player_Update".to_owned(),
+            ))
             .await?;
         manager
             .drop_table(Table::drop().table(Player::Table).to_owned())
             .await?;
+
+        manager
+            .drop_table(Table::drop().table(User::Table).to_owned())
+            .await?;
+
         Ok(())
     }
 }
 
-#[derive(DeriveIden)]
+// Iden enums for each table
+#[derive(Iden)]
+enum User {
+    Table,
+    UserId,
+    Username,
+    Email,
+    CreatedAt,
+}
+
+#[derive(Iden)]
 enum Player {
     Table,
-    Id,
+    PlayerId,
     Name,
-    LastKnownElo,
-    Country,
+    EloRating,
+    Title,
+    CountryCode,
     CreatedAt,
     UpdatedAt,
 }
 
-#[derive(DeriveIden)]
+#[derive(Iden)]
 enum Tournament {
     Table,
-    Id,
+    TournamentId,
     Name,
-    Type_,
+    Type,
+    TimeControl,
     StartDate,
     EndDate,
     Location,
-    CreatedAt,
 }
 
-#[derive(DeriveIden)]
+#[derive(Iden)]
 enum Opening {
     Table,
-    Id,
+    OpeningId,
     EcoCode,
     Name,
     Variation,
 }
 
-#[derive(DeriveIden)]
+#[derive(Iden)]
 enum Game {
     Table,
-    Id,
+    GameId,
     WhitePlayerId,
-    WhitePlayerElo,
     BlackPlayerId,
-    BlackPlayerElo,
     TournamentId,
     OpeningId,
     Result,
+    Termination,
     RoundNumber,
     DatePlayed,
+    TimeControl,
     Fen,
     Pgn,
     CreatedAt,
 }
 
-#[derive(DeriveIden)]
+#[derive(Iden)]
 enum Position {
     Table,
-    Id,
+    PositionId,
     Fen,
     FenHash,
     CreatedAt,
 }
 
-#[derive(DeriveIden)]
+#[derive(Iden)]
 enum Move {
     Table,
-    Id,
+    MoveId,
     GameId,
-    MoveNumber,
-    PlayerColor,
-    MoveNotation,
-    ParentMoveId,
+    PlyNumber,
+    San,
+    Uci,
     PositionId,
     CreatedAt,
 }
 
-#[derive(DeriveIden)]
+#[derive(Iden)]
 enum Annotation {
     Table,
-    Id,
+    AnnotationId,
     MoveId,
     UserId,
     Comment,
@@ -465,48 +698,49 @@ enum Annotation {
     CreatedAt,
 }
 
-#[derive(DeriveIden)]
+#[derive(Iden)]
 enum Evaluation {
     Table,
-    Id,
+    EvaluationId,
     PositionId,
-    EvaluationScore,
-    EvaluationType,
+    Score,
+    Type,
+    BestLine,
     Depth,
     EngineName,
+    EngineVersion,
     CreatedAt,
 }
 
-#[derive(DeriveIden)]
+#[derive(Iden)]
+enum MoveTimeTracking {
+    Table,
+    TimeTrackingId,
+    MoveId,
+    TimeSpentMs,
+    TimeLeftMs,
+    ClockType,
+    CreatedAt,
+}
+
+#[derive(Iden)]
 enum Tag {
     Table,
-    Id,
+    TagId,
     Name,
     Description,
 }
 
-#[derive(DeriveIden)]
+#[derive(Iden)]
 enum GameTag {
     Table,
-    Id,
     GameId,
     TagId,
 }
 
-#[derive(DeriveIden)]
+#[derive(Iden)]
 enum MoveTag {
     Table,
-    Id,
     MoveId,
     TagId,
-}
-
-#[derive(DeriveIden)]
-enum MoveTimeTracking {
-    Table,
-    Id,
-    MoveId,
-    TimeSpentMs,
-    TimeLeftMs,
-    CreatedAt,
 }

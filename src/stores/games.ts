@@ -51,7 +51,7 @@ export const useGamesStore = defineStore("games", {
         game: game,
 
         currentMoveIndex: 0,
-        currentMove: null,
+        currentMove: game.moves[0],
         currentPosition: null,
         validMoves: null,
 
@@ -66,6 +66,33 @@ export const useGamesStore = defineStore("games", {
       this.activeGameMap.set(boardId, newGameState);
 
       return newGameState;
+    },
+
+    async closeGame(boardId: number) {
+      this.activeGameMap.delete(boardId);
+    },
+    async nextMove(boardId: number) {
+      const game = this.activeGameMap.get(boardId);
+      console.log(game);
+      if (game) {
+        const currentMove = game.currentMove;
+        if (currentMove?.next_move) {
+          game.currentMove = currentMove.next_move;
+        } else {
+          const nextMove = game.game.moves[game.currentMoveIndex + 1];
+          if (nextMove) {
+            game.currentMove = nextMove;
+            game.currentMoveIndex++;
+          }
+        }
+      }
+    },
+    async previousMove(boardId: number) {
+      const game = this.activeGameMap.get(boardId);
+      if (game) {
+        game.currentMoveIndex--;
+        game.currentMove = game.game.moves[game.currentMoveIndex];
+      }
     },
   },
 });

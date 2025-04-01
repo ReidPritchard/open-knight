@@ -3,12 +3,13 @@ import { useGamesStore } from "./games";
 import { useUIStore } from "./ui";
 import type { ExplorerGame } from "../shared/types";
 import api from "../shared/api";
+import { useSettingsStore } from "./settings";
 
 export const useGlobalStore = defineStore("global", {
   state: () => ({
     internalGamesStore: useGamesStore(),
     internalUiStore: useUIStore(),
-
+    internalSettingsStore: useSettingsStore(),
     explorer: {
       games: [] as ExplorerGame[],
     },
@@ -16,6 +17,7 @@ export const useGlobalStore = defineStore("global", {
   getters: {
     gamesStore: (state) => state.internalGamesStore,
     uiStore: (state) => state.internalUiStore,
+    settingsStore: (state) => state.internalSettingsStore,
     explorerGames: (state) => state.explorer.games,
   },
   actions: {

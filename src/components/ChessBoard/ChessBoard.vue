@@ -33,10 +33,26 @@
     </div>
   </div>
 
-  <div class="flex flex-col items-center justify-center">
-    <span class="badge badge-primary">
-      {{ JSON.stringify(currentMove) }}
-    </span>
+  <div class="flex flex-row items-center justify-center">
+    <div class="join">
+      <button
+        class="join-item btn"
+        :disabled="currentMove?.move_number === 1"
+        @click="gamesStore.previousMove(props.boardId)"
+      >
+        «
+      </button>
+      <span class="badge badge-primary">
+        {{ JSON.stringify(currentMove) }}
+      </span>
+      <button
+        class="join-item btn"
+        :disabled="currentMove?.next_move === null"
+        @click="gamesStore.nextMove(props.boardId)"
+      >
+        »
+      </button>
+    </div>
   </div>
 </template>
 
@@ -50,11 +66,10 @@ const props = defineProps<{
 }>();
 
 const globalStore = useGlobalStore();
+const gamesStore = globalStore.gamesStore;
 
 // Get board-specific store interface once
-const boardStore = computed(() =>
-  globalStore.gamesStore.getBoardStore(props.boardId)
-);
+const boardStore = computed(() => gamesStore.getBoardStore(props.boardId));
 
 // Use the board-specific store for all getters
 const selectedGame = computed(() => boardStore.value.getActiveGame());
@@ -264,7 +279,7 @@ const getPieceImage = (piece: string) => {
 };
 
 onMounted(async () => {
-  await fetchValidMoves();
+  // await fetchValidMoves();
 });
 </script>
 

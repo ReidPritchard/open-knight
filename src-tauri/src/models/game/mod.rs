@@ -1,7 +1,7 @@
 pub mod pgn;
 
 use sea_orm::prelude::*;
-use sea_orm::sqlx::types::chrono;
+use sea_orm::sqlx::types::chrono::{self};
 use sea_orm::ActiveValue::Set;
 use sea_orm::DatabaseConnection;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
@@ -63,6 +63,7 @@ ts_export! {
         pub id: i32,
         pub name: String,
         pub tournament_type: Option<String>,
+        pub time_control: Option<String>,
         pub start_date: Option<String>,
         pub end_date: Option<String>,
         pub location: Option<String>,
@@ -103,9 +104,10 @@ impl ChessGame {
                 .one(db)
                 .await?
                 .map(|t| ChessTournament {
-                    id: t.id,
+                    id: t.tournament_id,
                     name: t.name,
-                    tournament_type: t.type_,
+                    tournament_type: t.r#type,
+                    time_control: t.time_control,
                     start_date: t.start_date,
                     end_date: t.end_date,
                     location: t.location,
@@ -120,10 +122,10 @@ impl ChessGame {
                 .one(db)
                 .await?
                 .map(|o| ChessOpening {
-                    id: o.id,
-                    eco: o.eco_code,
-                    name: o.name,
-                    variation: o.variation,
+                    id: o.opening_id,
+                    eco: o.eco_code.map(|s| s.to_string()),
+                    name: Some(o.name),
+                    variation: o.variation.map(|s| s.to_string()),
                 })
         } else {
             None
@@ -131,28 +133,28 @@ impl ChessGame {
 
         // Create the game object
         Ok(ChessGame {
-            id: game.id,
+            id: game.game_id,
             white_player: ChessPlayer {
-                id: white_player.id,
+                id: white_player.player_id,
                 name: white_player.name,
-                elo: white_player.last_known_elo,
-                country: white_player.country,
+                elo: white_player.elo_rating,
+                country: white_player.country_code,
             },
             black_player: ChessPlayer {
-                id: black_player.id,
+                id: black_player.player_id,
                 name: black_player.name,
-                elo: black_player.last_known_elo,
-                country: black_player.country,
+                elo: black_player.elo_rating,
+                country: black_player.country_code,
             },
             tournament,
             opening,
-            result: game.result,
+            result: game.result.map_or("?".to_string(), |s| s.to_string()),
             round: game.round_number,
-            date: game.date_played,
-            moves: Vec::new(), // We'll implement move loading separately
-            tags: Vec::new(),  // We'll implement tag loading separately
+            date: game.date_played.map_or("?".to_string(), |s| s.to_string()),
+            moves: Vec::new(), // Implement move loading separately
+            tags: Vec::new(),  // Implement tag loading separately
             fen: game.fen,
-            pgn: game.pgn,
+            pgn: Some(game.pgn),
         })
     }
 
@@ -162,8 +164,8 @@ impl ChessGame {
     }
 
     pub async fn load_tags(&mut self, db: &DatabaseConnection) -> Result<(), Box<dyn Error>> {
-        let tags = gametag::Entity::find()
-            .filter(gametag::Column::GameId.eq(self.id))
+        let tags = game_tag::Entity::find()
+            .filter(game_tag::Column::GameId.eq(self.id))
             .find_also_related(tag::Entity)
             .all(db)
             .await?;
@@ -193,19 +195,19 @@ impl ChessGame {
             // TODO: We should be checking if game was added more recently than the player's last known ELO
             if player.elo.is_some() {
                 let mut player_model: player::ActiveModel = existing_player.clone().into();
-                player_model.last_known_elo = Set(player.elo);
-                player_model.updated_at = Set(chrono::Utc::now().to_rfc3339());
+                player_model.elo_rating = Set(player.elo);
+                player_model.updated_at = Set(Some(chrono::Utc::now()));
                 player_model.update(db).await?;
             }
-            Ok(existing_player.id)
+            Ok(existing_player.player_id)
         } else {
             // Create new player if not found
             let player_model = player::ActiveModel {
                 name: Set(player.name.clone()),
-                last_known_elo: Set(player.elo),
-                country: Set(player.country.clone()),
-                created_at: Set(chrono::Utc::now().to_rfc3339()),
-                updated_at: Set(chrono::Utc::now().to_rfc3339()),
+                elo_rating: Set(player.elo),
+                country_code: Set(player.country.clone()),
+                created_at: Set(Some(chrono::Utc::now())),
+                updated_at: Set(Some(chrono::Utc::now())),
                 ..Default::default()
             };
             let result = player::Entity::insert(player_model).exec(db).await?;
@@ -252,11 +254,11 @@ impl ChessGame {
                 let tournament_id = if let Some(t) = &game.tournament {
                     let tournament = tournament::ActiveModel {
                         name: Set(t.name.to_owned()),
-                        type_: Set(t.tournament_type.to_owned()),
+                        r#type: Set(t.tournament_type.to_owned()),
+                        time_control: Set(t.time_control.to_owned()),
                         start_date: Set(t.start_date.to_owned()),
                         end_date: Set(t.end_date.to_owned()),
                         location: Set(t.location.to_owned()),
-                        created_at: Set(chrono::Utc::now().to_rfc3339()),
                         ..Default::default()
                     };
                     let result = tournament::Entity::insert(tournament).exec(&db).await?;
@@ -269,8 +271,8 @@ impl ChessGame {
                 let opening_id = if let Some(o) = &game.opening {
                     let opening = opening::ActiveModel {
                         eco_code: Set(o.eco.to_owned()),
-                        name: Set(o.name.to_owned()),
-                        variation: Set(o.variation.to_owned()),
+                        name: Set(o.name.clone().map_or("?".to_string(), |s| s.to_owned())),
+                        variation: Set(o.variation.clone()),
                         ..Default::default()
                     };
                     let result = opening::Entity::insert(opening).exec(&db).await?;
@@ -279,18 +281,24 @@ impl ChessGame {
                     None
                 };
 
+                let game_date = if game.date == "????-??-??" {
+                    None
+                } else {
+                    Some(game.date.clone())
+                };
+
                 // Save game
                 let game_model = game::ActiveModel {
                     white_player_id: Set(game.white_player.id),
                     black_player_id: Set(game.black_player.id),
                     tournament_id: Set(tournament_id),
                     opening_id: Set(opening_id),
-                    result: Set(game.result.clone()),
+                    result: Set(Some(game.result.clone())),
                     round_number: Set(game.round),
-                    date_played: Set(game.date.clone()),
+                    date_played: Set(game_date),
                     fen: Set(game.fen.clone()),
-                    pgn: Set(game.pgn.clone()),
-                    created_at: Set(chrono::Utc::now().to_rfc3339()),
+                    pgn: Set(game.pgn.clone().map_or("?".to_string(), |s| s.to_string())),
+                    created_at: Set(Some(chrono::Utc::now())),
                     ..Default::default()
                 };
                 let result = game::Entity::insert(game_model).exec(&db).await?;
@@ -402,7 +410,7 @@ impl ChessGame {
             if is_white {
                 pgn.push_str(&format!("{}. ", move_number));
             }
-            pgn.push_str(&format!("{} ", chess_move.notation));
+            pgn.push_str(&format!("{} ", chess_move.san));
 
             if !is_white {
                 move_number += 1;

@@ -71,6 +71,7 @@ impl ChessGame {
                     start_date: get_tag("EventDate"),
                     end_date: None,
                     location: get_tag("Site"),
+                    time_control: get_tag("TimeControl"),
                 }),
                 opening: get_tag("ECO").map(|eco| ChessOpening {
                     id: 0,
@@ -80,7 +81,9 @@ impl ChessGame {
                 }),
                 result: result_str,
                 round: get_tag("Round").and_then(|r| r.parse().ok()),
-                date: get_tag("Date").unwrap_or_else(|| "????.??.??".to_string()),
+                date: get_tag("Date")
+                    .map(|d| d.replace('.', "-"))
+                    .unwrap_or_else(|| "????-??-??".to_string()),
                 moves: ChessMove::from_pgn_tokens(&move_tokens, 0), // Game ID will be set later
                 tags: tags
                     .iter()

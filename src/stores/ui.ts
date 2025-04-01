@@ -48,6 +48,11 @@ export const useUIStore = defineStore("ui", {
     gameLibraryViewSortOrder: "desc" as "asc" | "desc",
     gameLibraryViewFilter: "all" as "all" | "favorites" | "tags",
     gameLibraryViewFilterTags: [] as string[],
+
+    /**
+     * Settings Modal
+     */
+    settingsModalOpen: false,
   }),
 
   getters: {
@@ -66,6 +71,8 @@ export const useUIStore = defineStore("ui", {
     getGameLibraryViewFilterOptions: () => ["all", "favorites", "tags"],
     getGameLibraryViewFilter: (state) => state.gameLibraryViewFilter,
     getGameLibraryViewFilterTags: (state) => state.gameLibraryViewFilterTags,
+
+    getSettingsModalOpen: (state) => state.settingsModalOpen,
   },
 
   actions: {
@@ -82,6 +89,10 @@ export const useUIStore = defineStore("ui", {
       }
 
       this.theme = newTheme;
+    },
+
+    updateSettingsModalOpen(open?: boolean) {
+      this.settingsModalOpen = open ?? !this.settingsModalOpen;
     },
 
     toggleGameLibraryView() {
