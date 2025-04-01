@@ -125,8 +125,12 @@ async fn get_entity_by_id(
 }
 
 #[tauri::command]
-async fn get_game_by_id(id: i32, state: tauri::State<'_, AppState>) -> Result<String, PGNError> {
-    let game = api::database::get_full_game(id, QueryParams::default(), &state.db)
+async fn get_game_by_id(
+    id: i32,
+    params: QueryParams,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, PGNError> {
+    let game = api::database::get_full_game(id, params, &state.db)
         .await
         .unwrap();
     Ok(serde_json::to_string(&game).unwrap())

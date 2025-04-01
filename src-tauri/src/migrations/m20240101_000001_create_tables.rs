@@ -276,13 +276,6 @@ impl MigrationTrait for Migration {
                             .from(Move::Table, Move::PositionId)
                             .to(Position::Table, Position::PositionId),
                     )
-                    .index(
-                        Index::create()
-                            .unique()
-                            .name("move_game_ply_unique")
-                            .col(Move::GameId)
-                            .col(Move::PlyNumber),
-                    )
                     .to_owned(),
             )
             .await?;

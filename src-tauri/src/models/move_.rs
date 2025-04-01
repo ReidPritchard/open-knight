@@ -4,7 +4,7 @@ use crate::ts_export;
 
 use sea_orm::sqlx::types::chrono;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{DatabaseConnection, EntityTrait};
+use sea_orm::{DatabaseConnection, EntityTrait, LoaderTrait};
 use serde::{Deserialize, Serialize};
 use shakmaty::{san::San, Chess, Position};
 use std::collections::HashMap;
@@ -80,45 +80,71 @@ impl ChessMove {
             .filter(r#move::Column::GameId.eq(game_id))
             .all(db)
             .await?;
+        let positions = moves.load_one(position::Entity, db).await?;
 
         // Create a map of moves by ID for easy lookup
         let mut move_map: HashMap<i32, ChessMove> = HashMap::new();
-        let mut root_moves = Vec::new();
+        let mut moves_with_positions: Vec<ChessMove> = Vec::new();
+        let mut final_moves: Vec<ChessMove> = Vec::new();
 
         // First pass: create basic move objects
-        for m in &moves {
+        for (m, p) in moves.into_iter().zip(positions.into_iter()) {
+            let position: ChessPosition = p.map_or(
+                ChessPosition {
+                    id: 0,
+                    fen: "".to_string(),
+                    evaluations: Vec::new(),
+                },
+                |p| ChessPosition {
+                    id: p.position_id,
+                    fen: p.fen,
+                    evaluations: Vec::new(),
+                },
+            );
+
             let chess_move = ChessMove {
                 id: m.move_id,
                 game_id: m.game_id,
                 ply_number: m.ply_number,
                 san: m.san.clone(),
                 uci: m.uci.clone(),
-                position: None,
+                position: Some(position),
                 annotations: Vec::new(),
                 time_info: None,
                 variations: Vec::new(),
                 next_move: None,
             };
 
-            // Root moves are moves with ply_number 1
-            if m.ply_number == 1 {
-                root_moves.push(chess_move.clone());
-            }
-            move_map.insert(m.move_id, chess_move);
+            move_map.insert(m.move_id, chess_move.clone());
+            moves_with_positions.push(chess_move);
         }
 
         // Second pass: build the move tree
-        for m in &moves {
-            if m.ply_number > 1 {
-                if let Some(current_move) = move_map.get(&m.move_id).cloned() {
-                    if let Some(parent_move) = move_map.get_mut(&(m.move_id - 1)) {
-                        parent_move.next_move = Some(Box::new(current_move));
+        for m in &moves_with_positions {
+            // Get the current move
+            let mut current_move = m.clone();
+            // For each move find the next move (using ply_number)
+            let mut found_next_move = false;
+            for (_, search_move) in move_map.iter() {
+                if search_move.ply_number == m.ply_number + 1 {
+                    if !found_next_move {
+                        current_move.next_move = Some(Box::new(search_move.clone()));
+                        found_next_move = true;
+                    } else {
+                        // TODO: Right now we assume any additional moves are variations in the correct order
+                        //       We should improve or document this assumption
+                        current_move.variations.push(search_move.clone());
                     }
                 }
             }
+            if !found_next_move {
+                current_move.next_move = None;
+            }
+
+            final_moves.push(current_move);
         }
 
-        Ok(root_moves)
+        Ok(final_moves)
     }
 
     pub async fn load_position(&mut self, db: &DatabaseConnection) -> Result<(), Box<dyn Error>> {
@@ -192,20 +218,30 @@ impl ChessMove {
 
     pub fn from_pgn_tokens(tokens: &[PgnToken], game_id: i32) -> Vec<Self> {
         let mut moves = Vec::new();
-        let mut current_number = 0i32;
+        let mut full_move_count = 0i32;
         let mut is_white = true;
+
+        // Ex. 1. e4 e5 is ply 1 for white, ply 2 for black
+        // Ex. 2. d4 d5 is ply 3 for white, ply 4 for black
+        // WHITE: full_move_number * 2 - 1
+        // BLACK: full_move_number * 2
 
         for token in tokens {
             match token {
                 PgnToken::MoveNumber(num) => {
-                    current_number = *num as i32;
-                    is_white = true;
+                    let new_move_count = *num as i32;
+                    // If the new move count is different from the previous move count, we have a new full move
+                    // therefore the next move is white, if it's the same, the next move is black 
+                    // (ex. 1. e4 1... e5 2... d4 3... d5 4...)
+                    is_white = new_move_count != full_move_count;
+                    full_move_count = new_move_count;
                 }
                 PgnToken::Move(notation) => {
+                    let ply_number = full_move_count * 2 + if is_white { -1 } else { 0 };
                     let chess_move = ChessMove {
                         id: 0,
                         game_id,
-                        ply_number: current_number,
+                        ply_number,
                         san: notation.clone(),
                         uci: notation.clone(),
                         position: None,

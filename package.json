@@ -27,12 +27,12 @@
     "pinia": "^2.2.6",
     "primeicons": "^7.0.0",
     "primevue": "^4.1.1",
-    "typia": "^6.11.2",
+    "typia": "^8.0.0",
     "vue": "^3.3.4"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
-    "@ryoppippi/unplugin-typia": "npm:@jsr/ryoppippi__unplugin-typia@^1.0.6",
+    "@ryoppippi/unplugin-typia": "^2.1.4",
     "@tauri-apps/cli": ">=2.0.0",
     "@vitejs/plugin-vue": "^5.0.5",
     "autoprefixer": "^10.4.20",

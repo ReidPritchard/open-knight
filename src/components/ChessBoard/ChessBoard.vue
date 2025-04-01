@@ -34,25 +34,31 @@
   </div>
 
   <div class="flex flex-row items-center justify-center">
-    <div class="join">
-      <button
-        class="join-item btn"
-        :disabled="currentMove?.move_number === 1"
-        @click="gamesStore.previousMove(props.boardId)"
-      >
-        «
-      </button>
-      <span class="badge badge-primary">
-        {{ JSON.stringify(currentMove) }}
-      </span>
-      <button
-        class="join-item btn"
-        :disabled="currentMove?.next_move === null"
-        @click="gamesStore.nextMove(props.boardId)"
-      >
-        »
-      </button>
-    </div>
+    <button
+      class="join-item btn"
+      :disabled="currentMove === undefined || currentMove?.ply_number === 0"
+      @click="gamesStore.previousMove(props.boardId)"
+    >
+      «
+    </button>
+    <span class="badge badge-primary">
+      {{
+        currentMove?.ply_number !== undefined
+          ? `${Math.floor(currentMove?.ply_number / 2) + 1}. ${
+              currentMove?.san
+            }`
+          : "N/A"
+      }}
+    </span>
+    <button
+      class="join-item btn"
+      :disabled="
+        currentMove === undefined || currentMove?.next_move === undefined
+      "
+      @click="gamesStore.nextMove(props.boardId)"
+    >
+      »
+    </button>
   </div>
 </template>
 
@@ -68,13 +74,11 @@ const props = defineProps<{
 const globalStore = useGlobalStore();
 const gamesStore = globalStore.gamesStore;
 
-// Get board-specific store interface once
-const boardStore = computed(() => gamesStore.getBoardStore(props.boardId));
+const boardState = computed(() => gamesStore.getBoardState(props.boardId));
 
-// Use the board-specific store for all getters
-const selectedGame = computed(() => boardStore.value.getActiveGame());
-const currentMove = computed(() => boardStore.value.getCurrentMove());
-const nextMoves = computed(() => boardStore.value.getNextMoves());
+const selectedGame = computed(() => boardState.value?.game);
+const currentMove = computed(() => boardState.value?.currentMove);
+const nextMoves = computed(() => boardState.value?.validMoves);
 
 // UI store access remains global since it's shared
 const boardWhiteOrientation = computed(
@@ -88,7 +92,7 @@ const currentPositionFEN = computed(() => {
     return currentMove.value.position;
   }
   // if a game is selected, but we haven't started "moving" yet, use the starting position
-  if (selectedGame.value?.game) {
+  if (selectedGame.value) {
     return { fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" };
   }
 

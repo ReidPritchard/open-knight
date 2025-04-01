@@ -71,9 +71,20 @@ export default {
        * @param gameId The ID of the game
        * @returns Promise<Game>
        */
-      game: async (gameId: number): Promise<ChessGame> => {
+      game: async (
+        gameId: number,
+        params: QueryParams = {
+          fields: null,
+          limit: 1,
+          offset: 0,
+          filter: {},
+          load_moves: true,
+          load_tags: true,
+        }
+      ): Promise<ChessGame> => {
         const response = await invoke<string>("get_game_by_id", {
           id: gameId,
+          params: params,
         });
         return JSON.parse(response);
       },

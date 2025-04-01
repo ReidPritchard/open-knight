@@ -27,14 +27,9 @@ export const useGamesStore = defineStore("games", {
     activeGameMap: new Map<number, ActiveGameState>(),
   }),
 
-  // All getters will be based on the index of the game
-  // Meaning the game board will pass it's key and all getters will be based on that
   getters: {
-    getBoardStore: (state) => (boardId: number) => ({
-      getActiveGame: () => state.activeGameMap.get(boardId),
-      getCurrentMove: () => state.activeGameMap.get(boardId)?.currentMove,
-      getNextMoves: () => state.activeGameMap.get(boardId)?.validMoves,
-    }),
+    getBoardState: (state) => (boardId: number) =>
+      state.activeGameMap.get(boardId),
   },
 
   actions: {
@@ -46,14 +41,23 @@ export const useGamesStore = defineStore("games", {
 
       // Open game
       const game = await api.games.GET.game(gameId);
+      const initialPosition = game.moves[0]?.position;
+      const validMoves = game.moves[0]?.next_move
+        ? [game.moves[0].next_move]
+        : null;
+
+      console.log("Game:", game);
+      console.log("Moves:", game.moves.length, game.moves);
+      console.log("Initial position:", initialPosition);
+
       const newGameState: ActiveGameState = {
         id: gameId,
         game: game,
 
         currentMoveIndex: 0,
         currentMove: game.moves[0],
-        currentPosition: null,
-        validMoves: null,
+        currentPosition: initialPosition,
+        validMoves: validMoves,
 
         inProgress: false,
         userIsPlaying: null,
@@ -73,16 +77,20 @@ export const useGamesStore = defineStore("games", {
     },
     async nextMove(boardId: number) {
       const game = this.activeGameMap.get(boardId);
-      console.log(game);
       if (game) {
         const currentMove = game.currentMove;
         if (currentMove?.next_move) {
           game.currentMove = currentMove.next_move;
+          game.validMoves = currentMove.next_move.next_move
+            ? [currentMove.next_move.next_move]
+            : null;
+          game.currentMoveIndex++;
         } else {
           const nextMove = game.game.moves[game.currentMoveIndex + 1];
           if (nextMove) {
             game.currentMove = nextMove;
             game.currentMoveIndex++;
+            game.validMoves = nextMove.next_move ? [nextMove.next_move] : null;
           }
         }
       }
@@ -90,8 +98,12 @@ export const useGamesStore = defineStore("games", {
     async previousMove(boardId: number) {
       const game = this.activeGameMap.get(boardId);
       if (game) {
-        game.currentMoveIndex--;
-        game.currentMove = game.game.moves[game.currentMoveIndex];
+        if (game.currentMoveIndex > 0) {
+          game.currentMoveIndex--;
+          const prevMove = game.game.moves[game.currentMoveIndex];
+          game.currentMove = prevMove;
+          game.validMoves = prevMove.next_move ? [prevMove.next_move] : null;
+        }
       }
     },
   },
