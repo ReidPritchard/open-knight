@@ -8,15 +8,18 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "prepare": "ts-patch install && typia patch",
+    "reset-db": "rm -f src-tauri/chess.db",
+    "prepare": "npm run prepare:client && npm run prepare:server",
+    "prepare:client": "ts-patch install && typia patch",
+    "prepare:server": "cd src-tauri && cargo test export_bindings",
     "lint": "eslint --fix --ext .js,.vue .",
-    "format": "biome check --write .",
-    "db:migrate": "cd src-tauri && npx diesel migration run"
+    "format": "biome check --write ."
   },
   "dependencies": {
     "@primevue/themes": "^4.1.1",
     "@tauri-apps/api": ">=2.0.0",
     "@tauri-apps/plugin-shell": ">=2.0.0",
+    "@tauri-apps/plugin-sql": "^2.2.0",
     "@vueuse/components": "^11.1.0",
     "@vueuse/core": "^11.1.0",
     "chess.js": "^1.0.0-beta.8",
@@ -24,12 +27,12 @@
     "pinia": "^2.2.6",
     "primeicons": "^7.0.0",
     "primevue": "^4.1.1",
-    "typia": "^6.11.2",
+    "typia": "^8.0.0",
     "vue": "^3.3.4"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
-    "@ryoppippi/unplugin-typia": "npm:@jsr/ryoppippi__unplugin-typia@^1.0.6",
+    "@ryoppippi/unplugin-typia": "^2.1.4",
     "@tauri-apps/cli": ">=2.0.0",
     "@vitejs/plugin-vue": "^5.0.5",
     "autoprefixer": "^10.4.20",

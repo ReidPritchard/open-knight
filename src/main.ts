@@ -1,41 +1,29 @@
-import Column from "primevue/column";
-import PrimeVue from "primevue/config";
-import DataTable from "primevue/datatable";
-import FloatLabel from "primevue/floatlabel";
-import InputText from "primevue/inputtext";
-import Row from "primevue/row";
-import Select from "primevue/select";
+import { createPinia } from "pinia";
 
-import DialogService from "primevue/dialogservice";
-import { createPinia } from 'pinia'
-
-import CustomTheme from "./theme";
 import "./style.css";
 
 import { createApp } from "vue";
 import App from "./App.vue";
+import { useSettingsStore } from "./stores/settings";
+import { useGlobalStore } from "./stores";
 
 const app = createApp(App);
-const pinia = createPinia()
+const pinia = createPinia();
 
-app.use(pinia)
-app.use(PrimeVue, {
-  theme: {
-    preset: CustomTheme,
-    options: {
-      prefix: "p",
-      darkModeSelector: ".dark",
-      cssLayer: false,
-    },
-  },
-});
-app.use(DialogService);
+app.use(pinia);
 
-app.component("InputText", InputText);
-app.component("FloatLabel", FloatLabel);
-app.component("DataTable", DataTable);
-app.component("Column", Column);
-app.component("Row", Row);
-app.component("Select", Select);
-
+// Initialize the app
 app.mount("#app");
+
+// Setup hotkeys after app is mounted to ensure stores are ready
+const settingsStore = useSettingsStore();
+const globalStore = useGlobalStore();
+
+// Initialize hotkeys with default callbacks
+// These are the callbacks that will be used no matter the hotkey configuration
+settingsStore.initializeHotkeys({
+  next_move: () => globalStore.gamesStore.nextMove(0), // Using board ID 0 as default
+  prev_move: () => globalStore.gamesStore.previousMove(0),
+  toggle_game_library: () => globalStore.uiStore.toggleGameLibraryView(),
+  open_settings: () => globalStore.uiStore.updateSettingsModalOpen(true),
+});

@@ -1,64 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
-import { MOCKED, setupMocks } from "../test/mock";
-import { apiExplorerStateToExplorerGames } from "./api-conversions";
-import type { ExplorerGame } from "./bindings/ExplorerGame";
-
-// Setup the API
-setupMocks();
+import {
+  type ExplorerGame,
+  explorerGameFields,
+  parseExplorerGames,
+} from "./types";
+import type { ChessGame, QueryParams } from "./bindings";
 
 export default {
-  /**
-   * Get the explorer state from the backend.
-   * @throws {Error} If the backend returns invalid data
-   * @returns Promise<ExplorerGame[]> Array of explorer games
-   */
-  getExplorerState: async (): Promise<ExplorerGame[]> => {
-    const serializedState: string = await invoke("get_explorer_state");
-    if (MOCKED) {
-      return serializedState as unknown as ExplorerGame[];
-    }
-
-    const parsed = JSON.parse(serializedState);
-
-    console.log("Parsed explorer state:", parsed);
-
-    return apiExplorerStateToExplorerGames(serializedState);
-  },
-
-  /**
-   * Get the selected game from the backend.
-   * @throws {Error} If the backend returns invalid data
-   * @returns Promise<APIGame | null> Selected game or null if none selected
-   */
-  getSelectedGame: async () => {
-    console.log("Fetching selected game from API");
-    const serializedGame: string = await invoke("get_selected_game");
-    console.log("Raw API response:", serializedGame);
-
-    if (serializedGame === "null") {
-      console.log("No game selected");
-      return null;
-    }
-
-    const parsed = JSON.parse(serializedGame);
-    if (typeof parsed !== "object") {
-      console.error("Invalid game data received from backend");
-      throw new Error("Invalid game data received from backend");
-    }
-
-    console.log("Parsed game data:", parsed);
-    return parsed;
-  },
-
-  /**
-   * Set the selected game in the backend.
-   * @param gameId The ID of the game to set as selected, or null to clear selection
-   */
-  setSelectedGame: async (gameId: number | null): Promise<void> => {
-    console.log("Setting selected game to:", gameId);
-    await invoke("set_selected_game", { gameId });
-  },
-
   /**
    * Parse a PGN text and update the games and selected game.
    * @param pgnText The PGN text to parse
@@ -73,5 +21,78 @@ export default {
    */
   emptyDatabase: async (): Promise<void> => {
     await invoke("empty_db");
+  },
+
+  /**
+   * Make a move in the backend.
+   * @param position The FEN string of the position
+   * @param move The move to make
+   * @returns Promise<string> The new position
+   */
+  makeMove: async (position: string, move: string): Promise<string> => {
+    return await invoke("make_move", { position, move });
+  },
+
+  games: {
+    GET: {
+      /**
+       * Get a list of games to display in the explorer view
+       * @param params The query parameters (optional)
+       * @returns Promise<ExplorerGame[]>
+       * @throws Error if the response is not a valid ExplorerGame[]
+       */
+      explorer: async (
+        params: Omit<QueryParams, "fields" | "load_tags"> = {
+          limit: 100,
+          offset: 0,
+          filter: {},
+          load_moves: false,
+        }
+      ): Promise<ExplorerGame[]> => {
+        const response = await invoke<string>("query_games", {
+          params: {
+            ...params,
+            fields: explorerGameFields,
+            load_tags: true,
+          },
+        });
+
+        const parsed = parseExplorerGames(response);
+
+        if (parsed.success) {
+          return parsed.data;
+        }
+
+        throw new Error(parsed.errors.join("\n"));
+      },
+
+      /**
+       * Get a game by its ID
+       * @param gameId The ID of the game
+       * @returns Promise<Game>
+       */
+      game: async (
+        gameId: number,
+        params: QueryParams = {
+          fields: null,
+          limit: 1,
+          offset: 0,
+          filter: {},
+          load_moves: true,
+          load_tags: true,
+        }
+      ): Promise<ChessGame> => {
+        const response = await invoke<string>("get_game_by_id", {
+          id: gameId,
+          params: params,
+        });
+        return JSON.parse(response);
+      },
+    },
+    POST: {
+      importDemoGames: async (): Promise<void> => {
+        await invoke("import_demo_games");
+      },
+    },
   },
 };

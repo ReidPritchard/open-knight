@@ -1,0 +1,12 @@
+[tasks.default]
+clear = true
+
+[tasks.rm-db]
+script_runner = "@shell"
+script = '''
+rm -f ./chess.db
+'''
+
+[tasks.generate-entities]
+install_crate = "sea-orm-cli"
+command = "sea-orm-cli generate entity -u sqlite://chess.db -o src/entities"

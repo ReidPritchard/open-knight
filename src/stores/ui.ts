@@ -1,8 +1,6 @@
 import { defineStore } from "pinia";
-import { applicationLayout } from "../applicationLayout";
-import type { ILayout, IWindow } from "../shared/types";
 
-function getDefaultTheme() {
+function getDefaultTheme(): "light" | "dark" {
   const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
   // Set the theme in localStorage
@@ -17,19 +15,8 @@ function getDefaultTheme() {
   return isDark ? "dark" : "light";
 }
 
-function getWindowById(layout: ILayout, windowId: string): IWindow | null {
-  if ("children" in layout) {
-    for (const child of layout.children) {
-      const result = getWindowById(child, windowId);
-      if (result) return result;
-    }
-  }
-  return layout.id === windowId ? (layout as IWindow) : null;
-}
-
 export const useUIStore = defineStore("ui", {
   state: () => ({
-    layout: applicationLayout as ILayout,
     visibleGameHeaders: [
       "Event",
       "Date",
@@ -39,24 +26,58 @@ export const useUIStore = defineStore("ui", {
       "Opening",
     ] as string[],
     theme: getDefaultTheme() as "light" | "dark",
+    /**
+     * The orientation of the board, by which side white is playing from
+     * TODO: Might want to make this per-game board rather than global
+     * might be ok for now though
+     */
+    boardWhiteOrientation: "bottom" as "top" | "bottom",
+
+    /**
+     * Game Library/Explorer view
+     */
+    gameLibraryViewOpen: false,
+    moveTreeViewOpen: true,
+    gameLibraryView: "grid" as "grid" | "list",
+    gameLibraryViewSortBy: "date" as
+      | "date"
+      | "event"
+      | "white"
+      | "black"
+      | "result"
+      | "opening",
+    gameLibraryViewSortOrder: "desc" as "asc" | "desc",
+    gameLibraryViewFilter: "all" as "all" | "favorites" | "tags",
+    gameLibraryViewFilterTags: [] as string[],
+
+    /**
+     * Settings Modal
+     */
+    settingsModalOpen: false,
   }),
 
+  getters: {
+    getGameLibraryViewOpen: (state) => state.gameLibraryViewOpen,
+    getMoveTreeViewOpen: (state) => state.moveTreeViewOpen,
+    getGameLibraryViewSortByOptions: () => [
+      "date",
+      "event",
+      "white",
+      "black",
+      "result",
+      "opening",
+    ],
+    getGameLibraryViewSortBy: (state) => state.gameLibraryViewSortBy,
+    getGameLibraryViewSortOrderOptions: () => ["asc", "desc"],
+    getGameLibraryViewSortOrder: (state) => state.gameLibraryViewSortOrder,
+    getGameLibraryViewFilterOptions: () => ["all", "favorites", "tags"],
+    getGameLibraryViewFilter: (state) => state.gameLibraryViewFilter,
+    getGameLibraryViewFilterTags: (state) => state.gameLibraryViewFilterTags,
+
+    getSettingsModalOpen: (state) => state.settingsModalOpen,
+  },
+
   actions: {
-    setLayout(newLayout: ILayout) {
-      this.layout = newLayout;
-    },
-
-    updateWindowProperty(
-      windowId: string,
-      property: string,
-      value: string | number | boolean | null
-    ) {
-      const window = getWindowById(this.layout, windowId);
-      if (window && property in window) {
-        window[property as keyof typeof window] = value as never;
-      }
-    },
-
     toggleTheme() {
       const newTheme = this.theme === "light" ? "dark" : "light";
 
@@ -70,6 +91,40 @@ export const useUIStore = defineStore("ui", {
       }
 
       this.theme = newTheme;
+    },
+
+    updateSettingsModalOpen(open?: boolean) {
+      this.settingsModalOpen = open ?? !this.settingsModalOpen;
+    },
+
+    toggleGameLibraryView() {
+      this.gameLibraryViewOpen = !this.gameLibraryViewOpen;
+    },
+
+    toggleMoveTreeView() {
+      this.moveTreeViewOpen = !this.moveTreeViewOpen;
+    },
+
+    gameLibraryViewUpdateSortBy(
+      sortBy: "date" | "event" | "white" | "black" | "result" | "opening"
+    ) {
+      this.gameLibraryViewSortBy = sortBy;
+    },
+
+    gameLibraryViewUpdateSortOrder(sortOrder: "asc" | "desc") {
+      this.gameLibraryViewSortOrder = sortOrder;
+    },
+
+    gameLibraryViewUpdateFilter(filter: "all" | "favorites" | "tags") {
+      this.gameLibraryViewFilter = filter;
+    },
+
+    gameLibraryViewUpdateFilterTags(tags: string[]) {
+      this.gameLibraryViewFilterTags = tags;
+    },
+
+    gameLibraryViewUpdateView(view: "grid" | "list") {
+      this.gameLibraryView = view;
     },
   },
 });
