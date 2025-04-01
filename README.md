@@ -71,7 +71,7 @@
 ### Screenshots
 
 <div align="center">
-  <img src="docs/assets/UI-Apr2-2025.png" alt="Screenshot of the current Open Knight UI" />
+  <img src="docs/assets/UI-Apr1-2025.png" alt="Screenshot of the current Open Knight UI" />
 </div>
 
 <!-- TechStack -->
