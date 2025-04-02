@@ -6,6 +6,7 @@ use sea_orm::sqlx::types::chrono;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{DatabaseConnection, EntityTrait, LoaderTrait};
 use serde::{Deserialize, Serialize};
+use shakmaty::CastlingMode;
 use shakmaty::{san::San, Chess, Position};
 use std::collections::HashMap;
 use std::error::Error;
@@ -231,7 +232,7 @@ impl ChessMove {
                 PgnToken::MoveNumber(num) => {
                     let new_move_count = *num as i32;
                     // If the new move count is different from the previous move count, we have a new full move
-                    // therefore the next move is white, if it's the same, the next move is black 
+                    // therefore the next move is white, if it's the same, the next move is black
                     // (ex. 1. e4 1... e5 2... d4 3... d5 4...)
                     is_white = new_move_count != full_move_count;
                     full_move_count = new_move_count;
@@ -243,7 +244,7 @@ impl ChessMove {
                         game_id,
                         ply_number,
                         san: notation.clone(),
-                        uci: notation.clone(),
+                        uci: notation.clone(), // The actual UCI is set when the position is loaded
                         position: None,
                         annotations: Vec::new(),
                         time_info: None,
@@ -335,6 +336,17 @@ impl ChessMove {
         let mut pos = starting_pos.unwrap_or_else(Chess::default);
 
         for chess_move in moves {
+            // Generate the actual UCI
+            // TODO: There must be a better way...
+            let uci = chess_move
+                .san
+                .parse::<San>()
+                .unwrap()
+                .to_move(&pos)
+                .unwrap()
+                .to_uci(CastlingMode::Standard)
+                .to_string();
+
             // Generate and save position
             let (position_id, new_pos) =
                 Self::generate_and_save_position(db, &chess_move.san, &pos).await?;
@@ -345,7 +357,7 @@ impl ChessMove {
                 game_id: Set(chess_move.game_id),
                 ply_number: Set(chess_move.ply_number),
                 san: Set(chess_move.san.clone()),
-                uci: Set(chess_move.uci.clone()),
+                uci: Set(uci),
                 position_id: Set(position_id.unwrap_or(0)),
                 created_at: Set(Some(chrono::Utc::now())),
                 ..Default::default()

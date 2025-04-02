@@ -1,9 +1,9 @@
 import { defineStore } from "pinia";
-import { useGamesStore } from "./games";
-import { useUIStore } from "./ui";
-import type { ExplorerGame } from "../shared/types";
 import api from "../shared/api";
+import type { ExplorerGame } from "../shared/types";
+import { useGamesStore } from "./games";
 import { useSettingsStore } from "./settings";
+import { useUIStore } from "./ui";
 
 export const useGlobalStore = defineStore("global", {
   state: () => ({

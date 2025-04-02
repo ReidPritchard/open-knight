@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, provide } from "vue";
 import ChessBoard from "./components/ChessBoard/ChessBoard.vue";
 import GameLibrary from "./components/GameLibrary/GameLibrary.vue";
 import MoveTree from "./components/MoveTree/MoveTree.vue";
@@ -37,6 +37,12 @@ const resetDatabaseClick = async () => {
 onMounted(() => {
   globalStore.fetchExplorerGames();
 });
+
+// Setup default styles for Phosphor icons
+provide("color", "currentColor");
+provide("size", 30);
+provide("weight", "bold");
+provide("mirrored", false);
 </script>
 
 <template>

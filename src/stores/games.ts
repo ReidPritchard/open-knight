@@ -1,6 +1,11 @@
 import { defineStore } from "pinia";
 import api from "../shared/api";
-import type { ChessGame, ChessMove, ChessPosition } from "../shared/bindings";
+import type {
+  ChessGame,
+  ChessMove,
+  ChessPosition,
+  LegalMove,
+} from "../shared/bindings";
 
 interface ActiveGameState {
   id: number;
@@ -9,7 +14,7 @@ interface ActiveGameState {
   currentMoveIndex: number;
   currentMove: ChessMove | null;
   currentPosition: ChessPosition | null;
-  validMoves: ChessMove[] | null;
+  validMoves: LegalMove[] | null;
 
   inProgress: boolean;
   userIsPlaying: "white" | "black" | null;
@@ -18,6 +23,16 @@ interface ActiveGameState {
   hideBestMove: boolean;
   hideThreats: boolean;
 }
+
+const getValidMoves = async (position?: string) => {
+  if (!position) return null;
+  try {
+    return await api.moves.GET.validMoves(position);
+  } catch (error) {
+    console.error("Failed to fetch valid moves:", error);
+    return null;
+  }
+};
 
 /**
  * A store for managing the states of ALL open games
@@ -41,21 +56,22 @@ export const useGamesStore = defineStore("games", {
 
       // Open game
       const game = await api.games.GET.game(gameId);
-      const initialPosition = game.moves[0]?.position;
-      const validMoves = game.moves[0]?.next_move
-        ? [game.moves[0].next_move]
-        : null;
+      // FIXME: Handle variable starting positions
+      const initialPosition: ChessPosition = {
+        id: 0,
+        fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        evaluations: [],
+      };
+      const validMoves = await getValidMoves(initialPosition?.fen);
 
       console.log("Game:", game);
-      console.log("Moves:", game.moves.length, game.moves);
-      console.log("Initial position:", initialPosition);
 
       const newGameState: ActiveGameState = {
         id: gameId,
         game: game,
 
-        currentMoveIndex: 0,
-        currentMove: game.moves[0],
+        currentMoveIndex: -1,
+        currentMove: null,
         currentPosition: initialPosition,
         validMoves: validMoves,
 
@@ -75,26 +91,38 @@ export const useGamesStore = defineStore("games", {
     async closeGame(boardId: number) {
       this.activeGameMap.delete(boardId);
     },
+
     async nextMove(boardId: number) {
+      // Get the game for the board
       const game = this.activeGameMap.get(boardId);
-      if (game) {
-        const currentMove = game.currentMove;
-        if (currentMove?.next_move) {
-          game.currentMove = currentMove.next_move;
-          game.validMoves = currentMove.next_move.next_move
-            ? [currentMove.next_move.next_move]
-            : null;
-          game.currentMoveIndex++;
-        } else {
-          const nextMove = game.game.moves[game.currentMoveIndex + 1];
-          if (nextMove) {
-            game.currentMove = nextMove;
-            game.currentMoveIndex++;
-            game.validMoves = nextMove.next_move ? [nextMove.next_move] : null;
-          }
-        }
+      if (!game) return;
+
+      // Get the game's current move
+      const currentMoveIndex = game.currentMoveIndex;
+      const currentMove = game.currentMove;
+
+      // If the current move index is -1, it's the starting position
+      // So we need to set the current move to the first move
+      if (currentMoveIndex === -1) {
+        game.currentMove = game.game.moves[0];
+        game.currentMoveIndex = 0;
+      } else if (currentMove?.next_move) {
+        // If the current move has a next move, go to it
+        // TODO: Handle variations!!
+        game.currentMove = currentMove.next_move;
+        game.currentMoveIndex++;
+      } else {
+        // If the move doesn't have a next move, assume we are at the end of the game
+        // and cannot go forward
+        console.log("No next move", currentMove);
+        return;
       }
+
+      // Update the game's current position and valid moves
+      game.currentPosition = game.currentMove?.position;
+      game.validMoves = await getValidMoves(game.currentPosition?.fen);
     },
+
     async previousMove(boardId: number) {
       const game = this.activeGameMap.get(boardId);
       if (game) {
@@ -102,7 +130,17 @@ export const useGamesStore = defineStore("games", {
           game.currentMoveIndex--;
           const prevMove = game.game.moves[game.currentMoveIndex];
           game.currentMove = prevMove;
-          game.validMoves = prevMove.next_move ? [prevMove.next_move] : null;
+          game.validMoves = await getValidMoves(prevMove.position?.fen);
+        } else {
+          // If the current move index is 0, move to the starting position
+          game.currentMove = null;
+          game.currentMoveIndex = -1;
+          game.currentPosition = {
+            id: 0,
+            fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            evaluations: [],
+          };
+          game.validMoves = await getValidMoves(game.currentPosition?.fen);
         }
       }
     },
@@ -116,7 +154,7 @@ export const useGamesStore = defineStore("games", {
           game.currentMoveIndex = move.ply_number;
           game.currentMove = move;
           game.currentPosition = move.position;
-          game.validMoves = move.next_move ? [move.next_move] : null;
+          game.validMoves = await getValidMoves(move.position?.fen);
         }
       }
     },

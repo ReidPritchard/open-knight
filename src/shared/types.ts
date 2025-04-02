@@ -1,5 +1,5 @@
 import typia from "typia";
-import type { ChessGame } from "./bindings";
+import type { ChessGame, LegalMove } from "./bindings";
 
 ////////////////////////////////////////////////////////////
 // Application UI Interfaces
@@ -40,3 +40,8 @@ export const parseExplorerGame = typia.json.createValidateParse<ExplorerGame>();
  */
 export const parseExplorerGames =
   typia.json.createValidateParse<ExplorerGame[]>();
+
+/**
+ * Parse a JSON string into an array of `LegalMove` objects
+ */
+export const parseLegalMoves = typia.json.createValidateParse<LegalMove[]>();

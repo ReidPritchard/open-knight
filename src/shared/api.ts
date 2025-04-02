@@ -1,10 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { ChessGame, LegalMove, QueryParams } from "./bindings";
 import {
   type ExplorerGame,
   explorerGameFields,
   parseExplorerGames,
+  parseLegalMoves,
 } from "./types";
-import type { ChessGame, QueryParams } from "./bindings";
 
 export default {
   /**
@@ -92,6 +93,18 @@ export default {
     POST: {
       importDemoGames: async (): Promise<void> => {
         await invoke("import_demo_games");
+      },
+    },
+  },
+  moves: {
+    GET: {
+      validMoves: async (fen: string): Promise<LegalMove[]> => {
+        const response = await invoke<string>("get_legal_moves", { fen });
+        const parsed = parseLegalMoves(response);
+        if (parsed.success) {
+          return parsed.data;
+        }
+        throw new Error(parsed.errors.join("\n"));
       },
     },
   },

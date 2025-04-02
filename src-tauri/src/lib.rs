@@ -16,6 +16,7 @@ pub enum PGNError {
     ParseError(String),
     DatabaseError(String),
     SerializationError(String),
+    ChessError(String),
 }
 
 impl std::fmt::Display for PGNError {
@@ -24,6 +25,7 @@ impl std::fmt::Display for PGNError {
             PGNError::ParseError(e) => write!(f, "Parse error: {}", e),
             PGNError::DatabaseError(e) => write!(f, "Database error: {}", e),
             PGNError::SerializationError(e) => write!(f, "Serialization error: {}", e),
+            PGNError::ChessError(e) => write!(f, "Chess error: {}", e),
         }
     }
 }
@@ -136,6 +138,17 @@ async fn get_game_by_id(
     Ok(serde_json::to_string(&game).unwrap())
 }
 
+#[tauri::command]
+async fn get_legal_moves(fen: String) -> Result<String, PGNError> {
+    match api::chess::get_legal_moves(&fen) {
+        Ok(moves) => match serde_json::to_string(&moves) {
+            Ok(json) => Ok(json),
+            Err(e) => Err(PGNError::SerializationError(e.to_string())),
+        },
+        Err(e) => Err(PGNError::ChessError(e.to_string())),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -153,6 +166,7 @@ pub fn run() {
             query_entities,
             get_entity_by_id,
             get_game_by_id,
+            get_legal_moves,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

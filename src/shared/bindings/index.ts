@@ -10,3 +10,5 @@ export * from "./ChessTournament";
 
 export * from "./QueryParams";
 export * from "./QueryResult";
+
+export * from "./LegalMove";
