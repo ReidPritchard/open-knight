@@ -7,6 +7,8 @@ export * from "./ChessOpening";
 export * from "./ChessPlayer";
 export * from "./ChessPosition";
 export * from "./ChessTournament";
+export * from "./ChessTreeNode";
+export * from "./ChessMoveTree";
 
 export * from "./QueryParams";
 export * from "./QueryResult";

@@ -15,27 +15,51 @@ const displayGameLibrary = computed(() => uiStore.getGameLibraryViewOpen);
 const displayMoveTree = computed(() => uiStore.getMoveTreeViewOpen);
 
 const toggleGameLibraryView = () => {
-  uiStore.toggleGameLibraryView();
+	uiStore.toggleGameLibraryView();
 };
 
 const toggleMoveTreeView = () => {
-  uiStore.toggleMoveTreeView();
+	uiStore.toggleMoveTreeView();
 };
 
-const importDemoGamesClick = async () => {
-  await globalStore.importDemoGames();
+const importGamesClick = async () => {
+	// FIXME: Show UI for importing games
+	console.warn("Import UI not implemented - loading demo games");
+	// Use a pgn file from the assets folder
+	try {
+		const pgn = (await import("./assets/pgns/demo_multiple_games.pgn?raw"))
+			.default;
+		await globalStore.importPGNGames(pgn);
+	} catch (error) {
+		console.error("Error importing demo games", error);
+	}
 };
 
 const refreshGamesClick = async () => {
-  await globalStore.fetchExplorerGames();
+	await globalStore.fetchExplorerGames();
 };
 
 const resetDatabaseClick = async () => {
-  await globalStore.resetDatabase();
+	await globalStore.resetDatabase();
 };
 
 onMounted(() => {
-  globalStore.fetchExplorerGames();
+	globalStore.fetchExplorerGames();
+
+	// If in development mode, expose the state and API to the window
+	if (import.meta.env.DEV) {
+		const globalWindow = window as unknown as {
+			$$: {
+				store: typeof globalStore;
+				api: typeof globalStore.api;
+			};
+		};
+
+		globalWindow.$$ = {
+			store: globalStore,
+			api: globalStore.api,
+		};
+	}
 });
 
 // Setup default styles for Phosphor icons
@@ -97,7 +121,7 @@ provide("mirrored", false);
               </button>
             </li>
             <li>
-              <button class="btn btn-ghost" @click="importDemoGamesClick">
+              <button class="btn btn-ghost" @click="importGamesClick">
                 <span class="material-symbols-outlined"> import </span>
               </button>
             </li>

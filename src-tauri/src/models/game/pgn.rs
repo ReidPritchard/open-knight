@@ -1,4 +1,5 @@
-use crate::models::{ChessGame, ChessMove, ChessOpening, ChessPlayer, ChessTournament};
+use crate::models::parse::parse_pgn_tokens;
+use crate::models::{ChessGame, ChessOpening, ChessPlayer, ChessPosition, ChessTournament};
 use crate::parse::pgn::PgnToken;
 use std::error::Error;
 
@@ -49,6 +50,10 @@ impl ChessGame {
                     .map(|(_, value)| value.clone())
             };
 
+            let root_position = ChessPosition::from_fen(get_tag("FEN"), None)?;
+
+            let move_tree = parse_pgn_tokens(0, root_position.clone(), &move_tokens)?;
+
             // Create a temporary game object
             let game = ChessGame {
                 id: 0, // Database ID will be set when saving
@@ -84,12 +89,12 @@ impl ChessGame {
                 date: get_tag("Date")
                     .map(|d| d.replace('.', "-"))
                     .unwrap_or_else(|| "????-??-??".to_string()),
-                moves: ChessMove::from_pgn_tokens(&move_tokens, 0), // Game ID will be set later
+                move_tree,
                 tags: tags
                     .iter()
                     .map(|(k, v)| format!("[{} \"{}\"]", k, v))
                     .collect(),
-                fen: get_tag("FEN"),
+                fen: Some(root_position.fen),
                 pgn: Some(game_tokens.iter().map(|t| t.to_string()).collect()),
             };
 

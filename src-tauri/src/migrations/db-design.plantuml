@@ -4,6 +4,8 @@
 ' We can approximate DECIMAL with REAL.
 ' For JSONB-like storage, we use TEXT to store JSON in SQLite.
 
+' This file might not be accurate, please check the actual code
+
 entity Player {
     * player_id : INTEGER
     --
@@ -60,6 +62,7 @@ entity Move {
     --
     game_id : INTEGER
     parent_move_id : INTEGER
+    variation_order : INTEGER
     move_number : INTEGER
     player_color : TEXT    // 'W' or 'B'
     move_notation : TEXT

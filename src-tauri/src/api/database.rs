@@ -1,5 +1,5 @@
 use crate::entities::*;
-use crate::models::ChessGame;
+use crate::models::{ChessGame, ChessMove, ChessPosition};
 use sea_orm::QueryFilter;
 use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QuerySelect, Select};
 use serde::{Deserialize, Serialize};
@@ -359,4 +359,56 @@ pub async fn query_full_games(
     }
 
     Ok(games)
+}
+
+/**
+ * Get all moves for a specific game
+ */
+pub async fn get_game_moves(
+    game_id: i32,
+    db: &DatabaseConnection,
+) -> anyhow::Result<Vec<ChessMove>> {
+    use sea_orm::LoaderTrait;
+
+    let db_moves = r#move::Entity::find()
+        .filter(r#move::Column::GameId.eq(game_id))
+        .all(db)
+        .await?;
+
+    let move_positions = db_moves.load_one(position::Entity, db).await?;
+
+    let moves = db_moves
+        .into_iter()
+        .zip(move_positions.into_iter())
+        .map(|(curr_move, curr_position)| {
+            let move_position = curr_position.map_or(
+                ChessPosition {
+                    id: 0,
+                    fen: "".to_string(),
+                    evaluations: Vec::new(),
+                    variant: None,
+                },
+                |p| ChessPosition {
+                    id: p.position_id,
+                    fen: p.fen,
+                    evaluations: Vec::new(),
+                    variant: None,
+                },
+            );
+
+            ChessMove {
+                id: curr_move.move_id,
+                game_id,
+                ply_number: curr_move.ply_number,
+                san: curr_move.san,
+                uci: curr_move.uci,
+                position: Some(move_position),
+                annotations: Vec::new(),
+                time_info: None,
+                parent_move_id: curr_move.parent_move_id,
+            }
+        })
+        .collect::<Vec<ChessMove>>();
+
+    Ok(moves)
 }

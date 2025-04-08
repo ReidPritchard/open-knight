@@ -8,6 +8,8 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub move_id: i32,
     pub game_id: i32,
+    pub parent_move_id: Option<i32>,
+    pub variation_order: i32,
     pub ply_number: i32,
     pub san: String,
     pub uci: String,

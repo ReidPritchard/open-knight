@@ -1,14 +1,13 @@
 use crate::entities::{annotation, move_time_tracking, position, r#move};
-use crate::parse::pgn::PgnToken;
 use crate::ts_export;
 
 use sea_orm::sqlx::types::chrono;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{DatabaseConnection, EntityTrait, LoaderTrait};
+use sea_orm::{DatabaseConnection, EntityTrait};
 use serde::{Deserialize, Serialize};
-use shakmaty::CastlingMode;
+use shakmaty::fen::Fen;
 use shakmaty::{san::San, Chess, Position};
-use std::collections::HashMap;
+use shakmaty::{CastlingMode, EnPassantMode};
 use std::error::Error;
 use std::hash::{DefaultHasher, Hasher};
 use ts_rs::TS;
@@ -20,11 +19,10 @@ ts_export! {
         pub ply_number: i32,
         pub san: String,
         pub uci: String,
-        pub position: Option<ChessPosition>,
+        pub position: Option<ChessPosition>, // The resulting position after the move is played
         pub annotations: Vec<ChessAnnotation>,
         pub time_info: Option<ChessMoveTime>,
-        pub variations: Vec<ChessMove>,
-        pub next_move: Option<Box<ChessMove>>,
+        pub parent_move_id: Option<i32>,
     }
 }
 
@@ -33,6 +31,7 @@ ts_export! {
         pub id: i32,
         pub fen: String,
         pub evaluations: Vec<ChessEvaluation>,
+        pub variant: Option<String>, // TODO: Handle Chess960
     }
 }
 
@@ -67,87 +66,77 @@ fn hash_fen(fen: &str) -> String {
     hasher.finish().to_string()
 }
 
-impl ChessMove {
-    pub async fn load_for_game(
-        db: &DatabaseConnection,
-        game_id: i32,
-    ) -> Result<Vec<ChessMove>, Box<dyn Error>> {
-        use sea_orm::ColumnTrait;
-        use sea_orm::EntityTrait;
-        use sea_orm::QueryFilter;
+pub fn generate_uci(san: &str, pos: &Chess) -> Result<String, Box<dyn Error>> {
+    let uci = san
+        .parse::<San>()
+        .unwrap()
+        .to_move(pos)
+        .unwrap()
+        .to_uci(CastlingMode::Standard)
+        .to_string();
+    Ok(uci)
+}
 
-        // Load all moves for the game
-        let moves = r#move::Entity::find()
-            .filter(r#move::Column::GameId.eq(game_id))
-            .all(db)
-            .await?;
-        let positions = moves.load_one(position::Entity, db).await?;
+// Convert a ChessPosition to a shakmaty::Position
+impl From<ChessPosition> for Chess {
+    fn from(position: ChessPosition) -> Self {
+        let fen: Fen = position.fen.parse::<Fen>().unwrap();
+        let variant: CastlingMode = match position.variant {
+            Some(variant) => match variant.as_str() {
+                "Chess960" => CastlingMode::Chess960,
+                "Standard" => CastlingMode::Standard,
+                _ => CastlingMode::Standard,
+            },
+            None => CastlingMode::Standard,
+        };
+        fen.into_position(variant).unwrap()
+    }
+}
 
-        // Create a map of moves by ID for easy lookup
-        let mut move_map: HashMap<i32, ChessMove> = HashMap::new();
-        let mut moves_with_positions: Vec<ChessMove> = Vec::new();
-        let mut final_moves: Vec<ChessMove> = Vec::new();
+impl ChessPosition {
+    pub fn from_fen(fen: Option<String>, variant: Option<String>) -> Result<Self, Box<dyn Error>> {
+        let default_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        let default_variant = "Standard";
 
-        // First pass: create basic move objects
-        for (m, p) in moves.into_iter().zip(positions.into_iter()) {
-            let position: ChessPosition = p.map_or(
-                ChessPosition {
-                    id: 0,
-                    fen: "".to_string(),
-                    evaluations: Vec::new(),
-                },
-                |p| ChessPosition {
-                    id: p.position_id,
-                    fen: p.fen,
-                    evaluations: Vec::new(),
-                },
-            );
+        let fen_str = fen.unwrap_or(default_fen.to_string());
+        let variant_str = variant.unwrap_or(default_variant.to_string());
 
-            let chess_move = ChessMove {
-                id: m.move_id,
-                game_id: m.game_id,
-                ply_number: m.ply_number,
-                san: m.san.clone(),
-                uci: m.uci.clone(),
-                position: Some(position),
-                annotations: Vec::new(),
-                time_info: None,
-                variations: Vec::new(),
-                next_move: None,
-            };
-
-            move_map.insert(m.move_id, chess_move.clone());
-            moves_with_positions.push(chess_move);
-        }
-
-        // Second pass: build the move tree
-        for m in &moves_with_positions {
-            // Get the current move
-            let mut current_move = m.clone();
-            // For each move find the next move (using ply_number)
-            let mut found_next_move = false;
-            for (_, search_move) in move_map.iter() {
-                if search_move.ply_number == m.ply_number + 1 {
-                    if !found_next_move {
-                        current_move.next_move = Some(Box::new(search_move.clone()));
-                        found_next_move = true;
-                    } else {
-                        // TODO: Right now we assume any additional moves are variations in the correct order
-                        //       We should improve or document this assumption
-                        current_move.variations.push(search_move.clone());
-                    }
-                }
-            }
-            if !found_next_move {
-                current_move.next_move = None;
-            }
-
-            final_moves.push(current_move);
-        }
-
-        Ok(final_moves)
+        Ok(ChessPosition {
+            id: 0,
+            fen: fen_str,
+            evaluations: Vec::new(),
+            variant: Some(variant_str),
+        })
     }
 
+    pub fn make_move(&self, move_san: &str) -> Result<Self, Box<dyn Error>> {
+        let pos = Chess::from(self.clone());
+        let parsed_move = San::from_ascii(move_san.as_bytes())?;
+        let chess_move = parsed_move.to_move(&pos)?;
+        let new_pos = pos.play(&chess_move)?;
+        let fen = Fen::from_position(new_pos, EnPassantMode::Legal).to_string();
+        Ok(ChessPosition {
+            id: self.id,
+            fen,
+            evaluations: Vec::new(),
+            variant: self.variant.clone(),
+        })
+    }
+
+    /**
+     * Default constructor
+     * Creates a new position with the starting position of a standard chess game
+     */
+    pub fn default() -> Self {
+        Self::from_fen(
+            Some("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string()),
+            None,
+        )
+        .unwrap()
+    }
+}
+
+impl ChessMove {
     pub async fn load_position(&mut self, db: &DatabaseConnection) -> Result<(), Box<dyn Error>> {
         use sea_orm::EntityTrait;
 
@@ -166,6 +155,7 @@ impl ChessMove {
             id: pos.position_id,
             fen: pos.fen,
             evaluations: Vec::new(), // TODO: Load evaluations
+            variant: None,           // TODO: Load variant
         });
 
         Ok(())
@@ -217,77 +207,16 @@ impl ChessMove {
         Ok(())
     }
 
-    pub fn from_pgn_tokens(tokens: &[PgnToken], game_id: i32) -> Vec<Self> {
-        let mut moves = Vec::new();
-        let mut full_move_count = 0i32;
-        let mut is_white = true;
-
-        // Ex. 1. e4 e5 is ply 1 for white, ply 2 for black
-        // Ex. 2. d4 d5 is ply 3 for white, ply 4 for black
-        // WHITE: full_move_number * 2 - 1
-        // BLACK: full_move_number * 2
-
-        for token in tokens {
-            match token {
-                PgnToken::MoveNumber(num) => {
-                    let new_move_count = *num as i32;
-                    // If the new move count is different from the previous move count, we have a new full move
-                    // therefore the next move is white, if it's the same, the next move is black
-                    // (ex. 1. e4 1... e5 2... d4 3... d5 4...)
-                    is_white = new_move_count != full_move_count;
-                    full_move_count = new_move_count;
-                }
-                PgnToken::Move(notation) => {
-                    let ply_number = full_move_count * 2 + if is_white { -1 } else { 0 };
-                    let chess_move = ChessMove {
-                        id: 0,
-                        game_id,
-                        ply_number,
-                        san: notation.clone(),
-                        uci: notation.clone(), // The actual UCI is set when the position is loaded
-                        position: None,
-                        annotations: Vec::new(),
-                        time_info: None,
-                        variations: Vec::new(),
-                        next_move: None,
-                    };
-                    moves.push(chess_move);
-                    is_white = !is_white;
-                }
-                PgnToken::Variation(var_tokens) => {
-                    if let Some(last_move) = moves.last_mut() {
-                        last_move.variations = Self::from_pgn_tokens(var_tokens, game_id);
-                    }
-                }
-                PgnToken::Comment(comment) => {
-                    if let Some(last_move) = moves.last_mut() {
-                        last_move.annotations.push(ChessAnnotation {
-                            id: 0,
-                            comment: Some(comment.clone()),
-                            arrows: None,
-                            highlights: None,
-                        });
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        // Link moves together
-        for i in 0..moves.len() - 1 {
-            moves[i].next_move = Some(Box::new(moves[i + 1].clone()));
-        }
-
-        moves
-    }
-
     async fn generate_and_save_position(
         db: &DatabaseConnection,
         notation: &str,
         pos: &Chess,
     ) -> Result<(Option<i32>, Chess), Box<dyn Error + Send + Sync>> {
+        // Parse the SAN notation
         let position_id = if let Ok(san) = notation.parse::<San>() {
+            // Convert the SAN notation to a move in the current position
             if let Ok(new_move) = san.to_move(pos) {
+                // Play the move on the current position
                 if let Ok(new_pos) = pos.clone().play(&new_move) {
                     // Generate FEN for the new position
                     let fen = new_pos.board().board_fen(new_pos.promoted()).to_string();
@@ -334,18 +263,11 @@ impl ChessMove {
         starting_pos: Option<Chess>,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let mut pos = starting_pos.unwrap_or_else(Chess::default);
+        let mut parent_move_id = None;
 
         for chess_move in moves {
             // Generate the actual UCI
-            // TODO: There must be a better way...
-            let uci = chess_move
-                .san
-                .parse::<San>()
-                .unwrap()
-                .to_move(&pos)
-                .unwrap()
-                .to_uci(CastlingMode::Standard)
-                .to_string();
+            let uci = generate_uci(&chess_move.san, &pos).unwrap();
 
             // Generate and save position
             let (position_id, new_pos) =
@@ -359,11 +281,13 @@ impl ChessMove {
                 san: Set(chess_move.san.clone()),
                 uci: Set(uci),
                 position_id: Set(position_id.unwrap_or(0)),
+                parent_move_id: Set(parent_move_id),
                 created_at: Set(Some(chrono::Utc::now())),
                 ..Default::default()
             };
             let result = r#move::Entity::insert(move_model).exec(db).await?;
             let current_move_id = result.last_insert_id;
+            parent_move_id = Some(current_move_id);
 
             // Save annotations if any
             for annotation in &chess_move.annotations {
@@ -379,22 +303,48 @@ impl ChessMove {
                     annotation::Entity::insert(anno_model).exec(db).await?;
                 }
             }
-
-            // Save variations recursively
-            if !chess_move.variations.is_empty() {
-                let variation_moves: Vec<_> = chess_move
-                    .variations
-                    .iter()
-                    .map(|m| {
-                        let mut m = m.clone();
-                        m.game_id = chess_move.game_id;
-                        m
-                    })
-                    .collect();
-                Box::pin(Self::save_moves(db, &variation_moves, Some(pos.clone()))).await?;
-            }
         }
 
         Ok(())
+    }
+
+    /**
+     * Convert a Move DB Entity into a ChessMove
+     * @param move_data - The Move DB Entity
+     * @param position_data - The Position DB Entity
+     * @returns the converted ChessMove
+     */
+    pub fn from_db_entities(
+        move_data: r#move::Model,
+        position_data: Option<position::Model>,
+        game_variant: Option<String>,
+    ) -> Self {
+        let move_variant = game_variant.unwrap_or("Standard".to_string());
+        let move_position = position_data.map_or(
+            ChessPosition {
+                id: 0,
+                fen: "".to_string(),
+                evaluations: Vec::new(),
+                variant: Some(move_variant.clone()),
+            },
+            |p| ChessPosition {
+                id: p.position_id,
+                fen: p.fen,
+                evaluations: Vec::new(),
+                variant: Some(move_variant.clone()),
+            },
+        );
+
+        ChessMove {
+            id: move_data.move_id,
+            game_id: move_data.game_id,
+            ply_number: move_data.ply_number,
+            san: move_data.san,
+            uci: move_data.uci,
+            position: Some(move_position),
+            annotations: Vec::new(),
+            time_info: None,
+            parent_move_id: move_data.parent_move_id,
+        }
     }
 }

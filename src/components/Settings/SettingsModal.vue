@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useGlobalStore } from "../../stores";
 import { useSettingsStore } from "../../stores/settings";
 import type { Hotkey } from "../../stores/settings";
-import { useGlobalStore } from "../../stores";
 
 defineProps<{
-  isOpen: boolean;
+	isOpen: boolean;
 }>();
 
 const emit = defineEmits(["close"]);
@@ -16,43 +16,43 @@ const editingHotkey = ref<string | null>(null);
 const newKey = ref<Partial<Omit<Hotkey, "id" | "callback">> | null>(null);
 
 const startEditing = (hotkeyId: string) => {
-  editingHotkey.value = hotkeyId;
-  newKey.value = {};
-  // Start listening for key combinations
-  document.addEventListener("keydown", handleKeyPress);
+	editingHotkey.value = hotkeyId;
+	newKey.value = {};
+	// Start listening for key combinations
+	document.addEventListener("keydown", handleKeyPress);
 };
 
 const stopEditing = () => {
-  editingHotkey.value = null;
-  newKey.value = null;
-  document.removeEventListener("keydown", handleKeyPress);
+	editingHotkey.value = null;
+	newKey.value = null;
+	document.removeEventListener("keydown", handleKeyPress);
 };
 
 const handleKeyPress = (e: KeyboardEvent) => {
-  e.preventDefault();
-  if (!editingHotkey.value || !newKey.value) return;
+	e.preventDefault();
+	if (!editingHotkey.value || !newKey.value) return;
 
-  // If the key is a modifier key, don't update the hotkey yet
-  // that way we can capture the key+modifier combination
-  if (
-    e.key === "Control" ||
-    e.key === "Alt" ||
-    e.key === "Shift" ||
-    e.key === "Meta"
-  )
-    return;
+	// If the key is a modifier key, don't update the hotkey yet
+	// that way we can capture the key+modifier combination
+	if (
+		e.key === "Control" ||
+		e.key === "Alt" ||
+		e.key === "Shift" ||
+		e.key === "Meta"
+	)
+		return;
 
-  newKey.value = {
-    key: e.key,
-    ctrl: e.ctrlKey,
-    shift: e.shiftKey,
-    alt: e.altKey,
-    meta: e.metaKey,
-  };
+	newKey.value = {
+		key: e.key,
+		ctrl: e.ctrlKey,
+		shift: e.shiftKey,
+		alt: e.altKey,
+		meta: e.metaKey,
+	};
 
-  // Update the hotkey
-  settingsStore.updateHotkey(editingHotkey.value, newKey.value);
-  stopEditing();
+	// Update the hotkey
+	settingsStore.updateHotkey(editingHotkey.value, newKey.value);
+	stopEditing();
 };
 </script>
 

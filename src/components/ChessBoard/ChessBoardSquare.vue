@@ -39,20 +39,20 @@
 
 <script setup lang="ts">
 defineProps<{
-  row: number;
-  col: number;
-  squareSize: number;
-  piece?: string;
-  pieceImage?: string;
-  canMove: boolean;
-  isSelected: boolean;
-  isValidMove: boolean;
-  isHighlighted: boolean;
+	row: number;
+	col: number;
+	squareSize: number;
+	piece?: string;
+	pieceImage?: string;
+	canMove: boolean;
+	isSelected: boolean;
+	isValidMove: boolean;
+	isHighlighted: boolean;
 }>();
 
 defineEmits<{
-  (e: "drop"): void;
-  (e: "click", event: MouseEvent): void;
-  (e: "dragStart"): void;
+	(e: "drop"): void;
+	(e: "click", event: MouseEvent): void;
+	(e: "dragStart"): void;
 }>();
 </script>

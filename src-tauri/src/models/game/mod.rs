@@ -10,10 +10,11 @@ use std::error::Error;
 use ts_rs::TS;
 
 use crate::entities::*;
+use crate::models::{ChessMove, ChessMoveTree, ChessPosition};
 use crate::parse::pgn::PgnToken;
 use crate::ts_export;
 
-use super::ChessMove;
+use super::parse::load_moves_from_db;
 
 impl std::fmt::Display for PgnToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -42,7 +43,7 @@ ts_export! {
         pub result: String,
         pub round: Option<i32>,
         pub date: String,
-        pub moves: Vec<ChessMove>,
+        pub move_tree: ChessMoveTree,
         pub tags: Vec<String>,
         pub fen: Option<String>,
         pub pgn: Option<String>,
@@ -151,15 +152,17 @@ impl ChessGame {
             result: game.result.map_or("?".to_string(), |s| s.to_string()),
             round: game.round_number,
             date: game.date_played.map_or("?".to_string(), |s| s.to_string()),
-            moves: Vec::new(), // Implement move loading separately
-            tags: Vec::new(),  // Implement tag loading separately
+            move_tree: ChessMoveTree::default(),
+            tags: Vec::new(),
             fen: game.fen,
             pgn: Some(game.pgn),
         })
     }
 
     pub async fn load_moves(&mut self, db: &DatabaseConnection) -> Result<(), Box<dyn Error>> {
-        self.moves = ChessMove::load_for_game(db, self.id).await?;
+        let starting_position = ChessPosition::from_fen(self.fen.clone(), None).unwrap();
+        let move_tree = load_moves_from_db(db, self.id, starting_position).await?;
+        self.move_tree = move_tree;
         Ok(())
     }
 
@@ -245,7 +248,7 @@ impl ChessGame {
             println!("Spawning game save task #{}", handles.len());
 
             let handle = tokio::spawn(async move {
-                let mut game = chess_game;
+                let mut game = chess_game.clone();
 
                 game.white_player.id = white_player_id;
                 game.black_player.id = black_player_id;
@@ -306,16 +309,18 @@ impl ChessGame {
 
                 // Update game_id for all moves and save them
                 let moves = game
-                    .moves
-                    .iter_mut()
-                    .map(|m| {
+                    .move_tree
+                    .depth_first_move_traversal()
+                    .map(|mut m| {
                         m.game_id = game.id;
-                        m.clone()
+                        m
                     })
                     .collect::<Vec<_>>();
 
                 if !moves.is_empty() {
-                    ChessMove::save_moves(&db, &moves, None).await?;
+                    // TODO: Handle variant
+                    let root_position = ChessPosition::from_fen(game.fen.clone(), None).unwrap();
+                    ChessMove::save_moves(&db, &moves, Some(root_position.into())).await?;
                 }
 
                 Ok::<_, Box<dyn Error + Send + Sync>>(game)
@@ -336,7 +341,7 @@ impl ChessGame {
         Ok(saved_games)
     }
 
-    pub fn to_pgn(&self) -> String {
+    pub fn to_pgn(&mut self) -> String {
         let mut pgn = String::new();
 
         // Add standard tags
@@ -406,7 +411,7 @@ impl ChessGame {
         // Add moves (this is a basic implementation, you might want to enhance it)
         let mut move_number = 1;
         let mut is_white = true;
-        for chess_move in &self.moves {
+        for chess_move in self.move_tree.depth_first_move_traversal() {
             if is_white {
                 pgn.push_str(&format!("{}. ", move_number));
             }

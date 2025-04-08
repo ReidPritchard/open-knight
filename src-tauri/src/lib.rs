@@ -1,5 +1,7 @@
 use api::database::QueryParams;
 use db::{connect_db, reset_database, run_migrations};
+use models::parse::load_moves_from_db;
+use models::{ChessMoveTree, ChessPosition};
 use sea_orm::DatabaseConnection;
 
 pub mod api;
@@ -49,29 +51,13 @@ async fn empty_db(state: tauri::State<'_, AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn parse_pgn(pgn: &str, state: tauri::State<'_, AppState>) -> Result<String, PGNError> {
-    // Load and parse the PGN
-    let load_result = models::ChessGame::save_from_pgn(&state.db, &pgn)
-        .await
-        .map_err(|e| PGNError::ParseError(e.to_string()))?;
-
-    Ok(format!("Successfully parsed {} games", load_result.len()))
-}
-
-#[tauri::command]
-async fn import_demo_games(state: tauri::State<'_, AppState>) -> Result<String, PGNError> {
-    match db::import_demo_games(&state.db).await {
-        Ok(games) => {
-            println!("Successfully imported {} demo games", games.len());
-            Ok(format!("Successfully imported {} games", games.len()))
-        }
-        Err(e) => {
-            eprintln!("Error importing demo games: {}", e);
-            Err(PGNError::DatabaseError(format!(
-                "Failed to import demo games: {}",
-                e
-            )))
-        }
+async fn import_pgn_games(
+    pgn: &str,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, PGNError> {
+    match models::ChessGame::save_from_pgn(&state.db, &pgn).await {
+        Ok(games) => Ok(format!("Successfully parsed {} games", games.len())),
+        Err(e) => Err(PGNError::ParseError(e.to_string())),
     }
 }
 
@@ -139,6 +125,40 @@ async fn get_game_by_id(
 }
 
 #[tauri::command]
+async fn get_move_tree(id: i32, state: tauri::State<'_, AppState>) -> Result<String, PGNError> {
+    println!("Getting move tree for game: {:?}", id);
+    let game = api::database::get_full_game(id, QueryParams::default(), &state.db)
+        .await
+        .unwrap();
+
+    if let Some(game) = game {
+        println!("Game found");
+        let default_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string();
+        let fen = game.fen.as_ref().unwrap_or(&default_fen);
+
+        let root_position = match ChessPosition::from_fen(Some(fen.to_string()), None) {
+            Ok(pos) => pos,
+            Err(e) => return Err(PGNError::ChessError(e.to_string())),
+        };
+
+        // Create the move tree and convert to serializable format
+        let move_tree = load_moves_from_db(&state.db, game.id, root_position)
+            .await
+            .unwrap();
+
+        match serde_json::to_string(&move_tree) {
+            Ok(json) => Ok(json),
+            Err(e) => Err(PGNError::SerializationError(e.to_string())),
+        }
+    } else {
+        Err(PGNError::DatabaseError(format!(
+            "Game with id {} not found",
+            id
+        )))
+    }
+}
+
+#[tauri::command]
 async fn get_legal_moves(fen: String) -> Result<String, PGNError> {
     match api::chess::get_legal_moves(&fen) {
         Ok(moves) => match serde_json::to_string(&moves) {
@@ -159,14 +179,14 @@ pub fn run() {
                 .expect("Failed to create AppState"),
         )
         .invoke_handler(tauri::generate_handler![
-            parse_pgn,
+            import_pgn_games,
             empty_db,
-            import_demo_games,
             query_games,
             query_entities,
             get_entity_by_id,
             get_game_by_id,
             get_legal_moves,
+            get_move_tree,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

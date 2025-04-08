@@ -4,7 +4,6 @@ use std::error::Error;
 
 // Constants
 const DATABASE_URL: &str = "sqlite://chess.db?mode=rwc";
-const DEBUG_PGN_FILE: &str = "./src/data/pgn/my-games.pgn";
 
 pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), Box<dyn Error>> {
     Migrator::up(db, None).await?;
@@ -22,13 +21,6 @@ pub async fn load_pgn_file(
     file_path: &str,
 ) -> Result<Vec<models::ChessGame>, Box<dyn Error>> {
     let pgn_content = std::fs::read_to_string(file_path)?;
-    models::ChessGame::save_from_pgn(db, &pgn_content).await
-}
-
-pub async fn import_demo_games(
-    db: &DatabaseConnection,
-) -> Result<Vec<models::ChessGame>, Box<dyn Error>> {
-    let pgn_content = std::fs::read_to_string(DEBUG_PGN_FILE)?;
     models::ChessGame::save_from_pgn(db, &pgn_content).await
 }
 

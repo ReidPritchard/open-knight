@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use shakmaty::{fen::Fen, CastlingMode, Chess, Move, Position};
+use shakmaty::{fen::Fen, CastlingMode, Chess, Position};
 use ts_rs::TS;
 
 use crate::ts_export;

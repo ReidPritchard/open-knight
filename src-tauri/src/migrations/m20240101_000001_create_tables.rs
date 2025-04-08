@@ -183,6 +183,7 @@ impl MigrationTrait for Migration {
                 )
                 .col(ColumnDef::new(Game::TimeControl).string())
                 .col(ColumnDef::new(Game::Fen).string())
+                .col(ColumnDef::new(Game::Variant).string())
                 .col(ColumnDef::new(Game::Pgn).string().not_null())
                 .col(
                     ColumnDef::new(Game::CreatedAt)
@@ -252,6 +253,13 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Move::GameId).integer().not_null())
+                    .col(ColumnDef::new(Move::ParentMoveId).integer())
+                    .col(
+                        ColumnDef::new(Move::VariationOrder)
+                            .integer()
+                            .not_null()
+                            .default(0),
+                    )
                     .col(
                         ColumnDef::new(Move::PlyNumber)
                             .integer()
@@ -275,6 +283,11 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .from(Move::Table, Move::PositionId)
                             .to(Position::Table, Position::PositionId),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .from(Move::Table, Move::ParentMoveId)
+                            .to(Move::Table, Move::MoveId),
                     )
                     .to_owned(),
             )
@@ -654,6 +667,7 @@ enum Game {
     DatePlayed,
     TimeControl,
     Fen,
+    Variant,
     Pgn,
     CreatedAt,
 }
@@ -672,10 +686,12 @@ enum Move {
     Table,
     MoveId,
     GameId,
+    ParentMoveId,
+    VariationOrder,
     PlyNumber,
     San,
     Uci,
-    PositionId,
+    PositionId, // The resulting position after the move is played
     CreatedAt,
 }
 

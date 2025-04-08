@@ -17,6 +17,7 @@ pub struct Model {
     pub date_played: Option<String>,
     pub time_control: Option<String>,
     pub fen: Option<String>,
+    pub variant: Option<String>,
     pub pgn: String,
     pub created_at: Option<DateTimeUtc>,
 }

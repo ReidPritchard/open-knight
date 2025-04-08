@@ -58,13 +58,22 @@ export default {
           },
         });
 
-        const parsed = parseExplorerGames(response);
+        console.log("Explorer games:", JSON.parse(response));
 
-        if (parsed.success) {
-          return parsed.data;
-        }
+        // FIXME: The types need tweaking to parse the response successfully
+        // currently the parsing fails, but the response is valid
+        // so we are skipping the validation for now
 
-        throw new Error(parsed.errors.join("\n"));
+        // const parsed = parseExplorerGames(response);
+
+        // if (parsed.success) {
+        //   return parsed.data;
+        // }
+
+        // console.error("Error parsing explorer games:", parsed.errors);
+
+        // throw new Error(parsed.errors.join("\n"));
+        return JSON.parse(response);
       },
 
       /**
@@ -91,8 +100,8 @@ export default {
       },
     },
     POST: {
-      importDemoGames: async (): Promise<void> => {
-        await invoke("import_demo_games");
+      importPGNGames: async (pgn: string): Promise<void> => {
+        await invoke("import_pgn_games", { pgn });
       },
     },
   },
@@ -105,6 +114,10 @@ export default {
           return parsed.data;
         }
         throw new Error(parsed.errors.join("\n"));
+      },
+      moveTree: async (gameId: number): Promise<string> => {
+        const response = await invoke<string>("get_move_tree", { id: gameId });
+        return JSON.parse(response);
       },
     },
   },

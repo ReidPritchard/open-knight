@@ -2,8 +2,8 @@ import { defineStore } from "pinia";
 import api from "../shared/api";
 import type {
   ChessGame,
-  ChessMove,
   ChessPosition,
+  ChessTreeNode,
   LegalMove,
 } from "../shared/bindings";
 
@@ -12,7 +12,7 @@ interface ActiveGameState {
   game: ChessGame;
 
   currentMoveIndex: number;
-  currentMove: ChessMove | null;
+  currentMove: ChessTreeNode | null;
   currentPosition: ChessPosition | null;
   validMoves: LegalMove[] | null;
 
@@ -56,11 +56,11 @@ export const useGamesStore = defineStore("games", {
 
       // Open game
       const game = await api.games.GET.game(gameId);
-      // FIXME: Handle variable starting positions
       const initialPosition: ChessPosition = {
         id: 0,
-        fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        fen: game.fen ?? "",
         evaluations: [],
+        variant: "Standard", // TODO: Handle variations
       };
       const validMoves = await getValidMoves(initialPosition?.fen);
 
@@ -70,7 +70,7 @@ export const useGamesStore = defineStore("games", {
         id: gameId,
         game: game,
 
-        currentMoveIndex: -1,
+        currentMoveIndex: 0,
         currentMove: null,
         currentPosition: initialPosition,
         validMoves: validMoves,
@@ -98,64 +98,81 @@ export const useGamesStore = defineStore("games", {
       if (!game) return;
 
       // Get the game's current move
-      const currentMoveIndex = game.currentMoveIndex;
-      const currentMove = game.currentMove;
+      const currentMoveId = game.game.move_tree.current_node_id?.idx ?? 0;
+      const currentMove = game.game.move_tree.nodes[currentMoveId];
 
-      // If the current move index is -1, it's the starting position
-      // So we need to set the current move to the first move
-      if (currentMoveIndex === -1) {
-        game.currentMove = game.game.moves[0];
-        game.currentMoveIndex = 0;
-      } else if (currentMove?.next_move) {
-        // If the current move has a next move, go to it
-        // TODO: Handle variations!!
-        game.currentMove = currentMove.next_move;
-        game.currentMoveIndex++;
-      } else {
-        // If the move doesn't have a next move, assume we are at the end of the game
-        // and cannot go forward
-        console.log("No next move", currentMove);
-        return;
-      }
+      const nextMoveId = currentMove.value?.children_ids[0]?.idx;
+      if (!nextMoveId) return;
 
-      // Update the game's current position and valid moves
-      game.currentPosition = game.currentMove?.position;
-      game.validMoves = await getValidMoves(game.currentPosition?.fen);
+      const nextMove = game.game.move_tree.nodes[nextMoveId];
+      if (!nextMove || !nextMove.value) return;
+
+      game.game.move_tree.current_node_id = {
+        idx: nextMoveId,
+        version: nextMove.version,
+      };
+
+      game.currentMove = nextMove.value;
+      game.currentMoveIndex = nextMoveId;
+      game.currentPosition = nextMove.value.position;
+      game.validMoves = await getValidMoves(nextMove.value?.position?.fen);
+
+      console.log("Current move:", game.currentMove);
     },
 
     async previousMove(boardId: number) {
       const game = this.activeGameMap.get(boardId);
       if (game) {
-        if (game.currentMoveIndex > 0) {
-          game.currentMoveIndex--;
-          const prevMove = game.game.moves[game.currentMoveIndex];
-          game.currentMove = prevMove;
-          game.validMoves = await getValidMoves(prevMove.position?.fen);
-        } else {
-          // If the current move index is 0, move to the starting position
-          game.currentMove = null;
-          game.currentMoveIndex = -1;
-          game.currentPosition = {
-            id: 0,
-            fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-            evaluations: [],
-          };
-          game.validMoves = await getValidMoves(game.currentPosition?.fen);
-        }
+        // Get the current move (to use it's parent id)
+        const currentMoveId = game.game.move_tree.current_node_id?.idx ?? 0;
+        const currentMove = game.game.move_tree.nodes[currentMoveId];
+
+        // Get the previous move
+        const previousMoveId = currentMove.value?.parent_id?.idx;
+        if (!previousMoveId) return;
+
+        const previousMove = game.game.move_tree.nodes[previousMoveId];
+        if (!previousMove || !previousMove.value) return;
+
+        game.game.move_tree.current_node_id = {
+          idx: previousMoveId,
+          version: previousMove.version,
+        };
+
+        game.currentMove = previousMove.value;
+        game.currentMoveIndex = previousMoveId;
+        game.currentPosition = previousMove.value.position;
+        game.validMoves = await getValidMoves(
+          previousMove.value?.position?.fen
+        );
+
+        console.log("Previous move:", game.currentMove);
       }
     },
 
     async jumpToMove(boardId: number, moveId: number) {
       const game = this.activeGameMap.get(boardId);
       if (game) {
+        let moveIndex: number | null = null;
         // Find the move in the game
-        const move = game.game.moves.find((m) => m.id === moveId);
-        if (move) {
-          game.currentMoveIndex = move.ply_number;
-          game.currentMove = move;
-          game.currentPosition = move.position;
-          game.validMoves = await getValidMoves(move.position?.fen);
-        }
+        const found_move = game.game.move_tree.nodes.find(
+          (search_move, search_move_index) => {
+            if (search_move.value?.game_move?.id === moveId) {
+              moveIndex = search_move_index;
+              return true;
+            }
+            return false;
+          }
+        );
+        if (!found_move || !found_move.value || !moveIndex) return;
+
+        game.game.move_tree.current_node_id = {
+          idx: moveIndex,
+          version: found_move.version,
+        };
+        game.currentMove = found_move.value;
+        game.currentPosition = found_move.value?.position;
+        game.validMoves = await getValidMoves(found_move.value?.position?.fen);
       }
     },
   },

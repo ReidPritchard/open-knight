@@ -95,9 +95,9 @@
       </button>
       <span class="label join-item px-8 w-40">
         {{
-          currentMove?.ply_number !== undefined
-            ? `${Math.floor(currentMove.ply_number / 2) + 1}. ${
-                currentMove.san
+          currentMove?.game_move?.ply_number !== undefined
+            ? `${Math.floor(currentMove.game_move.ply_number / 2) + 1}. ${
+                currentMove.game_move.san
               }`
             : "N/A"
         }}
@@ -105,8 +105,9 @@
       <button
         class="join-item btn"
         :disabled="
-          (currentMoveIndex ?? 0) > 0 &&
-          (!currentMove?.next_move || !currentMove)
+          currentMoveIndex === undefined ||
+          currentMove?.children_ids.length === undefined ||
+          currentMove?.children_ids.length === 0
         "
         @click="handleNextMove"
       >
@@ -120,6 +121,7 @@
 import { PhArrowLeft, PhArrowRight } from "@phosphor-icons/vue";
 import { computed, onMounted, ref, watch } from "vue";
 import api from "../../shared/api";
+import type { ChessAnnotation } from "../../shared/bindings";
 import { useGlobalStore } from "../../stores/";
 import AnnotationArrow from "../AnnotationArrow/AnnotationArrow.vue";
 import ChessBoardSquare from "./ChessBoardSquare.vue";
@@ -219,7 +221,7 @@ const getVisualPosition = computed(() => {
 // Annotations processing
 const annotations = computed(
   () =>
-    boardState.value?.currentMove?.annotations?.map((annotation) => {
+    boardState.value?.currentMove?.game_move?.annotations?.map((annotation) => {
       const { comment, arrows, highlights } = annotation;
 
       return {
@@ -310,10 +312,10 @@ const isSelected = (row: number, col: number) => {
  * Check if the current move should be highlighted on this square
  */
 const highlightCurrentMove = (row: number, col: number) => {
-  if (!currentMove?.value?.uci) return false;
+  if (!currentMove?.value?.game_move?.uci) return false;
 
   const algebraic = coordsToAlgebraic(col, row);
-  const { from, to } = parseUciMove(currentMove.value.uci);
+  const { from, to } = parseUciMove(currentMove.value.game_move.uci);
 
   return from === algebraic && to === algebraic;
 };
