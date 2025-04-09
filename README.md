@@ -187,9 +187,9 @@ Listed in no particular order and likely to change (also the checked items are n
 - [x] Chess game viewer
 - [x] Basic UI layout customization
 - [x] Move tree/list
+- [ ] Game/Move annotations (In Progress)
+- [ ] UCI support (In Progress)
 - [ ] Theme support
-- [ ] Game/Move annotations
-- [ ] UCI support
 - [ ] Drag and drop imports
 - [ ] PGN export
 - [ ] Position search
