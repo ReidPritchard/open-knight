@@ -1,10 +1,69 @@
 <script setup lang="ts">
+import { listen } from "@tauri-apps/api/event";
 import { computed, onMounted, provide } from "vue";
 import ChessBoard from "./components/ChessBoard/ChessBoard.vue";
 import GameLibrary from "./components/GameLibrary/GameLibrary.vue";
 import MoveTree from "./components/MoveTree/MoveTree.vue";
 import SettingsModal from "./components/Settings/SettingsModal.vue";
 import { useGlobalStore } from "./stores";
+
+listen("engine-output", (event: { event: string; payload: string }) => {
+  // console.log("Engine output", event.payload);
+  // ex. "option name Threads type spin default 1 min 1 max 1024"
+  // ex. "bestmove e2e4 ponder e2e4"
+  // ex. "info depth 1 seldepth 1 score cp 100 nodes 1000 nps 1000000 tbhits 0 time 1000000000000000000"
+
+  // Use the first word to determine the type of message
+  const messageType = event.payload.split(" ")[0];
+  switch (messageType) {
+    case "option": {
+      // Parse the option line
+      const option = event.payload.split(" ");
+      console.log("Option", option);
+      break;
+    }
+    case "bestmove": {
+      // Parse the bestmove line
+      const bestmove = event.payload.split(" ");
+      console.log("Bestmove", bestmove);
+      break;
+    }
+    case "info": {
+      // Parse the info line
+      const info = event.payload.split(" ");
+      // Info is a list of key-value pairs (until `pv` is reached)
+      const infoMap = new Map();
+      for (let i = 1; i < info.length; i += 2) {
+        if (info[i] === "pv") {
+          // The next item(s) is the pv line
+          const pv = info.slice(i + 1).join(" ");
+          infoMap.set("pv", pv);
+          break;
+        }
+
+        if (info[i] === "score") {
+          // The score info is "score <type> <value>"
+          const scoreType = info[i + 1];
+          const scoreValue = info[i + 2];
+          const score =
+            scoreType === "cp"
+              ? Number.parseInt(scoreValue) / 100
+              : scoreType === "mate"
+              ? Number.parseInt(scoreValue)
+              : Number.parseInt(scoreValue);
+          infoMap.set("score", score);
+          i += 1; // Add one to skip the extra item
+        } else {
+          infoMap.set(info[i], info[i + 1]);
+        }
+      }
+      console.log("Info", infoMap);
+      break;
+    }
+    default:
+      break;
+  }
+});
 
 const globalStore = useGlobalStore();
 
@@ -13,53 +72,62 @@ const settingsModalOpen = computed(() => uiStore.getSettingsModalOpen);
 
 const displayGameLibrary = computed(() => uiStore.getGameLibraryViewOpen);
 const displayMoveTree = computed(() => uiStore.getMoveTreeViewOpen);
-
+const displayEngineView = computed(() => uiStore.getEngineViewOpen);
 const toggleGameLibraryView = () => {
-	uiStore.toggleGameLibraryView();
+  uiStore.toggleGameLibraryView();
 };
 
 const toggleMoveTreeView = () => {
-	uiStore.toggleMoveTreeView();
+  uiStore.toggleMoveTreeView();
+};
+
+const toggleEngineView = () => {
+  // FIXME: Show UI for engine view
+  uiStore.toggleEngineView();
+
+  // for now, just call the api to analyze the current position
+  // call await $$.api.engines.POST.loadEngine("tockfish", "/usr/local/bin/stockfish") first :)
+  globalStore.analyzeCurrentPosition("stockfish", 0);
 };
 
 const importGamesClick = async () => {
-	// FIXME: Show UI for importing games
-	console.warn("Import UI not implemented - loading demo games");
-	// Use a pgn file from the assets folder
-	try {
-		const pgn = (await import("./assets/pgns/demo_multiple_games.pgn?raw"))
-			.default;
-		await globalStore.importPGNGames(pgn);
-	} catch (error) {
-		console.error("Error importing demo games", error);
-	}
+  // FIXME: Show UI for importing games
+  console.warn("Import UI not implemented - loading demo games");
+  // Use a pgn file from the assets folder
+  try {
+    const pgn = (await import("./assets/pgns/demo_multiple_games.pgn?raw"))
+      .default;
+    await globalStore.importPGNGames(pgn);
+  } catch (error) {
+    console.error("Error importing demo games", error);
+  }
 };
 
 const refreshGamesClick = async () => {
-	await globalStore.fetchExplorerGames();
+  await globalStore.fetchExplorerGames();
 };
 
 const resetDatabaseClick = async () => {
-	await globalStore.resetDatabase();
+  await globalStore.resetDatabase();
 };
 
 onMounted(() => {
-	globalStore.fetchExplorerGames();
+  globalStore.fetchExplorerGames();
 
-	// If in development mode, expose the state and API to the window
-	if (import.meta.env.DEV) {
-		const globalWindow = window as unknown as {
-			$$: {
-				store: typeof globalStore;
-				api: typeof globalStore.api;
-			};
-		};
+  // If in development mode, expose the state and API to the window
+  if (import.meta.env.DEV) {
+    const globalWindow = window as unknown as {
+      $$: {
+        store: typeof globalStore;
+        api: typeof globalStore.api;
+      };
+    };
 
-		globalWindow.$$ = {
-			store: globalStore,
-			api: globalStore.api,
-		};
-	}
+    globalWindow.$$ = {
+      store: globalStore,
+      api: globalStore.api,
+    };
+  }
 });
 
 // Setup default styles for Phosphor icons
@@ -150,7 +218,11 @@ provide("mirrored", false);
         <a class="btn btn-ghost text-xl"> Open Knight </a>
       </div>
       <div class="navbar-end">
-        <button class="btn btn-ghost btn-circle">
+        <button
+          class="btn btn-ghost btn-circle"
+          @click="toggleEngineView"
+          :class="{ 'text-primary': displayEngineView }"
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             class="h-5 w-5"
@@ -165,25 +237,6 @@ provide("mirrored", false);
               d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
             />
           </svg>
-        </button>
-        <button class="btn btn-ghost btn-circle">
-          <div class="indicator">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-              />
-            </svg>
-            <span class="badge badge-xs badge-primary indicator-item"></span>
-          </div>
         </button>
       </div>
     </div>

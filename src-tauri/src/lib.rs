@@ -1,11 +1,14 @@
 use api::database::QueryParams;
 use db::{connect_db, reset_database, run_migrations};
-use models::parse::load_moves_from_db;
-use models::{ChessMoveTree, ChessPosition};
+use engine::manager::EngineManager;
 use sea_orm::DatabaseConnection;
+use std::path::PathBuf;
+use std::sync::Mutex;
+use tauri::{AppHandle, Manager};
 
 pub mod api;
 pub mod db;
+pub mod engine;
 pub mod entities;
 pub mod macros;
 pub mod migrations;
@@ -19,6 +22,7 @@ pub enum PGNError {
     DatabaseError(String),
     SerializationError(String),
     ChessError(String),
+    EngineError(String),
 }
 
 impl std::fmt::Display for PGNError {
@@ -28,19 +32,24 @@ impl std::fmt::Display for PGNError {
             PGNError::DatabaseError(e) => write!(f, "Database error: {}", e),
             PGNError::SerializationError(e) => write!(f, "Serialization error: {}", e),
             PGNError::ChessError(e) => write!(f, "Chess error: {}", e),
+            PGNError::EngineError(e) => write!(f, "Engine error: {}", e),
         }
     }
 }
 
 struct AppState {
     db: DatabaseConnection,
+    engine_manager: Mutex<EngineManager>,
 }
 
 impl AppState {
-    async fn new() -> Result<Self, PGNError> {
+    async fn new(app_handle: AppHandle) -> Result<Self, PGNError> {
         let db = connect_db().await.unwrap();
         run_migrations(&db).await.unwrap();
-        Ok(Self { db })
+        Ok(Self {
+            db,
+            engine_manager: Mutex::new(EngineManager::new(app_handle)),
+        })
     }
 }
 
@@ -125,36 +134,63 @@ async fn get_game_by_id(
 }
 
 #[tauri::command]
-async fn get_move_tree(id: i32, state: tauri::State<'_, AppState>) -> Result<String, PGNError> {
-    println!("Getting move tree for game: {:?}", id);
-    let game = api::database::get_full_game(id, QueryParams::default(), &state.db)
-        .await
-        .unwrap();
+async fn load_engine(
+    name: String,
+    path: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, PGNError> {
+    let mut engine_manager = state.engine_manager.lock().unwrap();
+    match engine_manager.load_engine(name, PathBuf::from(path)) {
+        Ok(_) => Ok("Engine loaded".to_string()),
+        Err(e) => Err(PGNError::EngineError(e)),
+    }
+}
 
-    if let Some(game) = game {
-        println!("Game found");
-        let default_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string();
-        let fen = game.fen.as_ref().unwrap_or(&default_fen);
+#[tauri::command]
+async fn analyze_position(
+    engine_name: String,
+    fen: String,
+    depth: Option<usize>,
+    time_ms: Option<usize>,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let engine_manager = state.engine_manager.lock().unwrap();
+    if let Some(engine) = engine_manager.get_engine(&engine_name) {
+        let mut engine = engine
+            .lock()
+            .map_err(|_| "Failed to lock engine".to_string())?;
 
-        let root_position = match ChessPosition::from_fen(Some(fen.to_string()), None) {
-            Ok(pos) => pos,
-            Err(e) => return Err(PGNError::ChessError(e.to_string())),
-        };
+        // Set the position
+        engine.position_from_fen(&fen)?;
 
-        // Create the move tree and convert to serializable format
-        let move_tree = load_moves_from_db(&state.db, game.id, root_position)
-            .await
-            .unwrap();
-
-        match serde_json::to_string(&move_tree) {
-            Ok(json) => Ok(json),
-            Err(e) => Err(PGNError::SerializationError(e.to_string())),
+        // Start analysis
+        if let Some(depth) = depth {
+            engine.go_depth(depth)?;
+        } else if let Some(time_ms) = time_ms {
+            engine.go_movetime(time_ms)?;
+        } else {
+            engine.go_infinite()?;
         }
+
+        Ok(())
     } else {
-        Err(PGNError::DatabaseError(format!(
-            "Game with id {} not found",
-            id
-        )))
+        Err(format!("Engine '{}' not found", engine_name))
+    }
+}
+
+#[tauri::command]
+async fn stop_analysis(
+    engine_name: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let engine_manager = state.engine_manager.lock().unwrap();
+    if let Some(engine) = engine_manager.get_engine(&engine_name) {
+        let mut engine = engine
+            .lock()
+            .map_err(|_| "Failed to lock engine".to_string())?;
+        engine.stop()
+    } else {
+        Err(format!("Engine '{}' not found", engine_name))
     }
 }
 
@@ -172,13 +208,18 @@ async fn get_legal_moves(fen: String) -> Result<String, PGNError> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .manage(
-            tokio::runtime::Runtime::new()
-                .unwrap()
-                .block_on(AppState::new())
-                .expect("Failed to create AppState"),
-        )
+        .setup(|app| {
+            let app_handle = app.handle();
+            app.manage(
+                tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(AppState::new(app_handle.clone()))
+                    .expect("Failed to create AppState"),
+            );
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
+            // Database commands
             import_pgn_games,
             empty_db,
             query_games,
@@ -186,7 +227,10 @@ pub fn run() {
             get_entity_by_id,
             get_game_by_id,
             get_legal_moves,
-            get_move_tree,
+            // Engine commands
+            load_engine,
+            analyze_position,
+            stop_analysis,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,130 +1,136 @@
 import { defineStore } from "pinia";
 
 function getDefaultTheme(): "light" | "dark" {
-	const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-	// Set the theme in localStorage
-	localStorage.setItem("theme", isDark ? "dark" : "light");
-	// Set the class on the document element
-	if (isDark) {
-		document.documentElement.classList.add("dark");
-	} else {
-		document.documentElement.classList.remove("dark");
-	}
+  // Set the theme in localStorage
+  localStorage.setItem("theme", isDark ? "dark" : "light");
+  // Set the class on the document element
+  if (isDark) {
+    document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.remove("dark");
+  }
 
-	return isDark ? "dark" : "light";
+  return isDark ? "dark" : "light";
 }
 
 export const useUIStore = defineStore("ui", {
-	state: () => ({
-		visibleGameHeaders: [
-			"Event",
-			"Date",
-			"White",
-			"Black",
-			"Result",
-			"Opening",
-		] as string[],
-		theme: getDefaultTheme() as "light" | "dark",
-		/**
-		 * The orientation of the board, by which side white is playing from
-		 * TODO: Might want to make this per-game board rather than global
-		 * might be ok for now though
-		 */
-		boardWhiteOrientation: "bottom" as "top" | "bottom",
+  state: () => ({
+    visibleGameHeaders: [
+      "Event",
+      "Date",
+      "White",
+      "Black",
+      "Result",
+      "Opening",
+    ] as string[],
+    theme: getDefaultTheme() as "light" | "dark",
+    /**
+     * The orientation of the board, by which side white is playing from
+     * TODO: Might want to make this per-game board rather than global
+     * might be ok for now though
+     */
+    boardWhiteOrientation: "bottom" as "top" | "bottom",
 
-		/**
-		 * Game Library/Explorer view
-		 */
-		gameLibraryViewOpen: false,
-		moveTreeViewOpen: true,
-		gameLibraryView: "grid" as "grid" | "list",
-		gameLibraryViewSortBy: "date" as
-			| "date"
-			| "event"
-			| "white"
-			| "black"
-			| "result"
-			| "opening",
-		gameLibraryViewSortOrder: "desc" as "asc" | "desc",
-		gameLibraryViewFilter: "all" as "all" | "favorites" | "tags",
-		gameLibraryViewFilterTags: [] as string[],
+    /**
+     * Game Library/Explorer view
+     */
+    gameLibraryViewOpen: false,
+    moveTreeViewOpen: true,
+    engineViewOpen: false,
+    gameLibraryView: "grid" as "grid" | "list",
+    gameLibraryViewSortBy: "date" as
+      | "date"
+      | "event"
+      | "white"
+      | "black"
+      | "result"
+      | "opening",
+    gameLibraryViewSortOrder: "desc" as "asc" | "desc",
+    gameLibraryViewFilter: "all" as "all" | "favorites" | "tags",
+    gameLibraryViewFilterTags: [] as string[],
 
-		/**
-		 * Settings Modal
-		 */
-		settingsModalOpen: false,
-	}),
+    /**
+     * Settings Modal
+     */
+    settingsModalOpen: false,
+  }),
 
-	getters: {
-		getGameLibraryViewOpen: (state) => state.gameLibraryViewOpen,
-		getMoveTreeViewOpen: (state) => state.moveTreeViewOpen,
-		getGameLibraryViewSortByOptions: () => [
-			"date",
-			"event",
-			"white",
-			"black",
-			"result",
-			"opening",
-		],
-		getGameLibraryViewSortBy: (state) => state.gameLibraryViewSortBy,
-		getGameLibraryViewSortOrderOptions: () => ["asc", "desc"],
-		getGameLibraryViewSortOrder: (state) => state.gameLibraryViewSortOrder,
-		getGameLibraryViewFilterOptions: () => ["all", "favorites", "tags"],
-		getGameLibraryViewFilter: (state) => state.gameLibraryViewFilter,
-		getGameLibraryViewFilterTags: (state) => state.gameLibraryViewFilterTags,
+  getters: {
+    getGameLibraryViewOpen: (state) => state.gameLibraryViewOpen,
+    getMoveTreeViewOpen: (state) => state.moveTreeViewOpen,
+    getEngineViewOpen: (state) => state.engineViewOpen,
+    getGameLibraryViewSortByOptions: () => [
+      "date",
+      "event",
+      "white",
+      "black",
+      "result",
+      "opening",
+    ],
+    getGameLibraryViewSortBy: (state) => state.gameLibraryViewSortBy,
+    getGameLibraryViewSortOrderOptions: () => ["asc", "desc"],
+    getGameLibraryViewSortOrder: (state) => state.gameLibraryViewSortOrder,
+    getGameLibraryViewFilterOptions: () => ["all", "favorites", "tags"],
+    getGameLibraryViewFilter: (state) => state.gameLibraryViewFilter,
+    getGameLibraryViewFilterTags: (state) => state.gameLibraryViewFilterTags,
 
-		getSettingsModalOpen: (state) => state.settingsModalOpen,
-	},
+    getSettingsModalOpen: (state) => state.settingsModalOpen,
+  },
 
-	actions: {
-		toggleTheme() {
-			const newTheme = this.theme === "light" ? "dark" : "light";
+  actions: {
+    toggleTheme() {
+      const newTheme = this.theme === "light" ? "dark" : "light";
 
-			// Set the theme in localStorage
-			localStorage.setItem("theme", newTheme);
-			// Set the class on the document element
-			if (newTheme === "dark") {
-				document.documentElement.classList.add("dark");
-			} else {
-				document.documentElement.classList.remove("dark");
-			}
+      // Set the theme in localStorage
+      localStorage.setItem("theme", newTheme);
+      // Set the class on the document element
+      if (newTheme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
 
-			this.theme = newTheme;
-		},
+      this.theme = newTheme;
+    },
 
-		updateSettingsModalOpen(open?: boolean) {
-			this.settingsModalOpen = open ?? !this.settingsModalOpen;
-		},
+    updateSettingsModalOpen(open?: boolean) {
+      this.settingsModalOpen = open ?? !this.settingsModalOpen;
+    },
 
-		toggleGameLibraryView() {
-			this.gameLibraryViewOpen = !this.gameLibraryViewOpen;
-		},
+    toggleGameLibraryView() {
+      this.gameLibraryViewOpen = !this.gameLibraryViewOpen;
+    },
 
-		toggleMoveTreeView() {
-			this.moveTreeViewOpen = !this.moveTreeViewOpen;
-		},
+    toggleMoveTreeView() {
+      this.moveTreeViewOpen = !this.moveTreeViewOpen;
+    },
 
-		gameLibraryViewUpdateSortBy(
-			sortBy: "date" | "event" | "white" | "black" | "result" | "opening",
-		) {
-			this.gameLibraryViewSortBy = sortBy;
-		},
+    toggleEngineView() {
+      this.engineViewOpen = !this.engineViewOpen;
+    },
 
-		gameLibraryViewUpdateSortOrder(sortOrder: "asc" | "desc") {
-			this.gameLibraryViewSortOrder = sortOrder;
-		},
+    gameLibraryViewUpdateSortBy(
+      sortBy: "date" | "event" | "white" | "black" | "result" | "opening"
+    ) {
+      this.gameLibraryViewSortBy = sortBy;
+    },
 
-		gameLibraryViewUpdateFilter(filter: "all" | "favorites" | "tags") {
-			this.gameLibraryViewFilter = filter;
-		},
+    gameLibraryViewUpdateSortOrder(sortOrder: "asc" | "desc") {
+      this.gameLibraryViewSortOrder = sortOrder;
+    },
 
-		gameLibraryViewUpdateFilterTags(tags: string[]) {
-			this.gameLibraryViewFilterTags = tags;
-		},
+    gameLibraryViewUpdateFilter(filter: "all" | "favorites" | "tags") {
+      this.gameLibraryViewFilter = filter;
+    },
 
-		gameLibraryViewUpdateView(view: "grid" | "list") {
-			this.gameLibraryView = view;
-		},
-	},
+    gameLibraryViewUpdateFilterTags(tags: string[]) {
+      this.gameLibraryViewFilterTags = tags;
+    },
+
+    gameLibraryViewUpdateView(view: "grid" | "list") {
+      this.gameLibraryView = view;
+    },
+  },
 });

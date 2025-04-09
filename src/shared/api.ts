@@ -7,6 +7,13 @@ import {
   parseLegalMoves,
 } from "./types";
 
+/**
+ * The dev env exposes the API to the frontend console.
+ * Use `await $$.api.____` to call any of the functions below.
+ *
+ * Ex. `await $$.api.engines.POST.loadEngine("Stockfish", "/usr/local/bin/stockfish")`
+ */
+
 export default {
   /**
    * Parse a PGN text and update the games and selected game.
@@ -118,6 +125,52 @@ export default {
       moveTree: async (gameId: number): Promise<string> => {
         const response = await invoke<string>("get_move_tree", { id: gameId });
         return JSON.parse(response);
+      },
+    },
+  },
+  engines: {
+    POST: {
+      /**
+       * Load an engine from a path.
+       * @param name The name of the engine
+       * @param path The path to the engine
+       * @returns Promise<void>
+       *
+       * @example
+       * await $$.api.engines.POST.loadEngine("Stockfish", "/usr/local/bin/stockfish")
+       */
+      loadEngine: async (name: string, path: string): Promise<void> => {
+        await invoke("load_engine", { name, path });
+      },
+      /**
+       * Analyze a position with an engine.
+       * @param engineName The name of the engine
+       * @param fen The FEN string of the position
+       * @param depth The depth of the analysis
+       * @param timeMs The time in milliseconds for the analysis
+       * @returns Promise<void>
+       *
+       * @example
+       * await $$.api.engines.POST.analyzePosition("Stockfish", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 10, 1000)
+       */
+      analyzePosition: async (
+        engineName: string,
+        fen: string,
+        depth: number,
+        timeMs: number
+      ): Promise<void> => {
+        await invoke("analyze_position", { engineName, fen, depth, timeMs });
+      },
+      /**
+       * Stop an analysis.
+       * @param engineName The name of the engine
+       * @returns Promise<void>
+       *
+       * @example
+       * await $$.api.engines.POST.stopAnalysis("Stockfish")
+       */
+      stopAnalysis: async (engineName: string): Promise<void> => {
+        await invoke("stop_analysis", { engineName });
       },
     },
   },
