@@ -1,7 +1,7 @@
 <template>
   <div class="move-tree overflow-y-scroll max-h-[calc(100vh-5rem)] px-4">
     <h2
-      class="text-lg font-bold sticky top-0 bg-base-100 z-10 py-4 border-b border-base-300"
+      class="text-lg font-bold sticky top-0 bg-base-200 z-10 py-4 border-b border-base-300"
     >
       Move Tree
     </h2>

@@ -49,9 +49,13 @@ export const useGamesStore = defineStore("games", {
 
   actions: {
     async openGame(gameId: number, boardId: number) {
-      // Check if game is already open
+      // TODO: Check if game is already open in another board
+      // If so, maybe navigate to that board?
+
       if (this.activeGameMap.has(boardId)) {
-        return;
+        // A game is already open on this board
+        // Clear the board to avoid old state from staying around
+        this.activeGameMap.delete(boardId);
       }
 
       // Open game
