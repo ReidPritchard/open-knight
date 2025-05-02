@@ -109,6 +109,10 @@ export const useUIStore = defineStore("ui", {
 
     toggleEngineView() {
       this.engineViewOpen = !this.engineViewOpen;
+      if (this.engineViewOpen) {
+        this.moveTreeViewOpen = false;
+        this.gameLibraryViewOpen = false;
+      }
     },
 
     gameLibraryViewUpdateSortBy(

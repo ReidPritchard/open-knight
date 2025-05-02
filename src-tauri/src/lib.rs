@@ -1,5 +1,6 @@
 use api::database::QueryParams;
 use db::{connect_db, reset_database, run_migrations};
+use engine::engine::EngineError;
 use engine::manager::EngineManager;
 use sea_orm::DatabaseConnection;
 use std::path::PathBuf;
@@ -16,6 +17,8 @@ pub mod models;
 pub mod parse;
 
 /// Error type for PGN parsing and processing
+/// FIXME: Move this to the PGN parsing crate
+/// and remove the unrelated error types
 #[derive(Debug, serde::Serialize)]
 pub enum PGNError {
     ParseError(String),
@@ -48,7 +51,7 @@ impl AppState {
         run_migrations(&db).await.unwrap();
         Ok(Self {
             db,
-            engine_manager: Mutex::new(EngineManager::new(app_handle)),
+            engine_manager: Mutex::new(EngineManager::new(app_handle, None)),
         })
     }
 }
@@ -138,11 +141,11 @@ async fn load_engine(
     name: String,
     path: String,
     state: tauri::State<'_, AppState>,
-) -> Result<String, PGNError> {
+) -> Result<String, EngineError> {
     let mut engine_manager = state.engine_manager.lock().unwrap();
     match engine_manager.load_engine(name, PathBuf::from(path)) {
         Ok(_) => Ok("Engine loaded".to_string()),
-        Err(e) => Err(PGNError::EngineError(e)),
+        Err(e) => Err(e),
     }
 }
 
@@ -154,6 +157,7 @@ async fn analyze_position(
     time_ms: Option<usize>,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
+    println!("Analyzing position");
     let engine_manager = state.engine_manager.lock().unwrap();
     if let Some(engine) = engine_manager.get_engine(&engine_name) {
         let mut engine = engine
@@ -165,10 +169,13 @@ async fn analyze_position(
 
         // Start analysis
         if let Some(depth) = depth {
+            println!("Trying to go depth: {}", depth);
             engine.go_depth(depth)?;
         } else if let Some(time_ms) = time_ms {
+            println!("Trying to go movetime: {}", time_ms);
             engine.go_movetime(time_ms)?;
         } else {
+            println!("Trying to go infinite");
             engine.go_infinite()?;
         }
 
@@ -179,8 +186,53 @@ async fn analyze_position(
 }
 
 #[tauri::command]
+async fn analyze_game(
+    engine_name: String,
+    game_id: i32,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut params = QueryParams::default();
+    params.load_moves = Some(true);
+
+    let game = api::database::get_full_game(game_id, params, &state.db)
+        .await
+        .unwrap();
+    if let Some(mut game) = game {
+        let engine_manager = state.engine_manager.lock().unwrap();
+        let analysis_result = engine_manager.analyze_game(&engine_name, &mut game);
+        drop(engine_manager); // Drop mutex guard before async operation
+        match analysis_result {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.to_string()),
+        }
+    } else {
+        Err("Game not found".to_string())
+    }
+}
+
+#[tauri::command]
 async fn stop_analysis(
     engine_name: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    println!("Stopping analysis");
+    let engine_manager = state.engine_manager.lock().unwrap();
+    if let Some(engine) = engine_manager.get_engine(&engine_name) {
+        let mut engine = engine
+            .lock()
+            .map_err(|_| "Failed to lock engine".to_string())?;
+        engine.stop().map_err(|e| e.to_string())?;
+        Ok(())
+    } else {
+        Err(format!("Engine '{}' not found", engine_name))
+    }
+}
+
+#[tauri::command]
+async fn set_engine_option(
+    engine_name: String,
+    option: String,
+    value: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let engine_manager = state.engine_manager.lock().unwrap();
@@ -188,7 +240,44 @@ async fn stop_analysis(
         let mut engine = engine
             .lock()
             .map_err(|_| "Failed to lock engine".to_string())?;
-        engine.stop()
+        engine.set_option(&option, &value)?;
+        Ok(())
+    } else {
+        Err(format!("Engine '{}' not found", engine_name))
+    }
+}
+
+#[tauri::command]
+async fn set_position(
+    engine_name: String,
+    fen: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let engine_manager = state.engine_manager.lock().unwrap();
+    if let Some(engine) = engine_manager.get_engine(&engine_name) {
+        let mut engine = engine
+            .lock()
+            .map_err(|_| "Failed to lock engine".to_string())?;
+        engine.position_from_fen(&fen)?;
+        Ok(())
+    } else {
+        Err(format!("Engine '{}' not found", engine_name))
+    }
+}
+
+#[tauri::command]
+async fn go_depth(
+    engine_name: String,
+    depth: usize,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let engine_manager = state.engine_manager.lock().unwrap();
+    if let Some(engine) = engine_manager.get_engine(&engine_name) {
+        let mut engine = engine
+            .lock()
+            .map_err(|_| "Failed to lock engine".to_string())?;
+        engine.go_depth(depth)?;
+        Ok(())
     } else {
         Err(format!("Engine '{}' not found", engine_name))
     }
@@ -231,6 +320,10 @@ pub fn run() {
             load_engine,
             analyze_position,
             stop_analysis,
+            set_engine_option,
+            set_position,
+            go_depth,
+            analyze_game,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

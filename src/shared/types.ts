@@ -14,15 +14,15 @@ import type { ChessGame, LegalMove } from "./bindings";
  * Fields of `ChessGame` model that are displayed in the explorer/library view
  */
 export const explorerGameFields: (keyof ChessGame)[] = [
-	"id",
-	"white_player",
-	"black_player",
-	"tournament",
-	"opening",
-	"result",
-	"round",
-	"date",
-	"tags",
+  "id",
+  "white_player",
+  "black_player",
+  "tournament",
+  "opening",
+  "result",
+  "round",
+  "date",
+  "tags",
 ] as const;
 
 /**
@@ -39,9 +39,25 @@ export const parseExplorerGame = typia.json.createValidateParse<ExplorerGame>();
  * Parse a JSON string into an array of `ExplorerGame` objects
  */
 export const parseExplorerGames =
-	typia.json.createValidateParse<ExplorerGame[]>();
+  typia.json.createValidateParse<ExplorerGame[]>();
 
 /**
  * Parse a JSON string into an array of `LegalMove` objects
  */
 export const parseLegalMoves = typia.json.createValidateParse<LegalMove[]>();
+
+////////////////////////////////////////////////////////////
+// Error Types
+////////////////////////////////////////////////////////////
+
+/**
+ * Error thrown when interacting with the engine
+ */
+export class EngineError extends Error {
+  public readonly EngineError: string;
+
+  constructor(message: string) {
+    super(message);
+    this.EngineError = message;
+  }
+}

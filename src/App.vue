@@ -2,6 +2,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { computed, onMounted, provide, ref } from "vue";
 import ChessBoard from "./components/ChessBoard/ChessBoard.vue";
+import EngineAnalysisPanel from "./components/EngineAnalysis/EngineAnalysisPanel.vue";
 import GameLibrary from "./components/GameLibrary/GameLibrary.vue";
 import ImportModal from "./components/ImportModal/ImportModal.vue";
 import MoveTree from "./components/MoveTree/MoveTree.vue";
@@ -9,64 +10,6 @@ import SettingsModal from "./components/Settings/SettingsModal.vue";
 import { useGlobalStore } from "./stores";
 
 const importModalOpen = ref(false);
-
-listen("engine-output", (event: { event: string; payload: string }) => {
-  // console.log("Engine output", event.payload);
-  // ex. "option name Threads type spin default 1 min 1 max 1024"
-  // ex. "bestmove e2e4 ponder e2e4"
-  // ex. "info depth 1 seldepth 1 score cp 100 nodes 1000 nps 1000000 tbhits 0 time 1000000000000000000"
-
-  // Use the first word to determine the type of message
-  const messageType = event.payload.split(" ")[0];
-  switch (messageType) {
-    case "option": {
-      // Parse the option line
-      const option = event.payload.split(" ");
-      console.log("Option", option);
-      break;
-    }
-    case "bestmove": {
-      // Parse the bestmove line
-      const bestmove = event.payload.split(" ");
-      console.log("Bestmove", bestmove);
-      break;
-    }
-    case "info": {
-      // Parse the info line
-      const info = event.payload.split(" ");
-      // Info is a list of key-value pairs (until `pv` is reached)
-      const infoMap = new Map();
-      for (let i = 1; i < info.length; i += 2) {
-        if (info[i] === "pv") {
-          // The next item(s) is the pv line
-          const pv = info.slice(i + 1).join(" ");
-          infoMap.set("pv", pv);
-          break;
-        }
-
-        if (info[i] === "score") {
-          // The score info is "score <type> <value>"
-          const scoreType = info[i + 1];
-          const scoreValue = info[i + 2];
-          const score =
-            scoreType === "cp"
-              ? Number.parseInt(scoreValue) / 100
-              : scoreType === "mate"
-              ? Number.parseInt(scoreValue)
-              : Number.parseInt(scoreValue);
-          infoMap.set("score", score);
-          i += 1; // Add one to skip the extra item
-        } else {
-          infoMap.set(info[i], info[i + 1]);
-        }
-      }
-      console.log("Info", infoMap);
-      break;
-    }
-    default:
-      break;
-  }
-});
 
 const globalStore = useGlobalStore();
 
@@ -85,12 +28,7 @@ const toggleMoveTreeView = () => {
 };
 
 const toggleEngineView = () => {
-  // FIXME: Show UI for engine view
   uiStore.toggleEngineView();
-
-  // for now, just call the api to analyze the current position
-  // call await $$.api.engines.POST.loadEngine("tockfish", "/usr/local/bin/stockfish") first :)
-  globalStore.analyzeCurrentPosition("stockfish", 0);
 };
 
 const refreshGamesClick = async () => {
@@ -238,13 +176,20 @@ provide("mirrored", false);
     <main
       class="grid grow bg-base-100 text-base-content"
       :class="{
-        'grid-cols-8': displayGameLibrary && displayMoveTree,
+        'grid-cols-8':
+          (displayGameLibrary && displayMoveTree && !displayEngineView) ||
+          (displayEngineView && !displayGameLibrary && !displayMoveTree),
         'grid-cols-6':
-          (displayGameLibrary && !displayMoveTree) ||
-          (!displayGameLibrary && displayMoveTree),
-        'grid-cols-4': !displayGameLibrary && !displayMoveTree,
+          (displayGameLibrary && !displayMoveTree && !displayEngineView) ||
+          (!displayGameLibrary && displayMoveTree && !displayEngineView),
+        'grid-cols-4':
+          !displayGameLibrary && !displayMoveTree && !displayEngineView,
       }"
     >
+      <!-- TODO: Remove this -->
+      <div class="col-span-4 flex flex-col" v-if="displayEngineView">
+        <EngineAnalysisPanel :board-id="0" />
+      </div>
       <div class="col-span-2 flex flex-col" v-if="displayGameLibrary">
         <GameLibrary />
       </div>

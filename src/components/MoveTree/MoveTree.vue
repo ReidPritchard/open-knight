@@ -1,10 +1,18 @@
 <template>
-  <div class="move-tree overflow-y-scroll max-h-[calc(100vh-5rem)] px-4">
-    <h2
-      class="text-lg font-bold sticky top-0 bg-base-200 z-10 py-4 border-b border-base-300"
-    >
-      Move Tree
-    </h2>
+  <div class="move-tree overflow-y-scroll max-h-[calc(100vh-5rem)]">
+    <!-- Header -->
+    <div class="flex items-center justify-between w-full bg-base-200 px-4">
+      <h2
+        class="text-lg font-bold sticky top-0 z-10 py-4 border-b border-base-300"
+      >
+        Move Tree
+      </h2>
+      <!-- Close button -->
+      <button class="btn btn-sm btn-outline" @click="closeMoveTree">
+        <PhX />
+      </button>
+    </div>
+
     <ul class="steps steps-vertical w-full">
       <li
         v-for="move in moves"
@@ -36,6 +44,7 @@
 </template>
 
 <script setup lang="ts">
+import { PhX } from "@phosphor-icons/vue";
 import { computed, watch } from "vue";
 import { useGlobalStore } from "../../stores";
 
@@ -68,5 +77,9 @@ const changeMove = (moveId: number | undefined) => {
     return;
   }
   gamesStore.jumpToMove(props.boardId, moveId);
+};
+
+const closeMoveTree = () => {
+  globalStore.uiStore.toggleMoveTreeView();
 };
 </script>
