@@ -51,7 +51,7 @@ pub enum EngineResponse {
 }
 
 /// Engine identification information
-#[derive(Serialize)]
+#[derive(Serialize, Clone, Debug)]
 #[serde(tag = "id_type", content = "value")]
 pub enum IdInfo {
     /// Engine name
@@ -64,7 +64,7 @@ pub enum IdInfo {
 }
 
 /// Protection status for copyprotection and registration
-#[derive(Serialize)]
+#[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum ProtectionStatus {
     /// Checking status
@@ -81,7 +81,7 @@ pub enum ProtectionStatus {
 pub type RegistrationStatus = ProtectionStatus;
 
 /// Parameters for the "info" response
-#[derive(Serialize, Default)]
+#[derive(Serialize, Default, Clone, Debug)]
 pub struct InfoParams {
     /// Search depth in plies
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -152,8 +152,60 @@ pub struct InfoParams {
     pub currline: Option<(Option<u32>, Vec<String>)>,
 }
 
+/// Pretty print the InfoParams
+/// print each field on a new line with indent
+/// skip empty fields
+impl std::fmt::Display for InfoParams {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut fields = vec![];
+        if let Some(depth) = self.depth {
+            fields.push(format!("Depth: {}", depth));
+        }
+        if let Some(seldepth) = self.seldepth {
+            fields.push(format!("Seldepth: {}", seldepth));
+        }
+        if let Some(time) = self.time {
+            fields.push(format!("Time: {}", time));
+        }
+        if let Some(nodes) = self.nodes {
+            fields.push(format!("Nodes: {}", nodes));
+        }
+        if let Some(nps) = self.nps {
+            fields.push(format!("NPS: {}", nps));
+        }
+        if let Some(hashfull) = self.hashfull {
+            fields.push(format!("Hashfull: {}", hashfull));
+        }
+        if let Some(tbhits) = self.tbhits {
+            fields.push(format!("TBhits: {}", tbhits));
+        }
+        if let Some(sbhits) = self.sbhits {
+            fields.push(format!("SBhits: {}", sbhits));
+        }
+        if let Some(cpuload) = self.cpuload {
+            fields.push(format!("CPULoad: {}", cpuload));
+        }
+        if let Some(string) = &self.string {
+            fields.push(format!("String: {}", string));
+        }
+        if let Some(refutation) = &self.refutation {
+            fields.push(format!("Refutation: {}", refutation.join(", ")));
+        }
+        if let Some(currline) = &self.currline {
+            fields.push(format!("Currline: {}", currline.1.join(", ")));
+        }
+        if let Some(score) = &self.score {
+            fields.push(format!("Score: {:?}", score));
+        }
+        for field in fields {
+            write!(f, "\t{}\n", field)?;
+        }
+        Ok(())
+    }
+}
+
 /// Score information in the "info" response
-#[derive(Serialize)]
+#[derive(Serialize, Clone, Debug)]
 #[serde(untagged)]
 pub enum Score {
     /// Score in centipawns
@@ -168,7 +220,7 @@ pub enum Score {
 }
 
 /// Score bound
-#[derive(Serialize)]
+#[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum Bound {
     /// Score is just a lower bound
@@ -179,7 +231,7 @@ pub enum Bound {
 }
 
 /// Option definition sent by the engine
-#[derive(Serialize)]
+#[derive(Serialize, Clone, Debug)]
 pub struct OptionDefinition {
     /// Option name
     pub name: String,
@@ -206,7 +258,7 @@ pub struct OptionDefinition {
 }
 
 /// Types of options
-#[derive(Serialize)]
+#[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum OptionType {
     /// Checkbox (boolean)
@@ -239,20 +291,43 @@ pub enum ParseError {
 
     /// Unknown response type
     UnknownResponseType { token: String },
+
+    /// Unknown protocol
+    UnknownProtocol { name: String },
 }
 
 impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ParseFailure { input, message } => write!(f, "Parse failure: {}", message),
-            Self::InvalidValue { param, value } => {
-                write!(f, "Invalid value for parameter: {}", param)
+            Self::ParseFailure { input, message } => {
+                write!(
+                    f,
+                    "Parse failure: \n\tInput: '{}'\n\tMessage: {}",
+                    input.trim_end(),
+                    message
+                )
             }
-            Self::MissingValue { param } => write!(f, "Missing value for parameter: {}", param),
-            Self::UnknownResponseType { token } => write!(f, "Unknown response type: {}", token),
+            Self::InvalidValue { param, value } => {
+                write!(
+                    f,
+                    "Invalid value for parameter: \n\tParameter: '{}'\n\tValue: '{}'",
+                    param, value
+                )
+            }
+            Self::MissingValue { param } => {
+                write!(f, "Missing value for parameter: \n\tParameter: '{}'", param)
+            }
+            Self::UnknownResponseType { token } => {
+                write!(f, "Unknown response type: \n\tToken: '{}'", token)
+            }
+            Self::UnknownProtocol { name } => {
+                write!(f, "Unknown protocol: \n\tName: '{}'", name)
+            }
         }
     }
 }
+
+impl std::error::Error for ParseError {}
 
 /// Top-level parser for engine responses
 fn engine_response_parser() -> impl Parser<char, EngineResponse, Error = Simple<char>> {

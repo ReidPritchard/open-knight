@@ -224,13 +224,13 @@ class EngineAnalysisService {
     }
 
     // Set position
-    await invoke("set_position", { engineName, fen });
+    await invoke("set_position", { fen });
     this.engineFens.set(engineName, fen);
 
     // Start analysis
     const settings = this.engineSettings.get(engineName);
     if (settings) {
-      await invoke("go_depth", { engineName, depth: settings.depth });
+      await invoke("go_depth", { depth: 10 });
     }
 
     this.engines.set(engineName, true);
@@ -242,7 +242,7 @@ class EngineAnalysisService {
     }
 
     if (this.engines.get(engineName)) {
-      await invoke("stop_analysis", { engineName });
+      await invoke("stop_analysis", {});
       this.engines.set(engineName, false);
     }
   }
