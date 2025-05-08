@@ -11,6 +11,13 @@ use crate::engine::protocol::{ParserOutput, ProtocolParser};
 use crate::engine::state::EngineState;
 use crate::EngineError;
 
+/// A struct for handling the output of an engine
+///
+/// The main purpose of this struct is to manage async communication between the engine
+/// and the main thread to avoid blocking the main thread.
+/// This is done by spawning a separate task to first parse the output (using a `ProtocolParser`),
+/// then process the parsed output (likely applying updates to the engine state),
+/// and finally sending the events to the event bus to be handled by any subscribers/listeners.
 pub struct OutputHandler<S: EngineState, E = <S as EngineState>::Event>
 where
     E: Send + Sync + Clone + std::fmt::Debug + 'static,
@@ -137,7 +144,8 @@ async fn process_output<State: EngineState<Event = E>, E>(
                     Ok(_) => {
                         handle_line::<State, E>(&parser, &state, &event_sender, &buffer).await;
                     }
-                    Err(_e) => {
+                    Err(e) => {
+                        println!("Error reading line: {:?}", e);
                         // handle_error(&event_sender, e).await;
                         // For generic E, error handling must be done by the caller
                     }
@@ -157,15 +165,19 @@ async fn handle_line<State: EngineState<Event = E>, E>(
 ) where
     E: Send + Sync + Clone + std::fmt::Debug + 'static,
 {
+    // Parse the line with a ProtocolParser and return the ParserOutput
     match parser.parse_line(line) {
         Ok(ParserOutput::StateUpdate(update)) => {
+            // Apply the update to the state
             let event = state.write().await.apply_update(update);
             match event {
                 Ok(event) => {
+                    // Send the event to the event bus
                     let _ = event_sender.send(event).await;
                 }
                 Err(_) => {
                     // Error handling for generic E must be done by the caller
+                    println!("Error applying update: {:?}", event);
                     return;
                 }
             };
@@ -176,6 +188,7 @@ async fn handle_line<State: EngineState<Event = E>, E>(
         Ok(ParserOutput::NoUpdate) => {}
         Err(_) => {
             // Error handling for generic E must be done by the caller
+            println!("Error parsing line: {:?}", line);
         }
     }
 }

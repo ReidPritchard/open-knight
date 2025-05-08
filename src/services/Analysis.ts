@@ -230,7 +230,7 @@ class EngineAnalysisService {
     // Start analysis
     const settings = this.engineSettings.get(engineName);
     if (settings) {
-      await invoke("go_depth", { depth: 10 });
+      await invoke("analyze_position", { fen, depth: 10 });
     }
 
     this.engines.set(engineName, true);

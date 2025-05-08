@@ -1,7 +1,9 @@
 //! Utility functions and common types
 
+use serde::Serialize;
+
 /// Comprehensive error types
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum EngineError {
     ////// Engine Process Errors //////
     /// The engine process failed to start

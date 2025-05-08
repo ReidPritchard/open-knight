@@ -1,9 +1,13 @@
 use std::collections::HashMap;
-
+use std::sync::Arc;
+use tauri::{AppHandle, Emitter};
 use tokio::process::Command;
+use tokio::sync::mpsc;
+use tokio::time::{interval, Duration};
 
 use crate::parse::uci::OptionDefinition;
 
+use super::events::{EngineStateInfoEvent, EventBus};
 use super::{
     process::EngineProcess,
     protocol::{
@@ -39,6 +43,7 @@ impl EngineManager {
         &mut self,
         name: &str,
         path: &str,
+        app_handle: AppHandle,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut engine = EngineProcess::builder()
             .command(Command::new(path))
@@ -58,10 +63,55 @@ impl EngineManager {
             }
         }
 
+        // Start debounced event emission to frontend
+        let event_bus = engine.event_bus();
+        if let Ok(event_bus) = event_bus {
+            Self::spawn_debounced_event_emitter(name.to_string(), event_bus, app_handle.clone());
+        } else {
+            println!("Failed to get event bus for engine: {}", name);
+        }
+
         self.engines.insert(name.to_string(), engine);
         self.engine_names.push(name.to_string());
 
         Ok(())
+    }
+
+    fn spawn_debounced_event_emitter(
+        engine_name: String,
+        event_bus: &EventBus,
+        app_handle: AppHandle,
+    ) {
+        let mut rx = event_bus.subscribe::<EngineStateInfoEvent>();
+        tokio::spawn(async move {
+            println!("Spawned event emitter for engine: {}", engine_name);
+            // let mut last_event: Option<EngineStateInfoEvent> = None;
+            // let mut ticker = interval(Duration::from_millis(100));
+            loop {
+                // TODO: Implement debouncing
+                // tokio::select! {
+                //     Some(event) = rx.recv() => {
+                //         println!("Engine event: {:?}", event);
+                //         last_event = Some(event);
+                //     }
+                //     _ = ticker.tick() => {
+                //         if let Some(event) = last_event.take() {
+                //             if let Ok(payload) = serde_json::to_string(&(engine_name.clone(), event)) {
+                //                 let _ = app_handle.emit("engine-output", payload);
+                //             }
+                //         }
+                //     }
+                // }
+
+                // For now just emit every event
+                let event = rx.recv().await;
+                if let Some(event) = event {
+                    if let Ok(payload) = serde_json::to_string(&(engine_name.clone(), event)) {
+                        let _ = app_handle.emit("engine-output", payload);
+                    }
+                }
+            }
+        });
     }
 }
 
@@ -116,6 +166,7 @@ impl EngineManager {
         fen: Option<&str>,
         moves: Option<&[&str]>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        println!("Setting position for engines");
         let engine_names: Vec<_> = self.engine_names.clone();
         for engine_name in engine_names.iter() {
             let result = self.set_engine_position(engine_name, fen, moves).await;
@@ -133,6 +184,7 @@ impl EngineManager {
         depth: Option<u32>,
         time_ms: Option<u32>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        println!("Starting analysis for engines");
         let engine_names: Vec<_> = self.engine_names.clone();
         for engine_name in engine_names.iter() {
             let result = self
@@ -205,7 +257,10 @@ impl EngineManager {
         };
 
         match start_analysis_result {
-            Ok(_) => Ok(()),
+            Ok(_) => {
+                println!("Started analysis for engine: {}", name);
+                Ok(())
+            }
             Err(e) => {
                 println!("Failed to start analysis: {:?}", e);
                 Err(Box::new(e))

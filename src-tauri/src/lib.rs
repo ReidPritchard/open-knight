@@ -119,9 +119,12 @@ async fn load_engine(
     name: String,
     path: String,
     state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let mut engine_manager = state.engine_manager.lock().await;
-    let result = engine_manager.add_uci_engine(&name, &path).await;
+    let result = engine_manager
+        .add_uci_engine(&name, &path, app_handle)
+        .await;
     drop(engine_manager);
     result.map_err(|e| e.to_string())
 }
@@ -144,13 +147,14 @@ async fn analyze_position(
     let result = engine_manager
         .start_analysis(depth.map(|d| d as u32), time_ms.map(|t| t as u32))
         .await;
+
     drop(engine_manager);
     result.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn analyze_game(_game_id: i32, _state: tauri::State<'_, AppState>) -> Result<(), String> {
-    todo!()
+    todo!("Implement analyze_game");
     // let mut params = QueryParams::default();
     // params.load_moves = Some(true);
 
@@ -203,16 +207,6 @@ async fn set_position(fen: String, state: tauri::State<'_, AppState>) -> Result<
 }
 
 #[tauri::command]
-async fn go_depth(depth: usize, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut engine_manager = state.engine_manager.lock().await;
-    let result = engine_manager
-        .start_analysis(Some(depth as u32), None)
-        .await;
-    drop(engine_manager);
-    result.map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 async fn get_legal_moves(fen: String) -> Result<String, AppError> {
     match api::chess::get_legal_moves(&fen) {
         Ok(moves) => match serde_json::to_string(&moves) {
@@ -251,7 +245,6 @@ pub fn run() {
             stop_analysis,
             set_engine_option,
             set_position,
-            go_depth,
             analyze_game,
         ])
         .run(tauri::generate_context!())

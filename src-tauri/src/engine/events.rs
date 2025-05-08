@@ -2,6 +2,7 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+use serde::Serialize;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
@@ -10,7 +11,7 @@ use crate::parse::uci::IdInfo;
 use super::state::EngineState;
 
 /// Common interface for all engine lifecycle events
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum LifecycleEvent {
     EngineStarted,
     EngineStopped,
@@ -27,7 +28,7 @@ pub struct StateChange<S: EngineState> {
 }
 
 /// Engine state change events specific to EngineStateInfo
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum EngineStateInfoEvent {
     /// Engine Info Update
     InfoUpdate(IdInfo),
@@ -178,14 +179,5 @@ impl EventBus {
         } else {
             0
         }
-    }
-}
-
-// Implement Clone for EventBus
-impl Clone for EventBus {
-    fn clone(&self) -> Self {
-        // Create a new EventBus with an empty subscribers map
-        // This is intentional since we don't want to share subscribers between clones
-        Self::new()
     }
 }
