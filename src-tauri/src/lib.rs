@@ -4,6 +4,7 @@ use engine::utils::EngineError;
 use engine::{manager::EngineManager, protocol::OptionValue};
 use sea_orm::DatabaseConnection;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 use utils::AppError;
@@ -19,15 +20,17 @@ pub mod parse;
 pub mod utils;
 
 struct AppState {
+    app_handle: Arc<AppHandle>,
     db: DatabaseConnection,
     engine_manager: Mutex<EngineManager>,
 }
 
 impl AppState {
-    async fn new(_app_handle: AppHandle) -> Result<Self, AppError> {
+    async fn new(app_handle: AppHandle) -> Result<Self, AppError> {
         let db = connect_db().await.unwrap();
         run_migrations(&db).await.unwrap();
         Ok(Self {
+            app_handle: Arc::new(app_handle),
             db,
             engine_manager: Mutex::new(EngineManager::new()),
         })
@@ -119,14 +122,22 @@ async fn load_engine(
     name: String,
     path: String,
     state: tauri::State<'_, AppState>,
-    app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
+    println!("Loading engine: {}", name);
+
     let mut engine_manager = state.engine_manager.lock().await;
     let result = engine_manager
-        .add_uci_engine(&name, &path, app_handle)
+        .add_uci_engine(&name, &path, state.app_handle.clone())
         .await;
     drop(engine_manager);
-    result.map_err(|e| e.to_string())
+
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            println!("Error loading engine: {}", e);
+            Err(e.to_string())
+        }
+    }
 }
 
 #[tauri::command]

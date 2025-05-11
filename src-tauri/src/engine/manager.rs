@@ -43,7 +43,7 @@ impl EngineManager {
         &mut self,
         name: &str,
         path: &str,
-        app_handle: AppHandle,
+        app_handle: Arc<AppHandle>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut engine = EngineProcess::builder()
             .command(Command::new(path))
@@ -80,7 +80,7 @@ impl EngineManager {
     fn spawn_debounced_event_emitter(
         engine_name: String,
         event_bus: &EventBus,
-        app_handle: AppHandle,
+        app_handle: Arc<AppHandle>,
     ) {
         let mut rx = event_bus.subscribe::<EngineStateInfoEvent>();
         tokio::spawn(async move {
