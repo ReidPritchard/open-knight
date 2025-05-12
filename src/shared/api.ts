@@ -11,7 +11,7 @@ import {
  * The dev env exposes the API to the frontend console.
  * Use `await $$.api.____` to call any of the functions below.
  *
- * Ex. `await $$.api.engines.POST.loadEngine("Stockfish", "/usr/local/bin/stockfish")`
+ * Ex. `await $$.api.engines.POST.loadEngine("stockfish", "/usr/local/bin/stockfish")`
  */
 
 export default {
@@ -137,10 +137,21 @@ export default {
        * @returns Promise<void>
        *
        * @example
-       * await $$.api.engines.POST.loadEngine("Stockfish", "/usr/local/bin/stockfish")
+       * await $$.api.engines.POST.loadEngine("stockfish", "/usr/local/bin/stockfish")
        */
       loadEngine: async (name: string, path: string): Promise<void> => {
         await invoke("load_engine", { name, path });
+      },
+      /**
+       * Unload an engine.
+       * @param name The name of the engine
+       * @returns Promise<void>
+       *
+       * @example
+       * await $$.api.engines.POST.unloadEngine("stockfish")
+       */
+      unloadEngine: async (name: string): Promise<void> => {
+        await invoke("unload_engine", { name });
       },
       /**
        * Analyze a position with an engine.
@@ -151,7 +162,7 @@ export default {
        * @returns Promise<void>
        *
        * @example
-       * await $$.api.engines.POST.analyzePosition("Stockfish", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 10, 1000)
+       * await $$.api.engines.POST.analyzePosition("stockfish", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 10, 1000)
        */
       analyzePosition: async (
         engineName: string,
@@ -167,7 +178,7 @@ export default {
        * @returns Promise<void>
        *
        * @example
-       * await $$.api.engines.POST.stopAnalysis("Stockfish")
+       * await $$.api.engines.POST.stopAnalysis("stockfish")
        */
       stopAnalysis: async (engineName: string): Promise<void> => {
         await invoke("stop_analysis", { engineName });

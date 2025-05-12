@@ -1,3 +1,9 @@
-pub mod engine;
+// TODO: Most of these should be private
+pub mod builder;
+pub mod events;
+pub mod io_handler;
 pub mod manager;
-pub mod uci;
+pub mod process;
+pub mod protocol;
+pub mod state;
+pub mod utils;

@@ -3,6 +3,8 @@ use slotmap::DefaultKey;
 use crate::models::move_tree::ChessMoveTree;
 use crate::models::ChessMove;
 
+use super::ChessTreeNode;
+
 impl ChessMoveTree {
     /// Navigate to the next move
     pub fn next_move(&mut self, variation_index: Option<usize>) -> bool {
@@ -57,5 +59,21 @@ impl ChessMoveTree {
         for &child_id in &node.children_ids {
             self.collect_moves_depth_first(child_id, moves);
         }
+    }
+
+    /// Follow the main line of the tree
+    /// Used to get the main line of positions for analysis
+    /// Could also be used to get the main line of moves for a PGN export
+    pub fn main_line(&self) -> Vec<ChessTreeNode> {
+        let mut nodes = Vec::new();
+        let mut current_id = self.current_node_id;
+
+        while let Some(id) = current_id {
+            let node = &self.nodes[id];
+            nodes.push(node.clone());
+            current_id = node.children_ids.first().copied();
+        }
+        nodes.reverse();
+        nodes
     }
 }

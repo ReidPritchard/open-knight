@@ -43,7 +43,7 @@ pub fn parse_pgn_tokens(
     };
 
     // Initialize the parsing state
-    let mut current_position = root_position;
+    let current_position = root_position;
     let mut full_move_count = 0;
     let mut is_white = true;
 
