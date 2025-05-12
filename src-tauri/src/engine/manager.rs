@@ -2,8 +2,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::process::Command;
-use tokio::sync::mpsc;
-use tokio::time::{interval, Duration};
 
 use crate::parse::uci::OptionDefinition;
 
