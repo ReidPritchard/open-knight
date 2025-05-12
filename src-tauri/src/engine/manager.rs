@@ -8,6 +8,7 @@ use tokio::time::{interval, Duration};
 use crate::parse::uci::OptionDefinition;
 
 use super::events::{EngineStateInfoEvent, EventBus};
+use super::utils::EngineError;
 use super::{
     process::EngineProcess,
     protocol::{
@@ -45,6 +46,14 @@ impl EngineManager {
         path: &str,
         app_handle: Arc<AppHandle>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // TODO: Improve check if the exact engine is already loaded
+        // If it is, return an error
+        if self.engines.contains_key(name) {
+            return Err(Box::new(EngineError::EngineAlreadyRunning(
+                name.to_string(),
+            )));
+        }
+
         let mut engine = EngineProcess::builder()
             .command(Command::new(path))
             .state(EngineStateInfo::default())
@@ -56,7 +65,15 @@ impl EngineManager {
 
         // Wait for the engine to initialize
         match engine.wait_until_ready(EngineReadyState::Initialized).await {
-            Ok(_) => println!("Engine has been initialized"),
+            Ok(_) => {
+                println!("Engine has been initialized");
+
+                // Emit the engine options
+                let options = engine.query_state(|state| state.capabilities.clone()).await;
+                if let Ok(options_payload) = serde_json::to_string(&(name.to_string(), options)) {
+                    let _ = app_handle.emit("engine-options", options_payload);
+                }
+            }
             Err(e) => {
                 println!("Engine initialization failed: {:?}", e);
                 return Err(Box::new(e));
@@ -113,6 +130,31 @@ impl EngineManager {
             }
         });
     }
+
+    pub async fn remove_engine(
+        &mut self,
+        name: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let engine = self.engines.remove(name);
+        if let Some(mut engine) = engine {
+            let kill_result = engine.kill(None).await;
+            match kill_result {
+                Ok(_) => {
+                    println!("Engine killed: {}", name);
+                    // Clean up the engine state
+                    let _ = self.engines.remove(name);
+                    let _ = self
+                        .engine_names
+                        .remove(self.engine_names.iter().position(|x| x == name).unwrap());
+                }
+                Err(e) => {
+                    println!("Failed to kill engine: {:?}", e);
+                    return Err(Box::new(e));
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Engine Manager - Public engine management interface
@@ -120,6 +162,19 @@ impl EngineManager {
     /// Get a specific engine by name
     pub fn get_engine(&self, name: &str) -> Option<&EngineProcess<EngineStateInfo>> {
         self.engines.get(name)
+    }
+
+    /// Get all engines and their state
+    ///
+    /// Used to initialize the UI, might be removed in the future
+    /// as it's mostly needed when HMR is used
+    pub async fn get_all_engine_state(&self) -> Vec<(String, EngineStateInfo)> {
+        let mut states = Vec::new();
+        for (name, engine) in self.engines.iter() {
+            let state = engine.query_state(|state| state.clone()).await;
+            states.push((name.clone(), state));
+        }
+        states
     }
 
     /// Get the options/capabilities for a specific engine
@@ -283,7 +338,10 @@ impl EngineManager {
         };
 
         match stop_analysis_result {
-            Ok(_) => Ok(()),
+            Ok(_) => {
+                println!("Stopped analysis for engine: {}", name);
+                Ok(())
+            }
             Err(e) => {
                 println!("Failed to stop analysis: {:?}", e);
                 Err(Box::new(e))

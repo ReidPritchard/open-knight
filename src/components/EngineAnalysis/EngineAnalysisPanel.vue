@@ -13,7 +13,17 @@
           </option>
         </select>
 
+        <!-- Load engine -->
         <button
+          v-if="selectedEngine === 'New Engine'"
+          class="btn btn-sm btn-primary"
+          @click="loadEngine()"
+        >
+          Load Engine
+        </button>
+
+        <button
+          v-if="selectedEngine !== 'New Engine'"
           class="btn btn-sm"
           @click="isAnalyzing ? stopAnalysis() : startAnalysis()"
           :class="{ 'btn-primary': !isAnalyzing, 'btn-warning': isAnalyzing }"
@@ -22,6 +32,7 @@
         </button>
 
         <button
+          v-if="selectedEngine !== 'New Engine'"
           class="btn btn-sm btn-primary"
           @click="startGameAnalysis()"
           :disabled="isGameAnalysisInProgress"
@@ -32,24 +43,48 @@
     </div>
 
     <div class="flex flex-1 overflow-hidden">
-      <div class="flex-1 p-3 overflow-y-auto">
-        <div v-if="isAnalyzing || analysisResult" class="mb-4">
+      <div class="flex-1 p-3 gap-2 max-h-[calc(100vh-10rem)]">
+        <div v-if="latestAnalysisResult" class="mb-4">
+          <!-- Current analysis info -->
           <div class="flex justify-between mb-2 text-xs text-base-content/70">
-            <div>Depth: {{ analysisResult?.depth || 0 }}</div>
-            <div>Nodes: {{ formatNodes(analysisResult?.nodes || 0) }}</div>
+            <div>Depth: {{ latestAnalysisResult?.depth || 0 }}</div>
+            <div>
+              Nodes: {{ formatNodes(latestAnalysisResult?.nodes || 0) }}
+            </div>
           </div>
 
+          <!-- Current score -->
+          <div class="flex justify-between mb-2 text-xs text-base-content/70">
+            <!-- use a progress bar as an evaluation bar -->
+            <progress
+              class="progress progress-primary w-full"
+              :value="50 + (latestAnalysisResult?.score?.value || 0) / 100"
+              :max="100"
+            ></progress>
+            <span class="text-xs ml-2">
+              {{ (latestAnalysisResult?.score?.value || 0) / 100 }}
+            </span>
+          </div>
+
+          <!-- Best move/line -->
+          <!-- TODO: Add multipv support -->
           <div class="flex flex-col gap-2">
-            <div v-if="analysisResult?.bestMove" class="text-sm">
+            <div v-if="latestBestMove" class="text-sm">
               <strong>Best move:</strong>
-              {{ formatSAN(analysisResult.bestMove) }}
+              {{ formatSAN(latestBestMove.move) }}
+              <span v-if="latestBestMove.ponder">
+                <strong>Ponder:</strong>
+                {{ formatSAN(latestBestMove.ponder) }}
+              </span>
             </div>
 
             <div
-              v-if="analysisResult?.pv && analysisResult.pv.length > 0"
+              v-if="
+                latestAnalysisResult?.pv && latestAnalysisResult?.pv.length > 0
+              "
               class="text-sm"
             >
-              <strong>Line:</strong> {{ formatPV(analysisResult.pv) }}
+              <strong>Line:</strong> {{ formatPV(latestAnalysisResult?.pv) }}
             </div>
           </div>
         </div>
@@ -68,6 +103,63 @@
             :max="gameAnalysisProgress.total"
           ></progress>
         </div>
+
+        <!-- New Engine Form -->
+        <div
+          v-if="selectedEngine === 'New Engine'"
+          class="flex flex-col gap-2 mb-4"
+        >
+          <label
+            for="engineName"
+            class="input input-md flex items-center gap-4"
+          >
+            <PhIdentificationCard class="opacity-50" />
+            <input
+              id="engineName"
+              type="text"
+              v-model="newEngineName"
+              placeholder="Engine Name"
+              list="engineNames"
+              class="grow"
+            />
+            <datalist id="engineNames">
+              <option value="stockfish" />
+              <option value="lc0" />
+              <option value="shredder" />
+            </datalist>
+          </label>
+
+          <label
+            for="enginePath"
+            class="input input-md flex items-center gap-4"
+          >
+            <PhBinary class="opacity-50" />
+            <input
+              id="enginePath"
+              type="text"
+              v-model="newEnginePath"
+              placeholder="Engine Path"
+              autocomplete="off"
+              list="enginePaths"
+              class="grow"
+            />
+            <datalist id="enginePaths">
+              <!-- TODO: Maybe use a file browser, for now just provide some common paths
+               to make input easier -->
+              <option value="/usr/bin/" />
+              <option value="/usr/local/bin/" />
+              <option value="/usr/local/bin/stockfish" />
+            </datalist>
+          </label>
+        </div>
+
+        <!-- Engine settings -->
+        <EngineSettings
+          v-if="selectedEngine !== 'New Engine'"
+          :engineSettings="engineSettings"
+          @update:engineSettings="onEngineSettingsUpdate"
+          class="overflow-y-scroll max-h-[calc(100vh-20rem)]"
+        />
       </div>
     </div>
   </div>
@@ -82,13 +174,12 @@
 </template>
 
 <script setup lang="ts">
-import { Teleport, computed, onMounted, onUnmounted, ref, watch } from "vue";
-import engineAnalysisService, {
-  type EngineOption,
-  type AnalysisResult,
-  type EngineSettings,
-} from "../../services/Analysis";
+import { PhBinary, PhIdentificationCard } from "@phosphor-icons/vue";
+import { Teleport, computed, onMounted, ref, watch } from "vue";
+import type { AnalysisUpdate, EngineOption } from "../../shared/types";
 import { useGlobalStore } from "../../stores";
+import { useEngineAnalysisStore } from "../../stores/engineAnalysis";
+import EngineSettings from "./EngineSettings.vue";
 
 const props = defineProps<{
   boardId: number;
@@ -97,58 +188,52 @@ const props = defineProps<{
 const globalStore = useGlobalStore();
 const gamesStore = globalStore.gamesStore;
 
-const selectedEngine = ref<string>("stockfish");
-const availableEngines = ref<string[]>(["stockfish"]);
-const isAnalyzing = ref<boolean>(false);
-const analysisResult = ref<AnalysisResult | null>(null);
-const isGameAnalysisInProgress = ref<boolean>(false);
+const selectedEngine = ref<string>("New Engine");
+const availableEngines = ref<string[]>(["New Engine"]);
+const newEngineName = ref<string>("");
+const newEnginePath = ref<string>("");
 const gameAnalysisProgress = ref({ current: 0, total: 0 });
 
-const engineSettings = ref<EngineSettings>({
-  depth: {
-    option_type: "Spin",
-    default: "18",
-    min: 1,
-    max: 100,
-    var: null,
-    value: null,
-  },
-  multiPV: {
-    option_type: "Spin",
-    default: "3",
-    min: 1,
-    max: 100,
-    var: null,
-    value: null,
-  },
-  threads: {
-    option_type: "Spin",
-    default: "4",
-    min: 1,
-    max: 100,
-    var: null,
-    value: null,
-  },
-  hashSize: {
-    option_type: "Spin",
-    default: "128",
-    min: 1,
-    max: 100,
-    var: null,
-    value: null,
-  },
-});
+const engineAnalysisStore = useEngineAnalysisStore();
 
+const engineSettings = computed(() => {
+  // convert the engine settings from a map to a list of key-value pairs
+  return Object.entries(
+    engineAnalysisStore.getEngineSettings(selectedEngine.value) ?? {}
+  )
+    .filter(
+      ([key, value]) =>
+        key !== undefined && value !== undefined && !key.includes("UCI")
+    )
+    .map(
+      ([key, value]) => [key, value as EngineOption] as [string, EngineOption]
+    )
+    .sort((a, b) => a[0].localeCompare(b[0]));
+});
 const currentPosition = computed(() => {
   return gamesStore.getBoardState(props.boardId)?.currentPosition;
 });
-
 const currentGame = computed(() => {
   return gamesStore.getBoardState(props.boardId)?.game;
+});
+const latestAnalysisResult = computed(() => {
+  return engineAnalysisStore.getLatestAnalysisUpdate(selectedEngine.value);
+});
+const latestBestMove = computed(() => {
+  return engineAnalysisStore.getLatestBestMove(selectedEngine.value);
 });
 
 const engineMessage = ref<string>("");
 const toast = ref<boolean>(false);
+
+const isAnalyzing = computed(() => {
+  const engine = engineAnalysisStore.engines.get(selectedEngine.value);
+  return engine ? engine.isAnalyzing : false;
+});
+
+const isGameAnalysisInProgress = computed(
+  () => engineAnalysisStore.gameAnalysisInProgress
+);
 
 const onStockfishAnalysisResult = (result: { [key: string]: unknown }) => {
   const messageType = result.message_type;
@@ -163,7 +248,6 @@ const onStockfishAnalysisResult = (result: { [key: string]: unknown }) => {
           value !== undefined
       )
     );
-    analysisResult.value = info as unknown as AnalysisResult;
 
     // Prettify the info object (into key: value format)
     const prettyInfo = Object.entries(info)
@@ -175,9 +259,6 @@ const onStockfishAnalysisResult = (result: { [key: string]: unknown }) => {
     setTimeout(() => {
       toast.value = false;
     }, 3000);
-  } else if (messageType === "option") {
-    const option = result as unknown as EngineOption & { name: string };
-    engineSettings.value[option.name] = option;
   }
 };
 
@@ -189,30 +270,15 @@ watch(currentPosition, (newPosition) => {
 });
 
 onMounted(async () => {
+  engineAnalysisStore.initAnalysisService();
   try {
-    // Load the engine if not already loaded
-    if (!engineAnalysisService.isEngineAnalyzing(selectedEngine.value)) {
-      // In production, you'd want to get the path from settings or auto-detect
-      await engineAnalysisService.loadEngine(
-        "stockfish",
-        "/usr/local/bin/stockfish"
+    if (!engineAnalysisStore.engines.has(selectedEngine.value)) {
+      engineAnalysisStore.addAnalysisListener(
+        selectedEngine.value,
+        onStockfishAnalysisResult as unknown as (result: AnalysisUpdate) => void
       );
-      engineAnalysisService.addAnalysisListener(
-        "Stockfish 17",
-        onStockfishAnalysisResult as unknown as (result: AnalysisResult) => void
-      );
-
-      // Get current settings
-      const settings = engineAnalysisService.getEngineSettings(
-        selectedEngine.value
-      );
-      if (settings) {
-        engineSettings.value = { ...settings };
-      }
     }
   } catch (error) {
-    // check if the error contains the `EngineError` property
-    // if it does, we can log that message for a more accurate error message
     if (error instanceof Error && "EngineError" in error) {
       console.error("Engine error:", error.EngineError);
     } else {
@@ -221,33 +287,33 @@ onMounted(async () => {
   }
 });
 
-onUnmounted(() => {
-  engineAnalysisService.destroy();
-});
+async function loadEngine() {
+  await engineAnalysisStore.loadEngine(
+    newEngineName.value,
+    newEnginePath.value
+  );
+  if (!availableEngines.value.includes(newEngineName.value)) {
+    availableEngines.value.push(newEngineName.value);
+  }
+  selectedEngine.value = newEngineName.value;
+}
 
 async function startAnalysis() {
   if (!currentPosition.value?.fen) return;
-
   try {
-    isAnalyzing.value = true;
-
-    await engineAnalysisService.analyzePosition(
+    await engineAnalysisStore.analyzePosition(
       selectedEngine.value,
-      currentPosition.value.fen,
-      (result) => {
-        analysisResult.value = result;
-      }
+      currentPosition.value.fen
     );
   } catch (error) {
     console.error("Analysis error:", error);
-    isAnalyzing.value = false;
+    engineAnalysisStore.setEngineAnalyzing(selectedEngine.value, false);
   }
 }
 
 async function stopAnalysis() {
   try {
-    await engineAnalysisService.stopAnalysis(selectedEngine.value);
-    isAnalyzing.value = false;
+    await engineAnalysisStore.stopAnalysis(selectedEngine.value);
   } catch (error) {
     console.error("Failed to stop analysis:", error);
   }
@@ -255,20 +321,17 @@ async function stopAnalysis() {
 
 async function startGameAnalysis() {
   if (!currentGame.value) return;
-
   try {
-    isGameAnalysisInProgress.value = true;
+    engineAnalysisStore.setGameAnalysisInProgress(true);
     gameAnalysisProgress.value = { current: 0, total: 100 };
-
-    await engineAnalysisService.analyzeGame(
+    await engineAnalysisStore.analyzeGame(
       selectedEngine.value,
       currentGame.value.id
     );
-
-    isGameAnalysisInProgress.value = false;
+    engineAnalysisStore.setGameAnalysisInProgress(false);
   } catch (error) {
     console.error("Game analysis error:", error);
-    isGameAnalysisInProgress.value = false;
+    engineAnalysisStore.setGameAnalysisInProgress(false);
   }
 }
 
@@ -295,5 +358,12 @@ function formatPV(pv: string[]): string {
   // Ideally, convert each UCI move to SAN
   // For now, just join them
   return pv.slice(0, 5).join(" ");
+}
+
+function onEngineSettingsUpdate(updatedSettings: [string, EngineOption][]) {
+  // Update the engine settings in the store
+  const settingsObj: Record<string, EngineOption> =
+    Object.fromEntries(updatedSettings);
+  engineAnalysisStore.setEngineSettings(selectedEngine.value, settingsObj);
 }
 </script>

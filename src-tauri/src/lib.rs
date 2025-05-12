@@ -3,7 +3,6 @@ use db::{connect_db, reset_database, run_migrations};
 use engine::utils::EngineError;
 use engine::{manager::EngineManager, protocol::OptionValue};
 use sea_orm::DatabaseConnection;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
@@ -118,6 +117,13 @@ async fn get_game_by_id(
 }
 
 #[tauri::command]
+async fn get_all_engine_state(state: tauri::State<'_, AppState>) -> Result<String, String> {
+    let engine_manager = state.engine_manager.lock().await;
+    let states = engine_manager.get_all_engine_state().await;
+    Ok(serde_json::to_string(&states).unwrap())
+}
+
+#[tauri::command]
 async fn load_engine(
     name: String,
     path: String,
@@ -138,6 +144,14 @@ async fn load_engine(
             Err(e.to_string())
         }
     }
+}
+
+#[tauri::command]
+async fn unload_engine(name: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut engine_manager = state.engine_manager.lock().await;
+    let result = engine_manager.remove_engine(&name).await;
+    drop(engine_manager);
+    result.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -252,11 +266,13 @@ pub fn run() {
             get_legal_moves,
             // Engine commands
             load_engine,
+            unload_engine,
             analyze_position,
             stop_analysis,
             set_engine_option,
             set_position,
             analyze_game,
+            get_all_engine_state,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

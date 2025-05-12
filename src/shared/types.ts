@@ -46,6 +46,103 @@ export const parseExplorerGames =
  */
 export const parseLegalMoves = typia.json.createValidateParse<LegalMove[]>();
 
+/**
+ * Events emitted by the engine
+ */
+export interface EngineEvents {
+  analysisUpdate: AnalysisUpdate;
+  bestMove: BestMove;
+}
+
+export interface BestMove {
+  move: string;
+  ponder?: string;
+  timestamp: number;
+}
+
+/**
+ * Best move of the engine's analysis
+ */
+export type BestMovePayload = [move: string, ponder?: string];
+
+/**
+ * Score of the engine's analysis
+ *
+ * TODO: Differentiate between centipawns and mate scores
+ */
+export interface Score {
+  value: number;
+}
+
+/**
+ * Update of the engine's analysis
+ */
+export interface AnalysisUpdate {
+  depth?: number;
+  seldepth?: number;
+  time?: number;
+  nodes?: number;
+  pv?: string[];
+  multipv?: number;
+  score?: Score;
+  hashfull?: number;
+  nps?: number;
+  tbhits?: number;
+}
+
+/**
+ * Analysis update event payload
+ */
+export type AnalysisUpdatePayload = [
+  engineName: string,
+  update:
+    | {
+        AnalysisUpdate: AnalysisUpdate;
+      }
+    | {
+        BestMove: BestMovePayload;
+      }
+];
+
+/**
+ * Parse a JSON string into an `AnalysisUpdatePayload` object
+ */
+export const parseAnalysisUpdatePayload =
+  typia.json.createValidateParse<AnalysisUpdatePayload>();
+
+/**
+ * Engine option
+ */
+export interface EngineOption {
+  type: "check" | "spin" | "combo" | "button" | "string";
+  value?: string;
+  default?: string;
+  min?: number;
+  max?: number;
+  var?: string[];
+}
+
+/**
+ * Engine options
+ */
+export interface EngineSettings {
+  [name: string]: EngineOption;
+}
+
+/**
+ * Engine settings event payload
+ */
+export type EngineSettingsPayload = [
+  engineName: string,
+  EngineSettings: EngineSettings
+];
+
+/**
+ * Parse a JSON string into an `EngineSettingsPayload` object
+ */
+export const parseEngineSettingsPayload =
+  typia.json.createValidateParse<EngineSettingsPayload>();
+
 ////////////////////////////////////////////////////////////
 // Error Types
 ////////////////////////////////////////////////////////////

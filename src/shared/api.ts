@@ -143,6 +143,17 @@ export default {
         await invoke("load_engine", { name, path });
       },
       /**
+       * Unload an engine.
+       * @param name The name of the engine
+       * @returns Promise<void>
+       *
+       * @example
+       * await $$.api.engines.POST.unloadEngine("stockfish")
+       */
+      unloadEngine: async (name: string): Promise<void> => {
+        await invoke("unload_engine", { name });
+      },
+      /**
        * Analyze a position with an engine.
        * @param engineName The name of the engine
        * @param fen The FEN string of the position

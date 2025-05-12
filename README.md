@@ -72,6 +72,8 @@
 
 <div align="center">
   <img src="docs/assets/UI-Apr1-2025.png" alt="Screenshot of the current Open Knight UI" />
+
+  <img src="docs/assets/UI-May12-2025.png" alt="Screenshot of new engine analysis and settings UI" />
 </div>
 
 <!-- TechStack -->
@@ -102,13 +104,6 @@
   </ul>
 </details>
 
-<details>
-<summary>DevOps</summary>
-  <ul>
-    <li> TODO </li>
-  </ul>
-</details>
-
 <!-- Features -->
 ### Features (more in development)
 
@@ -116,12 +111,12 @@
 - Chess game viewer
 - Game/Move annotations
 - Move tree/list
-- Theme support
+- UCI Engine support (Work in progress, basic position analysis exists)
 
 <!-- Env Variables -->
 ### Environment Variables
 
-Currently no environment variables are u
+Currently no environment variables are used.
 
 <!-- Getting Started -->
 ## Getting Started
@@ -187,8 +182,8 @@ Listed in no particular order and likely to change (also the checked items are n
 - [x] Chess game viewer
 - [x] Basic UI layout customization
 - [x] Move tree/list
+- [x] UCI support (In Progress)
 - [ ] Game/Move annotations (In Progress)
-- [ ] UCI support (In Progress)
 - [ ] Theme support
 - [ ] Drag and drop imports
 - [ ] PGN export

@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import api from "../shared/api";
 import type { ExplorerGame } from "../shared/types";
+import { useEngineAnalysisStore } from "./engineAnalysis";
 import { useGamesStore } from "./games";
 import { useSettingsStore } from "./settings";
 import { useUIStore } from "./ui";
@@ -10,6 +11,7 @@ export const useGlobalStore = defineStore("global", {
     internalGamesStore: useGamesStore(),
     internalUiStore: useUIStore(),
     internalSettingsStore: useSettingsStore(),
+    internalEngineAnalysisStore: useEngineAnalysisStore(),
     explorer: {
       games: [] as ExplorerGame[],
     },
@@ -18,6 +20,7 @@ export const useGlobalStore = defineStore("global", {
     gamesStore: (state) => state.internalGamesStore,
     uiStore: (state) => state.internalUiStore,
     settingsStore: (state) => state.internalSettingsStore,
+    engineAnalysisStore: (state) => state.internalEngineAnalysisStore,
     explorerGames: (state) => state.explorer.games,
     api: () => {
       console.warn("For development purposes only! Use at your own risk!");

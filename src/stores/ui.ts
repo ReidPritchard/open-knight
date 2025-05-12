@@ -37,8 +37,6 @@ export const useUIStore = defineStore("ui", {
      * Game Library/Explorer view
      */
     gameLibraryViewOpen: false,
-    moveTreeViewOpen: true,
-    engineViewOpen: false,
     gameLibraryView: "grid" as "grid" | "list",
     gameLibraryViewSortBy: "date" as
       | "date"
@@ -50,6 +48,10 @@ export const useUIStore = defineStore("ui", {
     gameLibraryViewSortOrder: "desc" as "asc" | "desc",
     gameLibraryViewFilter: "all" as "all" | "favorites" | "tags",
     gameLibraryViewFilterTags: [] as string[],
+
+    moveTreeViewOpen: true,
+
+    engineViewOpen: false,
 
     /**
      * Settings Modal
