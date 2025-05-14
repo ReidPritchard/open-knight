@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import type { BoardTheme } from "../shared/types";
 
 function getDefaultTheme(): "light" | "dark" {
   const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -26,12 +27,22 @@ export const useUIStore = defineStore("ui", {
       "Opening",
     ] as string[],
     theme: getDefaultTheme() as "light" | "dark",
+    boardTheme: {
+      lightSquare: "#f0d9b5",
+      darkSquare: "#b58969",
+      displayCoordinates: true,
+    } as BoardTheme,
+    boardSquareSize: 64,
+
     /**
      * The orientation of the board, by which side white is playing from
      * TODO: Might want to make this per-game board rather than global
      * might be ok for now though
+     *
+     * FIXME: Currently this is backwards ("top" means white on bottom)
+     * either rename this or invert the logic
      */
-    boardWhiteOrientation: "bottom" as "top" | "bottom",
+    boardWhiteOrientation: "top" as "top" | "bottom",
 
     /**
      * Game Library/Explorer view
@@ -63,6 +74,8 @@ export const useUIStore = defineStore("ui", {
     getGameLibraryViewOpen: (state) => state.gameLibraryViewOpen,
     getMoveTreeViewOpen: (state) => state.moveTreeViewOpen,
     getEngineViewOpen: (state) => state.engineViewOpen,
+    getBoardTheme: (state) => state.boardTheme,
+    getBoardSquareSize: (state) => state.boardSquareSize,
     getGameLibraryViewSortByOptions: () => [
       "date",
       "event",
@@ -95,6 +108,18 @@ export const useUIStore = defineStore("ui", {
       }
 
       this.theme = newTheme;
+    },
+
+    updateBoardTheme(theme: {
+      lightSquare: string;
+      darkSquare: string;
+      displayCoordinates: boolean;
+    }) {
+      this.boardTheme = theme;
+    },
+
+    updateBoardSquareSize(size: number) {
+      this.boardSquareSize = size;
     },
 
     updateSettingsModalOpen(open?: boolean) {

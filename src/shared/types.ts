@@ -5,6 +5,13 @@ import type { ChessGame, LegalMove } from "./bindings";
 // Application UI Interfaces
 ////////////////////////////////////////////////////////////
 
+export interface BoardTheme {
+  lightSquare: string;
+  darkSquare: string;
+  displayCoordinates: boolean;
+  // TODO: Add more options (piece set, display valid moves, etc.)
+}
+
 ////////////////////////////////////////////////////////////
 // Application Interfaces
 // Api interfaces are mostly sub-sets of backend models (bindings)
@@ -67,11 +74,10 @@ export type BestMovePayload = [move: string, ponder?: string];
 
 /**
  * Score of the engine's analysis
- *
- * TODO: Differentiate between centipawns and mate scores
  */
 export interface Score {
   value: number;
+  type?: "centipawns" | "mate";
 }
 
 /**

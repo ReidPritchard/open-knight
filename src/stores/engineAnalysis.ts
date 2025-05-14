@@ -7,6 +7,7 @@ import type {
   BestMove,
   BestMovePayload,
   EngineSettings,
+  Score,
 } from "../shared/types";
 
 interface EngineState {
@@ -46,6 +47,26 @@ export const useEngineAnalysisStore = defineStore("engineAnalysis", {
         }
       }
       return undefined;
+    },
+    boardEvaluation: (state): Score => {
+      // FIXME: Provide a way to set which engine to use for evaluation
+      // for now just use the first engine
+      const engine = state.engines.values().next().value;
+      if (engine) {
+        const analysisUpdates = engine.analysisUpdates;
+        if (analysisUpdates.length > 0) {
+          const lastUpdate = analysisUpdates[analysisUpdates.length - 1];
+
+          const evaluation = {
+            value: lastUpdate.score?.value,
+            type: lastUpdate.score?.type ?? "centipawns",
+          };
+          if (evaluation.value !== undefined) {
+            return evaluation as Score;
+          }
+        }
+      }
+      return { value: 0, type: "centipawns" };
     },
   },
   actions: {

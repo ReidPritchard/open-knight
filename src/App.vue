@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { listen } from "@tauri-apps/api/event";
 import { computed, onMounted, provide, ref } from "vue";
 import ChessBoard from "./components/ChessBoard/ChessBoard.vue";
 import EngineAnalysisPanel from "./components/EngineAnalysis/EngineAnalysisPanel.vue";
+import EvaluationBar from "./components/EvaluationBar/EvaluationBar.vue";
 import GameLibrary from "./components/GameLibrary/GameLibrary.vue";
 import ImportModal from "./components/ImportModal/ImportModal.vue";
 import MoveTree from "./components/MoveTree/MoveTree.vue";
@@ -12,6 +12,8 @@ import { useGlobalStore } from "./stores";
 const importModalOpen = ref(false);
 
 const globalStore = useGlobalStore();
+
+const engineAnalysisStore = globalStore.engineAnalysisStore;
 
 const uiStore = globalStore.uiStore;
 const settingsModalOpen = computed(() => uiStore.getSettingsModalOpen);
@@ -195,7 +197,17 @@ provide("mirrored", false);
       </div>
       <div class="col-span-4 flex flex-col items-center justify-center">
         <!-- Game board -->
-        <ChessBoard :board-id="0" />
+        <div class="flex flex-row">
+          <EvaluationBar
+            class="min-h-full max-w-10 float-left"
+            :evaluation="engineAnalysisStore.boardEvaluation"
+            orientation="black"
+            direction="vertical"
+          />
+          <div class="flex flex-col">
+            <ChessBoard :board-id="0" />
+          </div>
+        </div>
       </div>
       <div class="col-span-2 flex flex-col w-full" v-if="displayMoveTree">
         <MoveTree :board-id="0" />

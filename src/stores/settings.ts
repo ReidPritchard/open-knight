@@ -55,7 +55,6 @@ const DEFAULT_HOTKEYS: Omit<Hotkey, "callback">[] = [
 export const useSettingsStore = defineStore("settings", {
 	state: () => ({
 		hotkeys: [] as Hotkey[],
-
 		defaultCallbacks: {} as Record<string, () => void>,
 	}),
 
