@@ -35,7 +35,7 @@
 
     <!-- Coordinates -->
     <div
-      v-if="displayCoordinates"
+      v-if="shouldDisplayCoordinate"
       class="absolute bottom-0 left-1 text-xs text-white/40 font-bold z-0"
     >
       {{ coordinateText }}
@@ -46,7 +46,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { BoardTheme } from "../../shared/types";
-import { coordsToAlgebraic } from "./utils";
+import { boardToAlgebraic } from "./utils";
 
 const props = defineProps<{
   row: number;
@@ -68,34 +68,41 @@ defineEmits<{
   (e: "dragStart"): void;
 }>();
 
-const displayCoordinates = computed(() => {
+/**
+ * Determines whether this square should display a coordinate label
+ * Coordinates are shown on the left and bottom edges of the board
+ */
+const shouldDisplayCoordinate = computed(() => {
   if (!props.boardTheme.displayCoordinates) return false;
-
-  // Only display coordinates on the left and bottom edges
-  // account for rotation for determining what row/col index to display
-  if (props.isBoardFlipped) {
-    return props.row === 0 || props.col === 7;
-  }
-  return props.row === 7 || props.col === 0;
+  // Show coordinates on the bottom row and left column (or top/right if flipped)
+  return props.isBoardFlipped
+    ? props.row === 0 || props.col === 7
+    : props.row === 7 || props.col === 0;
 });
 
+/**
+ * Generates the coordinate text (like "a1", "e4") for this square
+ * Uses algebraic notation for the display
+ */
 const coordinateText = computed(() => {
   if (!props.boardTheme.displayCoordinates) return "";
-
-  const boardRow = 7 - props.row;
-  const boardCol = 7 - props.col;
-
-  return coordsToAlgebraic(boardCol, boardRow);
+  const algebraic = boardToAlgebraic(props.row, props.col);
+  const file = algebraic[0];
+  const rank = algebraic[1];
+  const isBottomRow = props.isBoardFlipped ? props.row === 0 : props.row === 7;
+  const isLeftCol = props.isBoardFlipped ? props.col === 7 : props.col === 0;
+  if (isBottomRow && isLeftCol) return algebraic;
+  if (isBottomRow) return file;
+  if (isLeftCol) return rank;
+  return "";
 });
 
-const squareStyle = computed(() => {
-  return {
-    backgroundColor:
-      props.row % 2 === props.col % 2
-        ? props.boardTheme.lightSquare
-        : props.boardTheme.darkSquare,
-    width: `${props.squareSize}px`,
-    height: `${props.squareSize}px`,
-  };
-});
+const squareStyle = computed(() => ({
+  backgroundColor:
+    (props.row + props.col) % 2 === 0
+      ? props.boardTheme.lightSquare
+      : props.boardTheme.darkSquare,
+  width: `${props.squareSize}px`,
+  height: `${props.squareSize}px`,
+}));
 </script>

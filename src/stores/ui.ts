@@ -42,7 +42,7 @@ export const useUIStore = defineStore("ui", {
      * FIXME: Currently this is backwards ("top" means white on bottom)
      * either rename this or invert the logic
      */
-    boardWhiteOrientation: "top" as "top" | "bottom",
+    _whiteOnSide: "top" as "top" | "bottom",
 
     /**
      * Game Library/Explorer view
@@ -74,8 +74,11 @@ export const useUIStore = defineStore("ui", {
     getGameLibraryViewOpen: (state) => state.gameLibraryViewOpen,
     getMoveTreeViewOpen: (state) => state.moveTreeViewOpen,
     getEngineViewOpen: (state) => state.engineViewOpen,
+
     getBoardTheme: (state) => state.boardTheme,
     getBoardSquareSize: (state) => state.boardSquareSize,
+    whiteOnSide: (state) => state._whiteOnSide,
+
     getGameLibraryViewSortByOptions: () => [
       "date",
       "event",
@@ -120,6 +123,11 @@ export const useUIStore = defineStore("ui", {
 
     updateBoardSquareSize(size: number) {
       this.boardSquareSize = size;
+    },
+
+    setWhiteOnSide(side?: "top" | "bottom") {
+      this._whiteOnSide =
+        side ?? (this._whiteOnSide === "top" ? "bottom" : "top");
     },
 
     updateSettingsModalOpen(open?: boolean) {

@@ -10,23 +10,23 @@
       class="grid grid-rows-8 grid-flow-col transition-all duration-100 w-full h-full"
       :class="{ 'rotate-180': isBoardFlipped }"
     >
-      <div v-for="row in 8" :key="row" class="flex">
+      <div v-for="row in 8" :key="row - 1" class="flex">
         <ChessBoardSquare
           v-for="col in 8"
-          :key="col"
+          :key="col - 1"
           :row="row - 1"
           :col="col - 1"
           :square-size="squareSizePixels"
-          :piece="getPieceAt(row, col)"
-          :piece-image="getPieceImage(getPieceAt(row, col) ?? '')"
-          :can-move="canMovePiece(row - 1, col - 1)"
-          :is-selected="isSquareSelected(row - 1, col - 1)"
-          :is-valid-move="isValidMoveTarget(row - 1, col - 1)"
-          :is-highlighted="isPartOfCurrentMove(row, col)"
+          :piece="getPieceAt(8 - row, col - 1)"
+          :piece-image="getPieceImage(getPieceAt(8 - row, col - 1) ?? '')"
+          :can-move="canMovePiece(8 - row, col - 1)"
+          :is-selected="isSquareSelected(8 - row, col - 1)"
+          :is-valid-move="isValidMoveTarget(8 - row, col - 1)"
+          :is-highlighted="isPartOfCurrentMove(row - 1, col - 1)"
           :is-board-flipped="isBoardFlipped"
           :board-theme="boardTheme"
           :class="{ 'rotate-180': isBoardFlipped, 'rotate-0': !isBoardFlipped }"
-          @drop="handleDrop(row - 1, col - 1)"
+          @drop="handleDrop(8 - row, col - 1)"
           @click="handleSquareClick($event, row - 1, col - 1)"
           @drag-start="handleDragStart(row - 1, col - 1)"
         />
@@ -90,9 +90,9 @@ import { useGlobalStore } from "../../stores/";
 import AnnotationArrow from "../AnnotationArrow/AnnotationArrow.vue";
 import ChessBoardSquare from "./ChessBoardSquare.vue";
 import {
-  algebraicToCoords,
+  algebraicToBoard,
+  boardToAlgebraic,
   calculateSquareCenter,
-  coordsToAlgebraic,
   getPieceImagePath,
   isAnnotationClick,
   isValidPiece,
@@ -126,11 +126,12 @@ const boardState = computed(() => gamesStore.getBoardState(props.boardId));
 const currentMove = computed(() => boardState.value?.currentMove);
 const currentMoveIndex = computed(() => boardState.value?.currentMoveIndex);
 const currentPosition = computed(() => boardState.value?.currentPosition);
+const currentTurn = computed(() => boardState.value?.currentTurn);
 const validMoves = computed(() => boardState.value?.validMoves);
 
 // Board orientation
 const isBoardFlipped = computed(
-  () => globalStore.uiStore.boardWhiteOrientation === "top"
+  () => globalStore.uiStore.whiteOnSide === "top"
 );
 
 // Board styling
@@ -155,8 +156,8 @@ const formatCurrentMove = computed(() => {
 const selectedPiece = ref<{ row: number; col: number } | null>(null);
 const validPieceMoves = ref<Array<{ row: number; col: number }>>([]);
 
-// Valid moves cache (`row,col` -> `{ row: number; col: number }[]`)
-// row and col are 1-indexed (1-8)
+// Valid moves cache
+// Key format: "row,col" where row and col are 0-based indices
 const validPositionMoves = ref<
   Record<string, Array<{ row: number; col: number }>>
 >({});
@@ -176,34 +177,22 @@ const currentPositionParsed = computed(() =>
   currentPositionFEN.value ? parseFen(currentPositionFEN.value.fen) : undefined
 );
 
-const currentTurn = computed(() =>
-  currentPositionFEN.value ? currentPositionFEN.value.fen.split(" ")[1] : "w"
-);
+// ---------------
+// Coordinate transformation utilities
+// ---------------
 
-// ---------------
-// Coordinate transformations
-// ---------------
-function getLogicalPosition(visualRow: number, visualCol: number) {
-  // Convert from 1-indexed visual grid (1-8) to 0-indexed logical position (0-7)
-  const row = visualRow - 1;
-  const col = visualCol - 1;
-
-  // No need to transform here - the CSS rotation handles the visual part,
-  // and the logical positions should match the internal board array
-  return { row, col };
-}
-
-// ---------------
-// Piece and board utilities
-// ---------------
+/**
+ * Gets a piece at the specified board coordinates
+ * @param row 0-based row index (0-7)
+ * @param col 0-based column index (0-7)
+ * @returns The piece at the specified position, or undefined if none
+ */
 function getPieceAt(row: number, col: number) {
   const board = currentPositionParsed.value;
   if (!board) return undefined;
 
-  const { row: boardRow, col: boardCol } = getLogicalPosition(row, col);
-
-  // Access the board array with the transformed coordinates
-  const piece = board[boardRow]?.[boardCol];
+  // Access the board array directly with 0-based coordinates
+  const piece = board[row]?.[col];
   return isValidPiece(piece) ? piece : undefined;
 }
 
@@ -227,28 +216,47 @@ function canMovePiece(row: number, col: number) {
   if (!piece) return false;
 
   const isWhite = isWhitePiece(piece);
-  const isWhiteTurn = currentTurn.value === "w";
+  const isWhiteTurn = currentTurn.value === "white";
 
   if (isWhite !== isWhiteTurn) {
+    console.log("Not your turn:", piece, "from", row, col);
     return false;
   }
 
   // Check if the piece has valid moves
   const positionMoves = validPositionMoves.value[`${row},${col}`] || [];
-  return positionMoves.length > 0;
+  const canMove = positionMoves.length > 0;
+
+  if (canMove) {
+    console.log("Can move:", piece, "from", row, col, "to", positionMoves);
+  } else {
+    console.log("Cannot move:", piece);
+    console.log(validPositionMoves.value);
+  }
+
+  return canMove;
 }
 
+/**
+ * Checks if the current square is part of the current move
+ * @param row 0-based row index, rendered coordinate (not board coordinates)
+ * @param col 0-based column index
+ * @returns True if the square is part of the current move, false otherwise
+ */
 function isPartOfCurrentMove(row: number, col: number) {
   if (!currentMove?.value?.game_move?.uci) return false;
 
   const { from, to } = parseUciMove(currentMove.value.game_move.uci);
 
-  const boardRow = 7 - row + 1;
-  const boardCol = col - 1;
+  // Convert algebraic notation to board coordinates
+  const fromCoords = algebraicToBoard(from);
+  const toCoords = algebraicToBoard(to);
 
-  // Convert to algebraic notation for comparison
-  const algebraic = coordsToAlgebraic(boardCol, boardRow);
-  return from === algebraic || to === algebraic;
+  // Check if current square is either the from or to square
+  return (
+    (row === fromCoords.row && col === fromCoords.col) ||
+    (row === toCoords.row && col === toCoords.col)
+  );
 }
 
 // ---------------
@@ -256,12 +264,12 @@ function isPartOfCurrentMove(row: number, col: number) {
 // ---------------
 const annotations = computed(
   () =>
-    boardState.value?.currentMove?.game_move?.annotations?.map((annotation) => {
+    currentMove.value?.game_move?.annotations?.map((annotation) => {
       const { comment, arrows, highlights } = annotation;
       return {
         comment,
         arrows: arrows ? parseUciMove(arrows) : null,
-        highlights: highlights ? algebraicToCoords(highlights) : null,
+        highlights: highlights ? algebraicToBoard(highlights) : null,
       };
     }) || []
 );
@@ -278,14 +286,14 @@ const arrowCoordinates = computed(() => {
   // Calculate the square centers based on the current board orientation
   return {
     from: calculateSquareCenter(
-      algebraicToCoords(arrows.from).x,
-      algebraicToCoords(arrows.from).y,
+      algebraicToBoard(arrows.from).col,
+      algebraicToBoard(arrows.from).row,
       squareSizePixels.value,
       isBoardFlipped.value
     ),
     to: calculateSquareCenter(
-      algebraicToCoords(arrows.to).x,
-      algebraicToCoords(arrows.to).y,
+      algebraicToBoard(arrows.to).col,
+      algebraicToBoard(arrows.to).row,
       squareSizePixels.value,
       isBoardFlipped.value
     ),
@@ -299,14 +307,15 @@ async function getValidMoves(row: number, col: number) {
   const piece = getPieceAt(row, col);
   if (!piece) return [];
 
-  // Check cache first
-  if (validPositionMoves.value[`${row},${col}`]) {
-    return validPositionMoves.value[`${row},${col}`];
+  // Check cache first using 0-based coordinates
+  const cacheKey = `${row},${col}`;
+  if (validPositionMoves.value[cacheKey]) {
+    return validPositionMoves.value[cacheKey];
   }
 
   // Fetch if not cached
   await fetchValidMoves();
-  return validPositionMoves.value[`${row},${col}`] || [];
+  return validPositionMoves.value[cacheKey] || [];
 }
 
 async function fetchValidMoves() {
@@ -314,15 +323,19 @@ async function fetchValidMoves() {
     const moves = validMoves.value || [];
     validPositionMoves.value = moves.reduce((acc, move) => {
       const { from, to } = parseUciMove(move.uci);
-      const { x: fromX, y: fromY } = algebraicToCoords(from);
-      const { x: toX, y: toY } = algebraicToCoords(to);
-      const fromKey = `${fromY},${fromX}`;
+
+      // Convert algebraic notation to board coordinates
+      const fromCoords = algebraicToBoard(from);
+      const toCoords = algebraicToBoard(to);
+
+      // Create a cache entry using 0-based coordinates
+      const fromKey = `${fromCoords.row},${fromCoords.col}`;
 
       // Create the key if it doesn't exist
       acc[fromKey] = acc[fromKey] || [];
 
       // Add the move to the key
-      acc[fromKey].push({ row: toY, col: toX });
+      acc[fromKey].push({ row: toCoords.row, col: toCoords.col });
       return acc;
     }, {} as Record<string, Array<{ row: number; col: number }>>);
   } catch (error) {
@@ -341,11 +354,12 @@ async function handleDragStart(row: number, col: number) {
 async function handleDrop(row: number, col: number) {
   if (!selectedPiece.value || !isValidMoveTarget(row, col)) return;
 
-  const toSquare = coordsToAlgebraic(col, row);
-  const fromSquare = coordsToAlgebraic(
-    selectedPiece.value.col,
-    selectedPiece.value.row
+  // Convert board coordinates to algebraic notation
+  const fromSquare = boardToAlgebraic(
+    selectedPiece.value.row,
+    selectedPiece.value.col
   );
+  const toSquare = boardToAlgebraic(row, col);
   const moveNotation = fromSquare + toSquare;
 
   try {
@@ -360,6 +374,12 @@ async function handleDrop(row: number, col: number) {
   }
 }
 
+/**
+ * Handles a click on a square
+ * @param event The mouse event
+ * @param row The row of the square visual coordinates (0-7)
+ * @param col The column of the square visual coordinates (0-7)
+ */
 async function handleSquareClick(event: MouseEvent, row: number, col: number) {
   event.preventDefault();
 
@@ -369,15 +389,31 @@ async function handleSquareClick(event: MouseEvent, row: number, col: number) {
   }
 
   // Handle normal piece selection/move
-  const piece = getPieceAt(row, col);
 
-  if (selectedPiece.value && isValidMoveTarget(row, col)) {
+  // convert visual coordinates to board coordinates
+  const boardRow = 7 - row;
+  const boardCol = col;
+
+  const piece = getPieceAt(boardRow, boardCol);
+
+  if (selectedPiece.value && isValidMoveTarget(boardRow, boardCol)) {
+    const fromNotation = boardToAlgebraic(
+      7 - selectedPiece.value.row,
+      selectedPiece.value.col
+    );
+    const toNotation = boardToAlgebraic(boardRow - 1, boardCol);
+    console.log("Move:", fromNotation, "->", toNotation);
+
     // Move the selected piece to this square
-    await handleDrop(row, col);
-  } else if (piece && canMovePiece(row, col) && !isSquareSelected(row, col)) {
+    await handleDrop(boardRow, boardCol);
+  } else if (
+    piece &&
+    canMovePiece(boardRow, boardCol) &&
+    !isSquareSelected(boardRow, boardCol)
+  ) {
     // Select this piece
-    selectedPiece.value = { row, col };
-    validPieceMoves.value = await getValidMoves(row, col);
+    selectedPiece.value = { row: boardRow, col: boardCol };
+    validPieceMoves.value = await getValidMoves(boardRow, boardCol);
   } else {
     // Deselect
     selectedPiece.value = null;
@@ -396,9 +432,7 @@ function handleNextMove() {
 }
 
 function rotateBoard() {
-  globalStore.uiStore.boardWhiteOrientation = isBoardFlipped.value
-    ? "bottom"
-    : "top";
+  globalStore.uiStore.setWhiteOnSide();
 }
 
 function startResize(event: MouseEvent) {
@@ -410,7 +444,7 @@ function startResize(event: MouseEvent) {
   const handleMouseMove = (event: MouseEvent) => {
     const deltaX = event.clientX - startX;
 
-    // Scale down the deltaX/deltaY to avoid resizing too quickly
+    // Scale down the deltaX to avoid resizing too quickly
     const scaleFactor = 0.15;
     const newSquareSize = Math.max(
       16,

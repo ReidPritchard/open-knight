@@ -114,6 +114,16 @@ export default {
   },
   moves: {
     GET: {
+      /**
+       * Get the valid moves for a given FEN string
+       * @param fen The FEN string of the position
+       * @returns Promise<LegalMove[]>
+       *
+       * FIXME: #10 This always returns moves for the black player.
+       * I think this is because the FEN string doesn't contain turn information.
+       * We likely need to generate full FEN strings for each move's position.
+       * (maybe in the move tree generation or even the PGN parsing)
+       */
       validMoves: async (fen: string): Promise<LegalMove[]> => {
         const response = await invoke<string>("get_legal_moves", { fen });
         const parsed = parseLegalMoves(response);

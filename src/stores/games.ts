@@ -14,6 +14,7 @@ interface ActiveGameState {
   currentMoveIndex: number;
   currentMove: ChessTreeNode | null;
   currentPosition: ChessPosition | null;
+  currentTurn: "white" | "black" | null;
   validMoves: LegalMove[] | null;
 
   inProgress: boolean;
@@ -32,6 +33,12 @@ const getValidMoves = async (position?: string) => {
     console.error("Failed to fetch valid moves:", error);
     return null;
   }
+};
+
+const getTurnFromFen = (fen: string): "white" | "black" | null => {
+  const turn = fen.split(" ")[1];
+  if (!turn) return null;
+  return turn === "w" ? "white" : "black";
 };
 
 /**
@@ -77,6 +84,8 @@ export const useGamesStore = defineStore("games", {
         currentMoveIndex: 0,
         currentMove: null,
         currentPosition: initialPosition,
+        currentTurn: "white",
+
         validMoves: validMoves,
 
         inProgress: false,
@@ -116,9 +125,18 @@ export const useGamesStore = defineStore("games", {
         version: nextMove.version,
       };
 
+      // Try to get the turn from the FEN (that way we are positive it's correct)
+      let nextTurn = getTurnFromFen(nextMove.value.position.fen);
+      if (!nextTurn && game.currentTurn) {
+        nextTurn = game.currentTurn === "white" ? "black" : "white";
+      } else if (!nextTurn) {
+        nextTurn = "white";
+      }
+
       game.currentMove = nextMove.value;
       game.currentMoveIndex = nextMoveId;
       game.currentPosition = nextMove.value.position;
+      game.currentTurn = nextTurn as "white" | "black";
       game.validMoves = await getValidMoves(nextMove.value?.position?.fen);
 
       console.log("Current move:", game.currentMove);
@@ -143,9 +161,18 @@ export const useGamesStore = defineStore("games", {
           version: previousMove.version,
         };
 
+        // Try to get the turn from the FEN (that way we are positive it's correct)
+        let previousTurn = getTurnFromFen(previousMove.value.position.fen);
+        if (!previousTurn && game.currentTurn) {
+          previousTurn = game.currentTurn === "white" ? "black" : "white";
+        } else if (!previousTurn) {
+          previousTurn = "white";
+        }
+
         game.currentMove = previousMove.value;
         game.currentMoveIndex = previousMoveId;
         game.currentPosition = previousMove.value.position;
+        game.currentTurn = previousTurn as "white" | "black";
         game.validMoves = await getValidMoves(
           previousMove.value?.position?.fen
         );
@@ -170,12 +197,21 @@ export const useGamesStore = defineStore("games", {
         );
         if (!found_move || !found_move.value || !moveIndex) return;
 
+        // Try to get the turn from the FEN (that way we are positive it's correct)
+        let jumpTurn = getTurnFromFen(found_move.value.position.fen);
+        if (!jumpTurn) {
+          // Try to use the turn's ply to determine the turn
+          jumpTurn =
+            found_move.value.position.ply % 2 === 0 ? "white" : "black";
+        }
+
         game.game.move_tree.current_node_id = {
           idx: moveIndex,
           version: found_move.version,
         };
         game.currentMove = found_move.value;
         game.currentPosition = found_move.value?.position;
+        game.currentTurn = jumpTurn as "white" | "black";
         game.validMoves = await getValidMoves(found_move.value?.position?.fen);
       }
     },
