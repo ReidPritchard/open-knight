@@ -238,3 +238,105 @@ pub async fn load_moves_from_db(
         current_node_id: Some(root_id), // Or last position in the main line
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_pgn_tokens_simple_game() {
+        let tokens = vec![
+            PgnToken::MoveNumber(1),
+            PgnToken::Move("e4".to_string()),
+            PgnToken::Move("e5".to_string()),
+            PgnToken::MoveNumber(2),
+            PgnToken::Move("d4".to_string()),
+            PgnToken::Move("d5".to_string()),
+        ];
+
+        let mut tree = parse_pgn_tokens(1, ChessPosition::default(), &tokens).unwrap();
+        assert_eq!(tree.nodes.len(), 5);
+        // let serialized = serde_json::to_string(&tree).unwrap();
+        // println!("{}", serialized);
+        // assert_eq!(serialized, "{}");
+
+        let first_node = &tree.nodes[tree.current_node_id.unwrap()];
+        // Start position
+        assert_eq!(
+            first_node.position.fen,
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        );
+        // No move
+        assert!(first_node.game_move.is_none());
+
+        let second_node = &tree.nodes[first_node.children_ids[0]];
+        // e4
+        assert_eq!(second_node.game_move.as_ref().unwrap().san, "e4");
+        assert_eq!(second_node.game_move.as_ref().unwrap().uci, "e2e4");
+        assert_eq!(second_node.game_move.as_ref().unwrap().ply_number, 1);
+        assert_eq!(
+            second_node
+                .game_move
+                .as_ref()
+                .unwrap()
+                .position
+                .as_ref()
+                .unwrap()
+                .fen,
+            "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+        );
+
+        // traverse to the last node
+        for _ in 0..tree.nodes.len() {
+            tree.next_move(Some(0));
+        }
+
+        let last_node = &tree.nodes[tree.current_node_id.unwrap()];
+        assert_eq!(last_node.game_move.as_ref().unwrap().san, "d5");
+        assert_eq!(last_node.game_move.as_ref().unwrap().uci, "d7d5");
+        assert_eq!(last_node.game_move.as_ref().unwrap().ply_number, 4);
+    }
+
+    #[test]
+    fn parse_pgn_tokens_game_with_variations() {
+        // Tests a game with a move with a variation
+        // 1. a4 (a5) b4
+
+        let tokens = vec![
+            PgnToken::MoveNumber(1),
+            PgnToken::Move("a4".to_string()),
+            PgnToken::Variation(vec![PgnToken::Move("a5".to_string())]),
+            PgnToken::Move("b5".to_string()),
+        ];
+
+        let tree = parse_pgn_tokens(1, ChessPosition::default(), &tokens).unwrap();
+        assert_eq!(
+            tree.nodes.len(),
+            4,
+            "Tree should have 4 nodes (root + 3 moves)"
+        );
+
+        // Root node
+        let first_node = &tree.nodes[tree.current_node_id.unwrap()];
+        assert!(first_node.game_move.is_none());
+
+        // First move (a4)
+        let second_node = &tree.nodes[first_node.children_ids[0]];
+        assert_eq!(second_node.game_move.as_ref().unwrap().san, "a4");
+        assert_eq!(second_node.game_move.as_ref().unwrap().uci, "a2a4");
+        assert_eq!(second_node.game_move.as_ref().unwrap().ply_number, 1);
+        assert_eq!(second_node.children_ids.len(), 2); // a4 has 2 variations/next moves
+
+        // First variation (a5)
+        let third_node = &tree.nodes[second_node.children_ids[0]];
+        assert_eq!(third_node.game_move.as_ref().unwrap().san, "a5");
+        assert_eq!(third_node.game_move.as_ref().unwrap().uci, "a7a5");
+        assert_eq!(third_node.game_move.as_ref().unwrap().ply_number, 2);
+
+        // Second variation (b4)
+        let fourth_node = &tree.nodes[second_node.children_ids[1]];
+        assert_eq!(fourth_node.game_move.as_ref().unwrap().san, "b5");
+        assert_eq!(fourth_node.game_move.as_ref().unwrap().uci, "b7b5");
+        assert_eq!(fourth_node.game_move.as_ref().unwrap().ply_number, 2);
+    }
+}
