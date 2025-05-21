@@ -318,9 +318,7 @@ impl ChessGame {
                     .collect::<Vec<_>>();
 
                 if !moves.is_empty() {
-                    // TODO: Handle variant
-                    let root_position = ChessPosition::from_fen(game.fen.clone(), None).unwrap();
-                    ChessMove::save_moves(&db, &moves, Some(root_position.into())).await?;
+                    ChessMove::save_moves(&db, &moves).await?;
                 }
 
                 Ok::<_, Box<dyn Error + Send + Sync>>(game)

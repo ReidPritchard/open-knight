@@ -17,16 +17,18 @@
           :row="row - 1"
           :col="col - 1"
           :square-size="squareSizePixels"
-          :piece="getPieceAt(8 - row, col - 1)"
-          :piece-image="getPieceImage(getPieceAt(8 - row, col - 1) ?? '')"
-          :can-move="canMovePiece(8 - row, col - 1)"
-          :is-selected="isSquareSelected(8 - row, col - 1)"
-          :is-valid-move="isValidMoveTarget(8 - row, col - 1)"
+          :piece="getPieceAtCoords(row - 1, col - 1)"
+          :piece-image="
+            getPieceImagePath(getPieceAtCoords(row - 1, col - 1) ?? '')
+          "
+          :can-move="canMovePiece(row - 1, col - 1)"
+          :is-selected="isSquareSelected(row - 1, col - 1)"
+          :is-valid-move="isValidMoveTarget(row - 1, col - 1)"
           :is-highlighted="isPartOfCurrentMove(row - 1, col - 1)"
           :is-board-flipped="isBoardFlipped"
           :board-theme="boardTheme"
           :class="{ 'rotate-180': isBoardFlipped, 'rotate-0': !isBoardFlipped }"
-          @drop="handleDrop(8 - row, col - 1)"
+          @drop="handleDrop(row - 1, col - 1)"
           @click="handleSquareClick($event, row - 1, col - 1)"
           @drag-start="handleDragStart(row - 1, col - 1)"
         />
@@ -158,6 +160,9 @@ const validPieceMoves = ref<Array<{ row: number; col: number }>>([]);
 
 // Valid moves cache
 // Key format: "row,col" where row and col are 0-based indices
+// FIXME: This pattern of updating the position, fetching valid moves, and then
+// creating a map/cache of valid moves is not great. It's probably worth revisiting
+// and redesigning to avoid async race conditions or unnecessary re-renders.
 const validPositionMoves = ref<
   Record<string, Array<{ row: number; col: number }>>
 >({});
@@ -182,65 +187,70 @@ const currentPositionParsed = computed(() =>
 // ---------------
 
 /**
- * Gets a piece at the specified board coordinates
- * @param row 0-based row index (0-7)
- * @param col 0-based column index (0-7)
+ * Gets a piece at the specified coordinates
+ * @param row 0-based row index (0-7, 0 = top)
+ * @param col 0-based column index (0-7, 0 = left)
  * @returns The piece at the specified position, or undefined if none
  */
-function getPieceAt(row: number, col: number) {
+function getPieceAtCoords(row: number, col: number) {
   const board = currentPositionParsed.value;
   if (!board) return undefined;
 
-  // Access the board array directly with 0-based coordinates
+  // Access the board array directly with coordinates
   const piece = board[row]?.[col];
   return isValidPiece(piece) ? piece : undefined;
 }
 
-function getPieceImage(piece: string) {
-  return getPieceImagePath(piece);
-}
-
-function isSquareSelected(row: number, col: number) {
-  return selectedPiece.value?.row === row && selectedPiece.value?.col === col;
-}
-
-function isValidMoveTarget(row: number, col: number) {
-  return validPieceMoves.value.some(
-    (move) => move.row === row && move.col === col
-  );
-}
-
+/**
+ * Checks if a piece at the specified coordinates can be moved
+ * @param row 0-based row index (0-7, 0 = top)
+ * @param col 0-based column index (0-7, 0 = left)
+ * @returns True if the piece can be moved, false otherwise
+ */
 function canMovePiece(row: number, col: number) {
   // Check if it's the player's turn
-  const piece = getPieceAt(row, col);
+  const piece = getPieceAtCoords(row, col);
   if (!piece) return false;
 
   const isWhite = isWhitePiece(piece);
   const isWhiteTurn = currentTurn.value === "white";
 
   if (isWhite !== isWhiteTurn) {
-    console.log("Not your turn:", piece, "from", row, col);
     return false;
   }
 
   // Check if the piece has valid moves
   const positionMoves = validPositionMoves.value[`${row},${col}`] || [];
-  const canMove = positionMoves.length > 0;
+  return positionMoves.length > 0;
+}
 
-  if (canMove) {
-    console.log("Can move:", piece, "from", row, col, "to", positionMoves);
-  } else {
-    console.log("Cannot move:", piece);
-    console.log(validPositionMoves.value);
-  }
+/**
+ * Checks if a square is currently selected
+ * @param row 0-based row index (0-7, 0 = top)
+ * @param col 0-based column index (0-7, 0 = left)
+ * @returns True if the square is selected, false otherwise
+ */
+function isSquareSelected(row: number, col: number) {
+  if (!selectedPiece.value) return false;
+  return selectedPiece.value.row === row && selectedPiece.value.col === col;
+}
 
-  return canMove;
+/**
+ * Checks if a square is a valid move target for the selected piece
+ * @param row 0-based row index (0-7, 0 = top)
+ * @param col 0-based column index (0-7, 0 = left)
+ * @returns True if the square is a valid move target, false otherwise
+ */
+function isValidMoveTarget(row: number, col: number) {
+  return validPieceMoves.value.some(
+    (move) => move.row === row && move.col === col
+  );
 }
 
 /**
  * Checks if the current square is part of the current move
- * @param row 0-based row index, rendered coordinate (not board coordinates)
- * @param col 0-based column index
+ * @param row 0-based row index (0-7, 0 = top)
+ * @param col 0-based column index (0-7, 0 = left)
  * @returns True if the square is part of the current move, false otherwise
  */
 function isPartOfCurrentMove(row: number, col: number) {
@@ -283,17 +293,23 @@ const arrowCoordinates = computed(() => {
   if (!validArrows.length || !validArrows[0].arrows) return null;
 
   const { arrows } = validArrows[0];
-  // Calculate the square centers based on the current board orientation
+
+  // Convert algebraic notation to coordinates
+  const fromCoords = algebraicToBoard(arrows.from);
+  const toCoords = algebraicToBoard(arrows.to);
+
+  // For visual elements like arrows, we need to consider board rotation
+  // since the actual pixel positions change when the board is flipped
   return {
     from: calculateSquareCenter(
-      algebraicToBoard(arrows.from).col,
-      algebraicToBoard(arrows.from).row,
+      fromCoords.col,
+      fromCoords.row,
       squareSizePixels.value,
       isBoardFlipped.value
     ),
     to: calculateSquareCenter(
-      algebraicToBoard(arrows.to).col,
-      algebraicToBoard(arrows.to).row,
+      toCoords.col,
+      toCoords.row,
       squareSizePixels.value,
       isBoardFlipped.value
     ),
@@ -304,10 +320,10 @@ const arrowCoordinates = computed(() => {
 // Move handling
 // ---------------
 async function getValidMoves(row: number, col: number) {
-  const piece = getPieceAt(row, col);
+  const piece = getPieceAtCoords(row, col);
   if (!piece) return [];
 
-  // Check cache first using 0-based coordinates
+  // Check cache first using coordinates
   const cacheKey = `${row},${col}`;
   if (validPositionMoves.value[cacheKey]) {
     return validPositionMoves.value[cacheKey];
@@ -324,20 +340,30 @@ async function fetchValidMoves() {
     validPositionMoves.value = moves.reduce((acc, move) => {
       const { from, to } = parseUciMove(move.uci);
 
-      // Convert algebraic notation to board coordinates
-      const fromCoords = algebraicToBoard(from);
-      const toCoords = algebraicToBoard(to);
+      // Convert algebraic notation to coordinates
+      const { row: fromRow, col: fromCol } = algebraicToBoard(from);
+      const { row: toRow, col: toCol } = algebraicToBoard(to);
 
-      // Create a cache entry using 0-based coordinates
-      const fromKey = `${fromCoords.row},${fromCoords.col}`;
+      // Create a cache entry using coordinates
+      const fromKey = `${fromRow},${fromCol}`;
 
       // Create the key if it doesn't exist
       acc[fromKey] = acc[fromKey] || [];
 
       // Add the move to the key
-      acc[fromKey].push({ row: toCoords.row, col: toCoords.col });
+      acc[fromKey].push({ row: toRow, col: toCol });
       return acc;
     }, {} as Record<string, Array<{ row: number; col: number }>>);
+
+    // Log the cache (for debugging)
+    console.group("Valid moves cache");
+    for (const key in validPositionMoves.value) {
+      const [row, col] = key.split(",").map(Number);
+      console.log(
+        `${boardToAlgebraic(row, col)}: ${validPositionMoves.value[key].length}`
+      );
+    }
+    console.groupEnd();
   } catch (error) {
     emit("error", error instanceof Error ? error : new Error(String(error)));
   }
@@ -352,9 +378,12 @@ async function handleDragStart(row: number, col: number) {
 }
 
 async function handleDrop(row: number, col: number) {
-  if (!selectedPiece.value || !isValidMoveTarget(row, col)) return;
+  if (!selectedPiece.value) return;
 
-  // Convert board coordinates to algebraic notation
+  // Check if the move is valid
+  if (!isValidMoveTarget(row, col)) return;
+
+  // Convert coordinates to algebraic notation
   const fromSquare = boardToAlgebraic(
     selectedPiece.value.row,
     selectedPiece.value.col
@@ -377,8 +406,8 @@ async function handleDrop(row: number, col: number) {
 /**
  * Handles a click on a square
  * @param event The mouse event
- * @param row The row of the square visual coordinates (0-7)
- * @param col The column of the square visual coordinates (0-7)
+ * @param row The row of the square (0-7, 0 = top)
+ * @param col The column of the square (0-7, 0 = left)
  */
 async function handleSquareClick(event: MouseEvent, row: number, col: number) {
   event.preventDefault();
@@ -388,32 +417,15 @@ async function handleSquareClick(event: MouseEvent, row: number, col: number) {
     return;
   }
 
-  // Handle normal piece selection/move
+  const piece = getPieceAtCoords(row, col);
 
-  // convert visual coordinates to board coordinates
-  const boardRow = 7 - row;
-  const boardCol = col;
-
-  const piece = getPieceAt(boardRow, boardCol);
-
-  if (selectedPiece.value && isValidMoveTarget(boardRow, boardCol)) {
-    const fromNotation = boardToAlgebraic(
-      7 - selectedPiece.value.row,
-      selectedPiece.value.col
-    );
-    const toNotation = boardToAlgebraic(boardRow - 1, boardCol);
-    console.log("Move:", fromNotation, "->", toNotation);
-
+  if (selectedPiece.value && isValidMoveTarget(row, col)) {
     // Move the selected piece to this square
-    await handleDrop(boardRow, boardCol);
-  } else if (
-    piece &&
-    canMovePiece(boardRow, boardCol) &&
-    !isSquareSelected(boardRow, boardCol)
-  ) {
+    await handleDrop(row, col);
+  } else if (piece && canMovePiece(row, col) && !isSquareSelected(row, col)) {
     // Select this piece
-    selectedPiece.value = { row: boardRow, col: boardCol };
-    validPieceMoves.value = await getValidMoves(boardRow, boardCol);
+    selectedPiece.value = { row, col };
+    validPieceMoves.value = await getValidMoves(row, col);
   } else {
     // Deselect
     selectedPiece.value = null;

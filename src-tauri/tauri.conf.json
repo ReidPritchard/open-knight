@@ -22,8 +22,7 @@
         "center": true,
         "theme": "Dark",
         "zoomHotkeysEnabled": false,
-        "decorations": true,
-        "titleBarStyle": "Overlay"
+        "decorations": true
       }
     ],
     "security": {

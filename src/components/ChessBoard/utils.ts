@@ -34,48 +34,49 @@ export const isValidPiece = (piece: string | undefined): boolean => {
 };
 
 /**
- * Converts algebraic notation (e.g., "e4") to board coordinates
+ * Converts algebraic notation (e.g., "e4") to screen/board coordinates
+ * Coordinates use 0-7 for both row and column, with (0,0) at top-left (a8)
  * @param square The algebraic notation of the square
- * @returns Object with x (0-7) and y (0-7) coordinates
+ * @returns Object with screen/board coordinates (row, col)
  */
 export const algebraicToBoard = (
   square: string
-): { col: number; row: number } => {
+): { row: number; col: number } => {
   return {
     col: square.charCodeAt(0) - 97, // 'a' = 0, 'b' = 1, etc.
-    row: 8 - Number.parseInt(square.charAt(1), 10), // '1' = 7, '2' = 6, etc.
+    row: 8 - Number.parseInt(square.charAt(1), 10), // '8' = 0, '7' = 1, etc.
   };
 };
 
 /**
- * Converts board coordinates to algebraic notation
- * @param x File index (0-7)
- * @param y Rank index (0-7)
+ * Converts screen/board coordinates to algebraic notation
+ * @param row Screen/board row (0-7, 0 = top)
+ * @param col Screen/board column (0-7, 0 = left)
  * @returns The algebraic notation of the square (e.g., "e4")
  */
-export const boardToAlgebraic = (x: number, y: number): string => {
-  return `${String.fromCharCode(97 + x)}${8 - y}`;
+export const boardToAlgebraic = (row: number, col: number): string => {
+  return `${String.fromCharCode(97 + col)}${8 - row}`;
 };
 
 /**
  * Calculates pixel coordinates for the center of a square
- * @param file File index (0-7)
- * @param rank Rank index (1-8)
+ * @param col Column index (0-7)
+ * @param row Row index (0-7)
  * @param squareSize Size of each square in pixels
  * @param isRotated Whether the board is rotated (white on top)
  * @returns Object with x and y pixel coordinates
  */
 export const calculateSquareCenter = (
-  file: number,
-  rank: number,
+  col: number,
+  row: number,
   squareSize: number,
   isRotated: boolean
 ): { x: number; y: number } => {
   const boardSize = squareSize * 8;
   const centerOffset = squareSize / 2;
 
-  let x = file * squareSize + centerOffset;
-  let y = (8 - rank) * squareSize + centerOffset;
+  let x = col * squareSize + centerOffset;
+  let y = row * squareSize + centerOffset; // Simplified: row directly maps to y-coordinate
 
   if (isRotated) {
     x = boardSize - x;
@@ -109,7 +110,7 @@ export const parseUciMove = (move: string): { from: string; to: string } => {
 /**
  * Parses a FEN string into a board state
  * @param fen The FEN string
- * @returns The board state
+ * @returns The board state, with 0,0 being a8 (top-left) and 7,7 being h1 (bottom-right)
  */
 export const parseFen = (fen: string): BoardState => {
   // Get the board part of the FEN (before the first space)
@@ -134,7 +135,7 @@ export const parseFen = (fen: string): BoardState => {
         rowSquares.push(char);
       }
     }
-    parsedBoard.unshift(rowSquares); // Add each row to the beginning instead of the end
+    parsedBoard.push(rowSquares); // Add each row directly (no need to reverse)
   }
 
   return parsedBoard;
@@ -144,41 +145,7 @@ export type BoardState = string[][];
 
 /**
  * Check if a piece is white
+ * @param piece Chess piece character
+ * @returns True if the piece is white (uppercase)
  */
 export const isWhitePiece = (piece: string) => piece === piece.toUpperCase();
-
-/**
- * Convert board coordinates to screen coordinates, accounting for board orientation
- * @param row Board row (0-7, 0 = top row)
- * @param col Board column (0-7, 0 = leftmost column)
- * @param isFlipped Whether the board is visually flipped
- * @returns Screen coordinates (after accounting for board orientation)
- */
-export const boardToScreen = (
-  row: number,
-  col: number,
-  isFlipped: boolean
-): { row: number; col: number } => {
-  if (isFlipped) {
-    return { row: 7 - row, col: 7 - col };
-  }
-  return { row, col };
-};
-
-/**
- * Convert screen coordinates to board coordinates, accounting for board orientation
- * @param row Screen row (0-7)
- * @param col Screen column (0-7)
- * @param isFlipped Whether the board is visually flipped
- * @returns Board coordinates (logical position in the board array)
- */
-export const screenToBoard = (
-  row: number,
-  col: number,
-  isFlipped: boolean
-): { row: number; col: number } => {
-  if (isFlipped) {
-    return { row: 7 - row, col: 7 - col };
-  }
-  return { row, col };
-};

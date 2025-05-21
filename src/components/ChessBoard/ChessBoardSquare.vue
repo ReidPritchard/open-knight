@@ -49,8 +49,8 @@ import type { BoardTheme } from "../../shared/types";
 import { boardToAlgebraic } from "./utils";
 
 const props = defineProps<{
-  row: number;
-  col: number;
+  row: number; // Row (0-7, 0 = top)
+  col: number; // Column (0-7, 0 = left)
   squareSize: number;
   piece?: string;
   pieceImage?: string;
@@ -86,11 +86,14 @@ const shouldDisplayCoordinate = computed(() => {
  */
 const coordinateText = computed(() => {
   if (!props.boardTheme.displayCoordinates) return "";
+
   const algebraic = boardToAlgebraic(props.row, props.col);
   const file = algebraic[0];
   const rank = algebraic[1];
+
   const isBottomRow = props.isBoardFlipped ? props.row === 0 : props.row === 7;
   const isLeftCol = props.isBoardFlipped ? props.col === 7 : props.col === 0;
+
   if (isBottomRow && isLeftCol) return algebraic;
   if (isBottomRow) return file;
   if (isLeftCol) return rank;

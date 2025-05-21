@@ -260,26 +260,48 @@ impl ChessMove {
     pub async fn save_moves(
         db: &DatabaseConnection,
         moves: &[ChessMove],
-        starting_pos: Option<Chess>,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let mut pos = starting_pos.unwrap_or_else(Chess::default);
         let mut parent_move_id = None;
 
         for chess_move in moves {
-            // Generate the actual UCI
-            let uci = generate_uci(&chess_move.san, &pos).unwrap();
+            // Get position_id from the move's position
+            let position_id = if let Some(position) = &chess_move.position {
+                let fen = &position.fen;
+                let fen_hash = hash_fen(fen);
 
-            // Generate and save position
-            let (position_id, new_pos) =
-                Self::generate_and_save_position(db, &chess_move.san, &pos).await?;
-            pos = new_pos;
+                // Check if position already exists
+                use sea_orm::ColumnTrait;
+                use sea_orm::QueryFilter;
+                let existing_position = position::Entity::find()
+                    .filter(position::Column::FenHash.eq(&fen_hash))
+                    .one(db)
+                    .await?;
+
+                let position_id = if let Some(existing_pos) = existing_position {
+                    existing_pos.position_id
+                } else {
+                    // Save new position if it doesn't exist
+                    let pos_model = position::ActiveModel {
+                        fen: Set(fen.clone()),
+                        fen_hash: Set(fen_hash),
+                        created_at: Set(Some(chrono::Utc::now())),
+                        ..Default::default()
+                    };
+                    let result = position::Entity::insert(pos_model).exec(db).await?;
+                    result.last_insert_id
+                };
+
+                Some(position_id)
+            } else {
+                None
+            };
 
             // Save the move
             let move_model = r#move::ActiveModel {
                 game_id: Set(chess_move.game_id),
                 ply_number: Set(chess_move.ply_number),
                 san: Set(chess_move.san.clone()),
-                uci: Set(uci),
+                uci: Set(chess_move.uci.clone()),
                 position_id: Set(position_id.unwrap_or(0)),
                 parent_move_id: Set(parent_move_id),
                 created_at: Set(Some(chrono::Utc::now())),

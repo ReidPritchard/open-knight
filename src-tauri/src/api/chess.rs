@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use shakmaty::san::San;
 use shakmaty::{fen::Fen, CastlingMode, Chess, Position};
 use ts_rs::TS;
 
@@ -23,7 +24,7 @@ pub fn get_legal_moves(fen: &str) -> Result<Vec<LegalMove>, Box<dyn std::error::
     let moves = legal_moves
         .into_iter()
         .map(|m| LegalMove {
-            san: m.to_string(),
+            san: San::from_move(&position, &m).to_string(),
             uci: m.to_uci(shakmaty::CastlingMode::Standard).to_string(),
         })
         .collect();
