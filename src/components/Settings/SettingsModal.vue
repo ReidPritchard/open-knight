@@ -1,8 +1,15 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { useGlobalStore } from "../../stores";
-import { useSettingsStore } from "../../stores/settings";
-import type { Hotkey } from "../../stores/settings";
+import { PhMoon, PhSun } from "@phosphor-icons/vue";
+import { computed, ref } from "vue";
+import {
+  type DarkUITheme,
+  type LightUITheme,
+  type UITheme,
+  darkUIThemes,
+  lightUIThemes,
+} from "../../shared/themes";
+import { type Hotkey, useSettingsStore } from "../../stores/settings";
+import { useUIStore } from "../../stores/ui";
 
 defineProps<{
   isOpen: boolean;
@@ -11,9 +18,33 @@ defineProps<{
 const emit = defineEmits(["close"]);
 
 const settingsStore = useSettingsStore();
-const globalStore = useGlobalStore();
+const uiStore = useUIStore();
 const editingHotkey = ref<string | null>(null);
 const newKey = ref<Partial<Omit<Hotkey, "id" | "callback">> | null>(null);
+
+// Computed properties for theme settings
+const isDarkMode = computed(() =>
+  darkUIThemes.includes(uiStore.theme as DarkUITheme)
+);
+
+const availableThemes = computed(() =>
+  isDarkMode.value ? darkUIThemes : lightUIThemes
+);
+
+const selectedTheme = computed({
+  get: () => uiStore.theme,
+  set: (value) => uiStore.setTheme(value as UITheme),
+});
+
+const defaultLightTheme = computed({
+  get: () => uiStore.defaultLightTheme,
+  set: (value) => uiStore.setDefaultTheme(value as LightUITheme),
+});
+
+const defaultDarkTheme = computed({
+  get: () => uiStore.defaultDarkTheme,
+  set: (value) => uiStore.setDefaultTheme(value as DarkUITheme),
+});
 
 const startEditing = (hotkeyId: string) => {
   editingHotkey.value = hotkeyId;
@@ -60,9 +91,78 @@ const handleKeyPress = (e: KeyboardEvent) => {
   <dialog :class="{ modal: true, 'modal-open': isOpen }">
     <div class="modal-box">
       <div role="tablist" class="tabs tabs-border">
-        <input type="radio" name="settings" class="tab" aria-label="UI" />
+        <input
+          type="radio"
+          name="settings"
+          class="tab"
+          aria-label="UI"
+          checked
+        />
         <div class="tab-content border-base-300 bg-base-100 p-10">
-          <h3 class="font-bold text-lg mb-4">UI</h3>
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend">Light/Dark Mode</legend>
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <label class="flex cursor-pointer gap-2">
+                  <PhSun size="20" />
+                  <input
+                    type="checkbox"
+                    class="toggle theme-controller"
+                    v-model="isDarkMode"
+                    @change="uiStore.toggleTheme()"
+                  />
+                  <PhMoon size="20" />
+                </label>
+              </label>
+            </div>
+
+            <legend class="fieldset-legend">Current Theme</legend>
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <select class="select" v-model="selectedTheme">
+                  <option
+                    v-for="theme in availableThemes"
+                    :key="theme"
+                    :value="theme"
+                  >
+                    {{ theme }}
+                  </option>
+                </select>
+              </label>
+            </div>
+
+            <legend class="fieldset-legend">Default Light Theme</legend>
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <select class="select" v-model="defaultLightTheme">
+                  <option
+                    v-for="theme in lightUIThemes"
+                    :key="theme"
+                    :value="theme"
+                  >
+                    {{ theme }}
+                  </option>
+                </select>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend">Default Dark Theme</legend>
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <select class="select" v-model="defaultDarkTheme">
+                  <option
+                    v-for="theme in darkUIThemes"
+                    :key="theme"
+                    :value="theme"
+                  >
+                    {{ theme }}
+                  </option>
+                </select>
+              </label>
+            </div>
+          </fieldset>
         </div>
 
         <input
@@ -72,8 +172,6 @@ const handleKeyPress = (e: KeyboardEvent) => {
           aria-label="Shortcuts"
         />
         <div class="tab-content border-base-300 bg-base-100 p-10">
-          <h3 class="font-bold text-lg mb-4">Keyboard Shortcuts</h3>
-
           <div class="overflow-x-auto">
             <table class="table">
               <thead>

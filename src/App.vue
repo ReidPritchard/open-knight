@@ -70,9 +70,7 @@ provide("mirrored", false);
 <template>
   <div class="flex flex-col h-screen w-screen">
     <header>
-      <div
-        class="navbar bg-base-100 text-blue-900 dark:text-blue-100 dark:bg-blue-900"
-      >
+      <div class="navbar bg-base-100 text-primary">
         <div class="navbar-start">
           <div class="dropdown">
             <div tabindex="0" role="button" class="btn btn-ghost btn-circle">

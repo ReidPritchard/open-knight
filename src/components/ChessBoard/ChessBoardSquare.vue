@@ -36,7 +36,7 @@
     <!-- Coordinates -->
     <div
       v-if="shouldDisplayCoordinate"
-      class="absolute bottom-0 left-1 text-xs text-white/40 font-bold z-0"
+      class="absolute bottom-0 left-1 text-xs text-base-content/80 font-bold z-0"
     >
       {{ coordinateText }}
     </div>
@@ -45,7 +45,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import type { BoardTheme } from "../../shared/types";
+import type { BoardTheme } from "../../shared/themes";
 import { boardToAlgebraic } from "./utils";
 
 const props = defineProps<{

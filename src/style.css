@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
-@plugin 'daisyui';
-
-@custom-variant dark (&:where(.dark, .dark *));
+@plugin "daisyui" {
+  /* biome-ignore lint/correctness/noUnknownProperty: daisyui plugin */
+  themes: all;
+}
 
 /*
   The default border color has changed to `currentcolor` in Tailwind CSS v4,

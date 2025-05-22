@@ -1,19 +1,37 @@
 import { defineStore } from "pinia";
-import type { BoardTheme } from "../shared/types";
+import {
+  type BoardTheme,
+  BoardThemes,
+  type DarkUITheme,
+  type LightUITheme,
+  type UITheme,
+  UIThemes,
+  darkUIThemes,
+  lightUIThemes,
+} from "../shared/themes";
 
-function getDefaultTheme(): "light" | "dark" {
+const defaultLightThemeKey = "defaultLightTheme";
+const defaultDarkThemeKey = "defaultDarkTheme";
+
+function getDefaultTheme(): UITheme {
   const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-  // Set the theme in localStorage
-  localStorage.setItem("theme", isDark ? "dark" : "light");
-  // Set the class on the document element
-  if (isDark) {
-    document.documentElement.classList.add("dark");
-  } else {
-    document.documentElement.classList.remove("dark");
-  }
+  const defaultTheme = isDark
+    ? localStorage.getItem(defaultDarkThemeKey) ?? "dark"
+    : localStorage.getItem(defaultLightThemeKey) ?? "light";
 
-  return isDark ? "dark" : "light";
+  // Set the theme in localStorage
+  localStorage.setItem("theme", defaultTheme);
+
+  // Update the document class
+  document.documentElement.dataset.theme = defaultTheme;
+
+  return defaultTheme as UITheme;
+}
+
+function getDefaultBoardTheme(): BoardTheme {
+  const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  return isDark ? BoardThemes.dark : BoardThemes.light;
 }
 
 export const useUIStore = defineStore("ui", {
@@ -26,12 +44,12 @@ export const useUIStore = defineStore("ui", {
       "Result",
       "Opening",
     ] as string[],
-    theme: getDefaultTheme() as "light" | "dark",
-    boardTheme: {
-      lightSquare: "#f0d9b5",
-      darkSquare: "#b58969",
-      displayCoordinates: true,
-    } as BoardTheme,
+    theme: getDefaultTheme(),
+    defaultLightTheme: (localStorage.getItem(defaultLightThemeKey) ??
+      "light") as LightUITheme,
+    defaultDarkTheme: (localStorage.getItem(defaultDarkThemeKey) ??
+      "dark") as DarkUITheme,
+    boardTheme: getDefaultBoardTheme(),
     boardSquareSize: 64,
 
     /**
@@ -98,26 +116,63 @@ export const useUIStore = defineStore("ui", {
   },
 
   actions: {
+    /**
+     * Toggle between light and dark theme
+     *
+     * The theme set is the default light/dark theme
+     */
     toggleTheme() {
-      const newTheme = this.theme === "light" ? "dark" : "light";
+      // Check if the current theme is light or dark
+      const isDark = darkUIThemes.includes(this.theme as DarkUITheme);
 
-      // Set the theme in localStorage
-      localStorage.setItem("theme", newTheme);
-      // Set the class on the document element
-      if (newTheme === "dark") {
-        document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.remove("dark");
-      }
+      // Toggle the theme
+      const newTheme = isDark ? this.defaultLightTheme : this.defaultDarkTheme;
 
-      this.theme = newTheme;
+      this.setTheme(newTheme);
     },
 
-    updateBoardTheme(theme: {
-      lightSquare: string;
-      darkSquare: string;
-      displayCoordinates: boolean;
-    }) {
+    setTheme(theme: UITheme) {
+      if (!UIThemes.includes(theme)) {
+        throw new Error(`Invalid theme: ${theme}`);
+      }
+
+      this.theme = theme;
+
+      // Set the theme in localStorage
+      localStorage.setItem("theme", theme);
+
+      // Update the DOM
+      document.documentElement.dataset.theme = theme;
+
+      // Update the board theme
+      const isDark = darkUIThemes.includes(theme as DarkUITheme);
+      this.boardTheme = isDark ? BoardThemes.dark : BoardThemes.light;
+    },
+
+    setDefaultTheme(theme: LightUITheme | DarkUITheme) {
+      const isDark = darkUIThemes.includes(theme as DarkUITheme);
+      const type = isDark ? "dark" : "light";
+
+      if (type === "light") {
+        if (!lightUIThemes.includes(theme as LightUITheme)) {
+          throw new Error(`Invalid light theme: ${theme}`);
+        }
+        this.defaultLightTheme = theme as LightUITheme;
+      } else {
+        if (!darkUIThemes.includes(theme as DarkUITheme)) {
+          throw new Error(`Invalid dark theme: ${theme}`);
+        }
+        this.defaultDarkTheme = theme as DarkUITheme;
+      }
+
+      // Save the default theme to localStorage
+      localStorage.setItem(
+        type === "light" ? defaultLightThemeKey : defaultDarkThemeKey,
+        theme
+      );
+    },
+
+    updateBoardTheme(theme: BoardTheme) {
       this.boardTheme = theme;
     },
 

@@ -5,12 +5,9 @@ import type { ChessGame, LegalMove } from "./bindings";
 // Application UI Interfaces
 ////////////////////////////////////////////////////////////
 
-export interface BoardTheme {
-  lightSquare: string;
-  darkSquare: string;
-  displayCoordinates: boolean;
-  // TODO: Add more options (piece set, display valid moves, etc.)
-}
+// Moved to `themes.ts` as it was only theme related,
+// generally types/constants could use some better organization
+// but that's a 'todo' for another day
 
 ////////////////////////////////////////////////////////////
 // Application Interfaces

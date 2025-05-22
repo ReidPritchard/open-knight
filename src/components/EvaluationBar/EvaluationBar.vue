@@ -9,7 +9,7 @@
     <!-- White advantage bar (fills from left/bottom) -->
     <div
       :class="[
-        'absolute bg-blue-500',
+        'absolute bg-primary',
         direction === 'horizontal' ? 'h-full left-1/2' : 'w-full bottom-1/2',
       ]"
       :style="whiteBarStyle"
@@ -18,7 +18,7 @@
     <!-- Black advantage bar (fills from right/top) -->
     <div
       :class="[
-        'absolute bg-orange-500',
+        'absolute bg-secondary',
         direction === 'horizontal' ? 'h-full right-1/2' : 'w-full top-1/2',
       ]"
       :style="blackBarStyle"
