@@ -52,7 +52,7 @@ onMounted(() => {
 
 // Setup default styles for Phosphor icons
 provide("color", "currentColor");
-provide("size", 30);
+provide("size", 25);
 provide("weight", "bold");
 provide("mirrored", false);
 </script>

@@ -1,98 +1,74 @@
 <template>
   <header>
-    <div class="navbar bg-base-200 text-primary">
+    <div class="navbar bg-base-200 text-base-content">
       <div class="navbar-start">
         <div class="dropdown">
-          <div tabindex="0" role="button" class="btn btn-ghost btn-circle">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 6h16M4 12h16M4 18h7"
-              />
-            </svg>
+          <div
+            tabindex="0"
+            role="button"
+            class="btn btn-circle text-base-content"
+          >
+            <PhList />
           </div>
           <ul
             tabindex="0"
-            class="menu menu-sm dropdown-content bg-base-100 rounded-box z-1000 mt-3 w-52 p-2 shadow-sm"
+            class="menu menu-sm dropdown-content bg-base-100 rounded-box z-1000 mt-3 w-52 p-2 shadow-sm gap-1 text-base-content"
           >
             <li>
-              <button class="btn btn-ghost">
-                <span class="material-symbols-outlined"> home </span>
-              </button>
-            </li>
-            <li>
-              <button class="btn btn-ghost" @click="toggleGameLibraryView">
-                <span
-                  class="material-symbols-outlined"
-                  :class="{ 'text-primary': displayGameLibrary }"
-                >
-                  explore
-                </span>
+              <button
+                class="btn"
+                :class="{
+                  'btn-active': displayGameLibrary,
+                }"
+                @click="toggleGameLibraryView"
+              >
+                <span> explore </span>
               </button>
             </li>
             <li>
               <button
-                class="btn btn-ghost"
+                class="btn"
                 @click="toggleMoveTreeView"
-                :class="{ 'text-primary': displayMoveTree }"
+                :class="{ 'btn-active': displayMoveTree }"
               >
                 move tree
               </button>
             </li>
             <li>
-              <button class="btn btn-ghost" @click="importModalOpen = true">
-                <span class="material-symbols-outlined"> import </span>
+              <button
+                class="btn"
+                @click="importModalOpen = true"
+                :class="{ 'btn-active': importModalOpen }"
+              >
+                <span> import </span>
               </button>
             </li>
             <li>
-              <button class="btn btn-ghost" @click="refreshGamesClick">
-                <span class="material-symbols-outlined"> refresh </span>
+              <button class="btn" @click="refreshGamesClick">
+                <span> refresh </span>
               </button>
             </li>
             <li>
-              <button class="btn btn-ghost" @click="resetDatabaseClick">
-                <span class="material-symbols-outlined"> reset database </span>
+              <button class="btn" @click="resetDatabaseClick">
+                <span> reset database </span>
               </button>
             </li>
             <li>
-              <button class="btn btn-ghost" @click="openSettingsModal">
-                <span class="material-symbols-outlined"> settings </span>
+              <button class="btn" @click="openSettingsModal">
+                <span> settings </span>
               </button>
             </li>
           </ul>
         </div>
       </div>
       <div class="navbar-center">
-        <a class="btn btn-ghost text-xl"> Open Knight </a>
+        <h1 class="text-xl font-bold text-base-content cursor-default">
+          Open Knight
+        </h1>
       </div>
       <div class="navbar-end">
-        <button
-          class="btn btn-ghost btn-circle"
-          @click="toggleEngineView"
-          :class="{ 'text-primary': displayEngineView }"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
+        <button class="btn btn-circle" @click="toggleEngineView">
+          <PhMagnifyingGlass />
         </button>
       </div>
     </div>
@@ -100,6 +76,7 @@
 </template>
 
 <script setup lang="ts">
+import { PhList, PhMagnifyingGlass } from "@phosphor-icons/vue";
 import { computed } from "vue";
 import { useGlobalStore } from "../../stores";
 
