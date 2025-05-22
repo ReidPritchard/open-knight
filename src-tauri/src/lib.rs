@@ -27,6 +27,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // Database commands
             api::command::import_pgn_games,
+            api::command::new_game,
             api::command::empty_db,
             api::command::query_games,
             api::command::query_entities,

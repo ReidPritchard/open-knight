@@ -60,6 +60,10 @@
             </li>
           </ul>
         </div>
+
+        <button class="btn" @click="newGameClick">
+          <PhPlus />
+        </button>
       </div>
       <div class="navbar-center">
         <h1 class="text-xl font-bold text-base-content cursor-default">
@@ -76,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { PhList, PhMagnifyingGlass } from "@phosphor-icons/vue";
+import { PhList, PhMagnifyingGlass, PhPlus } from "@phosphor-icons/vue";
 import { computed } from "vue";
 import { useGlobalStore } from "../../stores";
 
@@ -88,6 +92,7 @@ const emit = defineEmits<{
   (e: "update:importModalOpen", value: boolean): void;
   (e: "refreshGames"): void;
   (e: "resetDatabase"): void;
+  (e: "newGame"): void;
 }>();
 
 const globalStore = useGlobalStore();
@@ -124,5 +129,9 @@ const importModalOpen = computed({
 
 const openSettingsModal = () => {
   uiStore.updateSettingsModalOpen(true);
+};
+
+const newGameClick = () => {
+  emit("newGame");
 };
 </script>

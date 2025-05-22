@@ -392,7 +392,7 @@ async function handleDrop(row: number, col: number) {
   const moveNotation = fromSquare + toSquare;
 
   try {
-    await api.makeMove(currentPositionFEN.value.fen, moveNotation);
+    await gamesStore.makeMove(props.boardId, moveNotation);
     emit("move", { from: fromSquare, to: toSquare });
   } catch (error) {
     emit("error", error instanceof Error ? error : new Error(String(error)));

@@ -319,4 +319,21 @@ impl ChessMove {
             parent_move_id: move_data.parent_move_id,
         }
     }
+
+    pub fn from_uci(uci: &str) -> Result<Self, Box<dyn Error>> {
+        let move_san = San::from_ascii(uci.as_bytes())?;
+        let chess_move = ChessMove {
+            id: 0,
+            uci: uci.to_string(),
+            game_id: 0,
+            ply_number: 0,
+            san: move_san.to_string(),
+            position: None,
+            annotations: Vec::new(),
+            time_info: None,
+            parent_move_id: None,
+        };
+
+        Ok(chess_move)
+    }
 }

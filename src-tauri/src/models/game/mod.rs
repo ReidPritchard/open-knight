@@ -6,6 +6,7 @@ use sea_orm::ActiveValue::Set;
 use sea_orm::DatabaseConnection;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
+use shakmaty::uci::Uci;
 use std::error::Error;
 use ts_rs::TS;
 
@@ -81,6 +82,58 @@ ts_export! {
 }
 
 impl ChessGame {
+    pub async fn new(_variant: &str, db: &DatabaseConnection) -> Result<Self, Box<dyn Error>> {
+        // Create a new game struct with placeholder values
+        let mut game = ChessGame {
+            id: 0,
+            white_player: ChessPlayer {
+                id: 1,
+                name: "?".to_string(),
+                elo: None,
+                country: None,
+            },
+            black_player: ChessPlayer {
+                id: 2,
+                name: "?".to_string(),
+                elo: None,
+                country: None,
+            },
+            tournament: None,
+            opening: None,
+            result: "*".to_string(),
+            round: None,
+            date: chrono::Utc::now().to_rfc3339(),
+            move_tree: ChessMoveTree::default(),
+            tags: vec!["local".to_string()],
+            fen: Some(ChessPosition::default().fen),
+            pgn: None,
+        };
+
+        // TODO: Init with more data
+
+        // Insert into database
+
+        // FIXME: Make sure this model matches the created game struct
+        // we need to search for existing players and maybe the tournament
+        let db_game_model = game::ActiveModel {
+            white_player_id: Set(game.white_player.id.clone()),
+            black_player_id: Set(game.black_player.id.clone()),
+            tournament_id: Set(None),
+            opening_id: Set(None),
+            result: Set(Some(game.result.clone())),
+            round_number: Set(game.round),
+            date_played: Set(Some(game.date.clone())),
+            fen: Set(game.fen.clone()),
+            pgn: Set("".to_string()),
+            ..Default::default()
+        };
+
+        let insert_result = game::Entity::insert(db_game_model).exec(db).await?;
+        game.id = insert_result.last_insert_id;
+
+        Ok(game)
+    }
+
     pub async fn load(db: &DatabaseConnection, game_id: i32) -> Result<Self, Box<dyn Error>> {
         // Load the game
         let game = game::Entity::find_by_id(game_id)
@@ -423,5 +476,30 @@ impl ChessGame {
 
         pgn.push_str(&format!("{}", self.result));
         pgn
+    }
+
+    pub async fn make_move(
+        &mut self,
+        move_notation: &str,
+        current_move_id: i32,
+    ) -> Result<Self, Box<dyn Error>> {
+        let mut move_tree = self.move_tree.clone();
+
+        // FIXME: Implement a better way to find the move we want to add the new move to
+
+        // Goto the `current_move_id` and add the new move
+        let current_move = move_tree.find_move(current_move_id).unwrap();
+
+        // Make the move
+        let new_position = current_move.position.make_move(move_notation)?;
+
+        // Update the game
+        self.fen = Some(new_position.fen);
+
+        // Update the move tree
+        move_tree.make_move(move_notation);
+        self.move_tree = move_tree;
+
+        Ok(self.clone())
     }
 }

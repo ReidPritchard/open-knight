@@ -31,6 +31,10 @@ const resetDatabaseClick = async () => {
   await globalStore.resetDatabase();
 };
 
+const newGameClick = async () => {
+  await globalStore.gamesStore.newGame(0);
+};
+
 onMounted(() => {
   globalStore.fetchExplorerGames();
 
@@ -63,6 +67,7 @@ provide("mirrored", false);
       v-model:importModalOpen="importModalOpen"
       @refreshGames="refreshGamesClick"
       @resetDatabase="resetDatabaseClick"
+      @newGame="newGameClick"
     />
 
     <main

@@ -28,4 +28,28 @@ impl ChessMoveTree {
 
         // Note: We don't update current_node_id here, same as original implementation
     }
+
+    /// Make a move in the move tree from the current node
+    ///
+    /// This simply creates a `ChessMove` and then calls `add_move`
+    pub fn make_move(&mut self, move_notation: &str) {
+        // Find the current node
+        let current_node = self.nodes[self.current_node_id.unwrap()].clone();
+
+        // Make the move on the current node's position
+        let new_position = current_node.position.make_move(move_notation);
+
+        if let Err(e) = new_position {
+            println!("Error making move: {}", e);
+            return;
+        }
+
+        // Create the move
+        // FIXME: Make sure the tree is pointing to the correct node
+        let mut new_move = ChessMove::from_uci(move_notation).unwrap();
+        new_move.position = Some(new_position.unwrap());
+
+        // Add the move to the move tree
+        self.add_move(new_move);
+    }
 }

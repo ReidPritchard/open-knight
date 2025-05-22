@@ -57,6 +57,42 @@ pub async fn import_pgn_games(pgn: &str, state: State<'_, AppState>) -> Result<S
     }
 }
 
+/// Creates a new chess game
+///
+/// Returns a JSON string containing the new game.
+#[tauri::command]
+pub async fn new_game(variant: &str, state: State<'_, AppState>) -> Result<String, AppError> {
+    let game_result = models::ChessGame::new(variant, &state.db).await;
+    match game_result {
+        Ok(game) => Ok(serde_json::to_string(&game).unwrap()),
+        Err(e) => Err(AppError::SerializationError(e.to_string())),
+    }
+}
+
+/// Make a move in a game
+///
+/// Returns a JSON string containing the updated game.
+#[tauri::command]
+pub async fn make_move(
+    game_id: i32,
+    current_move_id: i32,
+    move_notation: &str,
+    state: State<'_, AppState>,
+) -> Result<String, AppError> {
+    let game = models::ChessGame::load(&state.db, game_id).await;
+    if let Ok(mut game) = game {
+        let updated_game = game.make_move(move_notation, current_move_id).await;
+        match updated_game {
+            Ok(game) => Ok(serde_json::to_string(&game).unwrap()),
+            Err(e) => Err(AppError::SerializationError(e.to_string())),
+        }
+    } else {
+        Err(AppError::SerializationError(
+            game.err().unwrap().to_string(),
+        ))
+    }
+}
+
 /// Queries chess games from the database based on provided parameters
 ///
 /// Returns a JSON string containing the matching games.

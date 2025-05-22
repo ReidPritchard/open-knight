@@ -76,4 +76,12 @@ impl ChessMoveTree {
         nodes.reverse();
         nodes
     }
+
+    /// Find a move by its ID
+    pub fn find_move(&self, id: i32) -> Option<&ChessTreeNode> {
+        self.nodes
+            .iter()
+            .find(|(_, node)| node.game_move.as_ref().map_or(false, |m| m.id == id))
+            .map(|(_, node)| node)
+    }
 }

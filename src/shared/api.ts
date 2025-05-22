@@ -31,16 +31,6 @@ export default {
     await invoke("empty_db");
   },
 
-  /**
-   * Make a move in the backend.
-   * @param position The FEN string of the position
-   * @param move The move to make
-   * @returns Promise<string> The new position
-   */
-  makeMove: async (position: string, move: string): Promise<string> => {
-    return await invoke("make_move", { position, move });
-  },
-
   games: {
     GET: {
       /**
@@ -110,6 +100,17 @@ export default {
       importPGNGames: async (pgn: string): Promise<void> => {
         await invoke("import_pgn_games", { pgn });
       },
+      newGame: async (
+        variant: "standard" | "puzzle" | "960" = "standard"
+      ): Promise<ChessGame> => {
+        try {
+          const response = await invoke<string>("new_game", { variant });
+          return JSON.parse(response);
+        } catch (error) {
+          console.error("Error creating new game:", error);
+          throw error;
+        }
+      },
     },
   },
   moves: {
@@ -129,6 +130,26 @@ export default {
       },
       moveTree: async (gameId: number): Promise<string> => {
         const response = await invoke<string>("get_move_tree", { id: gameId });
+        return JSON.parse(response);
+      },
+    },
+    POST: {
+      /**
+       * Make a move in the backend.
+       * @param gameId The ID of the game
+       * @param move The move to make in UCI notation
+       * @returns Promise<ChessGame> The updated game
+       */
+      makeMove: async (
+        gameId: number,
+        current_move_id: number,
+        move: string
+      ): Promise<ChessGame> => {
+        const response = await invoke<string>("make_move", {
+          id: gameId,
+          current_move_id,
+          move,
+        });
         return JSON.parse(response);
       },
     },

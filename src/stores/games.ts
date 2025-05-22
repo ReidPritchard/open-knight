@@ -55,6 +55,56 @@ export const useGamesStore = defineStore("games", {
   },
 
   actions: {
+    /**
+     * Creates a new game on the specified board
+     */
+    async newGame(
+      boardId: number,
+      type: "standard" | "puzzle" | "960" = "standard"
+    ) {
+      if (type === "standard") {
+        if (this.activeGameMap.has(boardId)) {
+          // A game is already open on this board
+          // Clear the board to avoid old state from staying around
+          this.activeGameMap.delete(boardId);
+        }
+
+        // Create a new game
+        const game = await api.games.POST.newGame();
+        console.log("New game:", game);
+        // Setup game state
+        const initialPosition: ChessPosition = {
+          id: 0,
+          fen: game.fen ?? "",
+          evaluations: [],
+          variant: "Standard", // TODO: Handle variations
+        };
+        const validMoves = await getValidMoves(initialPosition.fen);
+
+        const newGameState: ActiveGameState = {
+          id: game.id,
+          game: game,
+
+          currentMoveIndex: 0,
+          currentMove: null,
+          currentPosition: initialPosition,
+          currentTurn: "white",
+
+          validMoves: validMoves,
+
+          inProgress: false,
+          userIsPlaying: null,
+
+          hideEvaluationBar: false,
+          hideBestMove: false,
+          hideThreats: false,
+        };
+
+        this.activeGameMap.set(boardId, newGameState);
+
+        return newGameState;
+      }
+    },
     async openGame(gameId: number, boardId: number) {
       // TODO: Check if game is already open in another board
       // If so, maybe navigate to that board?
@@ -103,6 +153,23 @@ export const useGamesStore = defineStore("games", {
 
     async closeGame(boardId: number) {
       this.activeGameMap.delete(boardId);
+    },
+
+    async makeMove(boardId: number, moveNotation: string) {
+      // Get the game for the board
+      const game = this.activeGameMap.get(boardId);
+      if (!game) return;
+
+      // Make the move
+      const updatedGame = await api.moves.POST.makeMove(
+        game.game.id,
+        game.currentMove?.game_move?.id ?? 0,
+        moveNotation
+      );
+
+      // Update the game state
+      game.game = updatedGame;
+      this.nextMove(boardId);
     },
 
     async nextMove(boardId: number) {
