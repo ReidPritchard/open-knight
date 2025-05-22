@@ -9,6 +9,7 @@ use tokio::time::Instant;
 use crate::parse::uci::IdInfo;
 
 use super::state::EngineState;
+use super::utils::EngineError;
 
 /// Common interface for all engine lifecycle events
 #[derive(Debug, Clone, Serialize)]
@@ -45,7 +46,7 @@ pub enum EngineStateInfoEvent {
     /// Lifecycle event (start, stop, pause, resume)
     LifecycleEvent(LifecycleEvent),
     /// Error event
-    Error(crate::EngineError),
+    Error(EngineError),
 }
 
 /// Trait to handle the sending of typed events

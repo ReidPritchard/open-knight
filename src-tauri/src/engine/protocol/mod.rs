@@ -1,4 +1,4 @@
-use crate::EngineError;
+use crate::engine::utils::EngineError;
 use std::fmt;
 
 use super::events::LifecycleEvent;

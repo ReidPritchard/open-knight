@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::engine::events::EngineStateInfoEvent;
+use crate::engine::utils::EngineError;
 use crate::parse::uci::{IdInfo, InfoParams, OptionDefinition, ProtectionStatus};
 use serde::Serialize;
 
@@ -148,7 +149,7 @@ impl super::EngineState for EngineStateInfo {
     type Update = EngineStateInfoEvent;
     type Event = EngineStateInfoEvent;
 
-    fn apply_update(&mut self, update: Self::Update) -> Result<Self::Event, crate::EngineError> {
+    fn apply_update(&mut self, update: Self::Update) -> Result<Self::Event, EngineError> {
         match update {
             EngineStateInfoEvent::InfoUpdate(info) => {
                 let id_info = info.clone();

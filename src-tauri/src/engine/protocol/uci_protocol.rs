@@ -1,7 +1,7 @@
 use crate::engine::events::EngineStateInfoEvent;
 use crate::engine::state::engine_state::{EngineReadyState, EngineStateInfo};
+use crate::engine::utils::EngineError;
 use crate::parse::uci::{parse_engine_response, EngineResponse};
-use crate::EngineError;
 
 use super::{EngineCommand, ParserOutput, ProtocolComposer, ProtocolParser};
 

@@ -8,7 +8,7 @@ use crate::engine::events::EngineStateInfoEvent;
 use crate::engine::protocol::{EngineCommand, OptionValue, ProtocolComposer};
 use crate::engine::state::engine_state::EngineReadyState;
 use crate::engine::state::EngineState;
-use crate::EngineError;
+use crate::engine::utils::EngineError;
 
 /// Handles sending commands to the engine
 ///

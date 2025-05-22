@@ -6,8 +6,6 @@ use tokio::process::{Child, Command};
 use tokio::signal::unix::Signal;
 use tokio::sync::{broadcast, RwLock, RwLockReadGuard};
 
-use crate::EngineError;
-
 use super::builder::EngineProcessBuilder;
 use super::events::{EngineStateInfoEvent, EventBus};
 use super::io_handler::input_handler::InputHandler;
@@ -15,6 +13,7 @@ use super::io_handler::output_handler::OutputHandler;
 use super::protocol::{ProtocolComposerType, ProtocolParserType};
 use super::state::engine_state::EngineReadyState;
 use super::state::EngineState;
+use super::utils::EngineError;
 
 /// The main interface for engine management
 ///

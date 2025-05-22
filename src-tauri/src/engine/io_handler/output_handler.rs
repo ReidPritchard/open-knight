@@ -9,7 +9,7 @@ use tokio::task::JoinHandle;
 use crate::engine::events::{EngineStateInfoEvent, EventBus};
 use crate::engine::protocol::{ParserOutput, ProtocolParser};
 use crate::engine::state::EngineState;
-use crate::EngineError;
+use crate::engine::utils::EngineError;
 
 /// A struct for handling the output of an engine
 ///

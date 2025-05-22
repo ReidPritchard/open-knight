@@ -207,56 +207,6 @@ impl ChessMove {
         Ok(())
     }
 
-    async fn generate_and_save_position(
-        db: &DatabaseConnection,
-        notation: &str,
-        pos: &Chess,
-    ) -> Result<(Option<i32>, Chess), Box<dyn Error + Send + Sync>> {
-        // Parse the SAN notation
-        let position_id = if let Ok(san) = notation.parse::<San>() {
-            // Convert the SAN notation to a move in the current position
-            if let Ok(new_move) = san.to_move(pos) {
-                // Play the move on the current position
-                if let Ok(new_pos) = pos.clone().play(&new_move) {
-                    // Generate FEN for the new position
-                    let fen = new_pos.board().board_fen(new_pos.promoted()).to_string();
-                    let fen_hash = hash_fen(&fen);
-
-                    // Check if position already exists
-                    use sea_orm::ColumnTrait;
-                    use sea_orm::QueryFilter;
-                    let existing_position = position::Entity::find()
-                        .filter(position::Column::FenHash.eq(&fen_hash))
-                        .one(db)
-                        .await?;
-
-                    let position_id = if let Some(existing_pos) = existing_position {
-                        existing_pos.position_id
-                    } else {
-                        // Save new position if it doesn't exist
-                        let pos_model = position::ActiveModel {
-                            fen: Set(fen),
-                            fen_hash: Set(fen_hash),
-                            created_at: Set(Some(chrono::Utc::now())),
-                            ..Default::default()
-                        };
-                        let result = position::Entity::insert(pos_model).exec(db).await?;
-                        result.last_insert_id
-                    };
-
-                    Ok((Some(position_id), new_pos))
-                } else {
-                    Ok((None, pos.clone()))
-                }
-            } else {
-                Ok((None, pos.clone()))
-            }
-        } else {
-            Ok((None, pos.clone()))
-        };
-        position_id
-    }
-
     pub async fn save_moves(
         db: &DatabaseConnection,
         moves: &[ChessMove],
