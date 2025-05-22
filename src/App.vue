@@ -93,7 +93,7 @@ provide("mirrored", false);
             </div>
             <ul
               tabindex="0"
-              class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1000] mt-3 w-52 p-2 shadow"
+              class="menu menu-sm dropdown-content bg-base-100 rounded-box z-1000 mt-3 w-52 p-2 shadow-sm"
             >
               <li>
                 <button class="btn btn-ghost">

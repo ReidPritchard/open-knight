@@ -7,7 +7,7 @@
         <label tabindex="0" class="btn m-1">Filter</label>
         <ul
           tabindex="0"
-          class="dropdown-content z-10 menu p-2 shadow bg-base-300 rounded-box w-52"
+          class="dropdown-content z-10 menu p-2 shadow-sm bg-base-300 rounded-box w-52"
         >
           <li><a @click="setFilter('all')">All Games</a></li>
           <li><a @click="setFilter('my_games')">My Games</a></li>

@@ -3,7 +3,7 @@
     :class="[
       'relative overflow-hidden',
       direction === 'horizontal' ? 'w-full h-6' : 'h-full w-6',
-      'border border-base-300 rounded',
+      'border border-base-300 rounded-sm',
     ]"
   >
     <!-- White advantage bar (fills from left/bottom) -->
