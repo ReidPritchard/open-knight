@@ -85,14 +85,14 @@ import { computed } from "vue";
 import { useGlobalStore } from "../../stores";
 
 const props = defineProps<{
-  importModalOpen: boolean;
+	importModalOpen: boolean;
 }>();
 
 const emit = defineEmits<{
-  (e: "update:importModalOpen", value: boolean): void;
-  (e: "refreshGames"): void;
-  (e: "resetDatabase"): void;
-  (e: "newGame"): void;
+	(e: "update:importModalOpen", value: boolean): void;
+	(e: "refreshGames"): void;
+	(e: "resetDatabase"): void;
+	(e: "newGame"): void;
 }>();
 
 const globalStore = useGlobalStore();
@@ -103,35 +103,35 @@ const displayMoveTree = computed(() => uiStore.getMoveTreeViewOpen);
 const displayEngineView = computed(() => uiStore.getEngineViewOpen);
 
 const toggleGameLibraryView = () => {
-  uiStore.toggleGameLibraryView();
+	uiStore.toggleGameLibraryView();
 };
 
 const toggleMoveTreeView = () => {
-  uiStore.toggleMoveTreeView();
+	uiStore.toggleMoveTreeView();
 };
 
 const toggleEngineView = () => {
-  uiStore.toggleEngineView();
+	uiStore.toggleEngineView();
 };
 
 const refreshGamesClick = () => {
-  emit("refreshGames");
+	emit("refreshGames");
 };
 
 const resetDatabaseClick = () => {
-  emit("resetDatabase");
+	emit("resetDatabase");
 };
 
 const importModalOpen = computed({
-  get: () => props.importModalOpen,
-  set: (value) => emit("update:importModalOpen", value),
+	get: () => props.importModalOpen,
+	set: (value) => emit("update:importModalOpen", value),
 });
 
 const openSettingsModal = () => {
-  uiStore.updateSettingsModalOpen(true);
+	uiStore.updateSettingsModalOpen(true);
 };
 
 const newGameClick = () => {
-  emit("newGame");
+	emit("newGame");
 };
 </script>

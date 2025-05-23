@@ -49,7 +49,7 @@ import { computed, watch } from "vue";
 import { useGlobalStore } from "../../stores";
 
 const props = defineProps<{
-  boardId: number;
+	boardId: number;
 }>();
 
 const globalStore = useGlobalStore();
@@ -59,27 +59,45 @@ const boardState = computed(() => gamesStore.getBoardState(props.boardId));
 
 // Remove first node (which is a `null` node)
 const moves = computed(() => boardState.value?.game.move_tree.nodes.slice(1));
-const currentMove = computed(() => boardState.value?.currentMove);
+
+// Use the new getter from the refactored store
+const currentMove = computed(() => gamesStore.getCurrentMove(props.boardId));
 
 watch(currentMove, (newVal) => {
-  // Scroll to the current move
-  const moveElement = document.querySelector(
-    `.step[data-ply-number="${newVal?.game_move?.ply_number}"]`
-  );
-  if (moveElement) {
-    moveElement.scrollIntoView({ behavior: "smooth", block: "center" });
-  }
+	// Scroll to the current move
+	const moveElement = document.querySelector(
+		`.step[data-ply-number="${newVal?.game_move?.ply_number}"]`,
+	);
+	if (moveElement) {
+		moveElement.scrollIntoView({ behavior: "smooth", block: "center" });
+	}
 });
 
 const changeMove = (moveId: number | undefined) => {
-  if (!moveId) {
-    console.error("No move ID provided");
-    return;
-  }
-  gamesStore.jumpToMove(props.boardId, moveId);
+	if (!moveId) {
+		console.error("No move ID provided");
+		return;
+	}
+
+	// Find the move in the game tree to get its ply number
+	const gameState = boardState.value;
+	if (!gameState) return;
+
+	const moveNode = gameState.game.move_tree.nodes.find(
+		(node) => node.value?.game_move?.id === moveId,
+	);
+
+	if (!moveNode?.value?.game_move?.ply_number) {
+		console.error("Could not find move or ply number");
+		return;
+	}
+
+	// Convert ply number to move number (0-based for the API)
+	const moveNumber = moveNode.value.game_move.ply_number - 1;
+	gamesStore.jumpToMove(props.boardId, moveNumber);
 };
 
 const closeMoveTree = () => {
-  globalStore.uiStore.toggleMoveTreeView();
+	globalStore.uiStore.toggleMoveTreeView();
 };
 </script>

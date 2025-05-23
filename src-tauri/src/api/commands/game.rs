@@ -173,6 +173,47 @@ pub async fn redo_move(board_id: i32, state: State<'_, AppState>) -> Result<Stri
     }
 }
 
+/// Move to the next move in a game session
+///
+/// Parameters:
+/// - `board_id`: The ID of the board/session
+/// - `variation`: The variation index to move to (optional, 0 = main line)
+///
+/// Returns a JSON string containing the updated game state.
+#[tauri::command]
+pub async fn next_move(
+    board_id: i32,
+    variation: usize,
+    state: State<'_, AppState>,
+) -> Result<String, AppError> {
+    let mut game_session_manager = state.game_session_manager.lock().await;
+    match game_session_manager.next_move(board_id, variation) {
+        Ok(_) => {
+            let session = game_session_manager.get_session(board_id).unwrap();
+            Ok(serde_json::to_string(&session.game).unwrap())
+        }
+        Err(e) => Err(AppError::SessionError(e.to_string())),
+    }
+}
+
+/// Move to the previous move in a game session
+///
+/// Parameters:
+/// - `board_id`: The ID of the board/session
+///
+/// Returns a JSON string containing the updated game state.
+#[tauri::command]
+pub async fn previous_move(board_id: i32, state: State<'_, AppState>) -> Result<String, AppError> {
+    let mut game_session_manager = state.game_session_manager.lock().await;
+    match game_session_manager.previous_move(board_id) {
+        Ok(_) => {
+            let session = game_session_manager.get_session(board_id).unwrap();
+            Ok(serde_json::to_string(&session.game).unwrap())
+        }
+        Err(e) => Err(AppError::SessionError(e.to_string())),
+    }
+}
+
 /// Resets a game session to a specific position/move number
 ///
 /// Parameters:

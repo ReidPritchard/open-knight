@@ -61,6 +61,20 @@ impl GameSession {
         ))
     }
 
+    pub fn next_move(&mut self, variation: usize) -> Result<(), AppError> {
+        self.game.move_tree.next_move(Some(variation));
+        // No need to mark as dirty as we are just traversing the tree
+        // not mutating it
+        Ok(())
+    }
+
+    pub fn previous_move(&mut self) -> Result<(), AppError> {
+        self.game.move_tree.previous_move();
+        // No need to mark as dirty as we are just traversing the tree
+        // not mutating it
+        Ok(())
+    }
+
     pub fn reset_to_position(&mut self, _move_number: usize) -> Result<(), AppError> {
         // TODO: Implement reset_to_position in ChessGame
         // For now, return an error indicating it's not implemented

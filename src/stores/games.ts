@@ -11,21 +11,20 @@ interface ActiveGameState {
   id: number;
   game: ChessGame;
 
-  currentMoveIndex: number;
-  currentMove: ChessTreeNode | null;
-  currentPosition: ChessPosition | null;
-  currentTurn: "white" | "black" | null;
-  validMoves: LegalMove[] | null;
-
-  inProgress: boolean;
-  userIsPlaying: "white" | "black" | null;
-
+  // UI state
   hideEvaluationBar: boolean;
   hideBestMove: boolean;
   hideThreats: boolean;
+
+  // Loading states
+  isLoading: boolean;
+  error: string | null;
 }
 
-const getValidMoves = async (position?: string) => {
+// Helper functions
+const getValidMoves = async (
+  position?: string
+): Promise<LegalMove[] | null> => {
   if (!position) return null;
   try {
     return await api.moves.GET.validMoves(position);
@@ -41,8 +40,20 @@ const getTurnFromFen = (fen: string): "white" | "black" | null => {
   return turn === "w" ? "white" : "black";
 };
 
+const getCurrentPosition = (game: ChessGame): ChessPosition | null => {
+  const currentNodeId = game.move_tree.current_node_id?.idx ?? 0;
+  const currentNode = game.move_tree.nodes[currentNodeId];
+  return currentNode?.value?.position || null;
+};
+
+const getCurrentMove = (game: ChessGame): ChessTreeNode | null => {
+  const currentNodeId = game.move_tree.current_node_id?.idx ?? 0;
+  const currentNode = game.move_tree.nodes[currentNodeId];
+  return currentNode?.value || null;
+};
+
 /**
- * A store for managing the states of ALL open games
+ * A store for managing the states of ALL open games using session-focused API
  */
 export const useGamesStore = defineStore("games", {
   state: () => ({
@@ -52,237 +63,339 @@ export const useGamesStore = defineStore("games", {
   getters: {
     getBoardState: (state) => (boardId: number) =>
       state.activeGameMap.get(boardId),
+
+    getCurrentPosition: (state) => (boardId: number) => {
+      const gameState = state.activeGameMap.get(boardId);
+      if (!gameState) return null;
+      return getCurrentPosition(gameState.game);
+    },
+
+    getCurrentMove: (state) => (boardId: number) => {
+      const gameState = state.activeGameMap.get(boardId);
+      if (!gameState) return null;
+      return getCurrentMove(gameState.game);
+    },
+
+    getCurrentTurn: (state) => (boardId: number) => {
+      const gameState = state.activeGameMap.get(boardId);
+      if (!gameState) return null;
+      const position = getCurrentPosition(gameState.game);
+      return position ? getTurnFromFen(position.fen) : null;
+    },
+
+    getValidMoves: (state) => (boardId: number) => {
+      const gameState = state.activeGameMap.get(boardId);
+      if (!gameState) return null;
+      const position = getCurrentPosition(gameState.game);
+      // Note: This getter returns a promise, consider using a computed property with async data
+      return position ? getValidMoves(position.fen) : Promise.resolve(null);
+    },
   },
 
   actions: {
     /**
-     * Creates a new game on the specified board
+     * Refresh the game state from the backend session
+     */
+    async refreshGameState(boardId: number): Promise<void> {
+      const gameState = this.activeGameMap.get(boardId);
+      if (!gameState) return;
+
+      try {
+        gameState.isLoading = true;
+        gameState.error = null;
+
+        const updatedGame = await api.sessions.GET.get(boardId);
+        gameState.game = updatedGame;
+
+        console.log("Refreshed game state:", updatedGame);
+      } catch (error) {
+        console.error("Failed to refresh game state:", error);
+        gameState.error =
+          error instanceof Error
+            ? error.message
+            : "Failed to refresh game state";
+      } finally {
+        gameState.isLoading = false;
+      }
+    },
+
+    /**
+     * Creates a new game session on the specified board
      */
     async newGame(
       boardId: number,
       type: "standard" | "puzzle" | "960" = "standard"
-    ) {
-      if (type === "standard") {
+    ): Promise<ActiveGameState | null> {
+      try {
+        // Close existing game if any
         if (this.activeGameMap.has(boardId)) {
-          // A game is already open on this board
-          // Clear the board to avoid old state from staying around
-          this.activeGameMap.delete(boardId);
+          await this.closeGame(boardId);
         }
 
-        // Create a new game
-        const game = await api.games.POST.newGame(boardId, type);
-        console.log("New game:", game);
-        // Setup game state
-        const initialPosition: ChessPosition = {
-          id: 0,
-          fen: game.fen ?? "",
-          evaluations: [],
-          variant: "Standard", // TODO: Handle variants
-        };
-        const validMoves = await getValidMoves(initialPosition.fen);
+        // Create new session
+        const game = await api.sessions.POST.create(boardId, type);
+        console.log("New game session:", game);
 
         const newGameState: ActiveGameState = {
           id: game.id,
           game: game,
-
-          currentMoveIndex: 0,
-          currentMove: null,
-          currentPosition: initialPosition,
-          currentTurn: "white",
-
-          validMoves: validMoves,
-
-          inProgress: false,
-          userIsPlaying: null,
-
           hideEvaluationBar: false,
           hideBestMove: false,
           hideThreats: false,
+          isLoading: false,
+          error: null,
         };
 
         this.activeGameMap.set(boardId, newGameState);
-
         return newGameState;
+      } catch (error) {
+        console.error("Failed to create new game:", error);
+
+        // Set error state if board exists
+        const gameState = this.activeGameMap.get(boardId);
+        if (gameState) {
+          gameState.error =
+            error instanceof Error
+              ? error.message
+              : "Failed to create new game";
+          gameState.isLoading = false;
+        }
+
+        return null;
       }
     },
-    async openGame(gameId: number, boardId: number) {
-      // TODO: Check if game is already open in another board
-      // If so, maybe navigate to that board?
 
-      if (this.activeGameMap.has(boardId)) {
-        // A game is already open on this board
-        // Clear the board to avoid old state from staying around
+    /**
+     * Opens an existing game in a session
+     */
+    async openGame(
+      gameId: number,
+      boardId: number
+    ): Promise<ActiveGameState | null> {
+      try {
+        // Close existing game if any
+        if (this.activeGameMap.has(boardId)) {
+          await this.closeGame(boardId);
+        }
+
+        // Load game into session
+        const game = await api.sessions.POST.load(gameId, boardId);
+        console.log("Opened game session:", game);
+
+        const newGameState: ActiveGameState = {
+          id: gameId,
+          game: game,
+          hideEvaluationBar: false,
+          hideBestMove: false,
+          hideThreats: false,
+          isLoading: false,
+          error: null,
+        };
+
+        this.activeGameMap.set(boardId, newGameState);
+        return newGameState;
+      } catch (error) {
+        console.error("Failed to open game:", error);
+
+        // Set error state if board exists
+        const gameState = this.activeGameMap.get(boardId);
+        if (gameState) {
+          gameState.error =
+            error instanceof Error ? error.message : "Failed to open game";
+          gameState.isLoading = false;
+        }
+
+        return null;
+      }
+    },
+
+    /**
+     * Closes a game session
+     */
+    async closeGame(boardId: number): Promise<void> {
+      try {
+        await api.sessions.POST.close(boardId);
+        this.activeGameMap.delete(boardId);
+        console.log("Closed game session:", boardId);
+      } catch (error) {
+        console.error("Failed to close game session:", error);
+        // Still remove from local state even if backend call fails
         this.activeGameMap.delete(boardId);
       }
-
-      // Open game
-      const game = await api.games.POST.openGame(gameId, boardId);
-      const initialPosition: ChessPosition = {
-        id: 0,
-        fen: game.fen ?? "",
-        evaluations: [],
-        variant: "Standard", // TODO: Handle variants
-      };
-      const validMoves = await getValidMoves(initialPosition?.fen);
-
-      console.log("Game:", game);
-
-      const newGameState: ActiveGameState = {
-        id: gameId,
-        game: game,
-
-        currentMoveIndex: 0,
-        currentMove: null,
-        currentPosition: initialPosition,
-        currentTurn: "white",
-
-        validMoves: validMoves,
-
-        inProgress: false,
-        userIsPlaying: null,
-
-        hideEvaluationBar: false,
-        hideBestMove: false,
-        hideThreats: false,
-      };
-
-      this.activeGameMap.set(boardId, newGameState);
-
-      return newGameState;
     },
 
-    async closeGame(boardId: number) {
-      this.activeGameMap.delete(boardId);
-    },
+    /**
+     * Makes a move in the game session
+     */
+    async makeMove(boardId: number, moveNotation: string): Promise<boolean> {
+      const gameState = this.activeGameMap.get(boardId);
+      if (!gameState) return false;
 
-    async makeMove(boardId: number, moveNotation: string) {
-      // Get the game for the board
-      const game = this.activeGameMap.get(boardId);
-      if (!game) return;
+      try {
+        gameState.isLoading = true;
+        gameState.error = null;
 
-      console.log("Making move:", moveNotation);
+        console.log("Making move:", moveNotation);
 
-      // Make the move
-      const updatedGame = await api.moves.POST.makeMove(boardId, moveNotation);
-
-      console.log("Updated game:", updatedGame);
-
-      // Update the game state
-      game.game = updatedGame;
-
-      // FIXME: Sync the game state directly instead of this workaround
-      this.previousMove(boardId);
-      this.nextMove(boardId);
-    },
-
-    async nextMove(boardId: number) {
-      // Get the game for the board
-      const game = this.activeGameMap.get(boardId);
-      if (!game) return;
-
-      // Get the game's current move
-      const currentMoveId = game.game.move_tree.current_node_id?.idx ?? 0;
-      const currentMove = game.game.move_tree.nodes[currentMoveId];
-
-      const nextMoveId = currentMove.value?.children_ids[0]?.idx;
-      if (!nextMoveId) return;
-
-      const nextMove = game.game.move_tree.nodes[nextMoveId];
-      if (!nextMove || !nextMove.value) return;
-
-      game.game.move_tree.current_node_id = {
-        idx: nextMoveId,
-        version: nextMove.version,
-      };
-
-      // Try to get the turn from the FEN (that way we are positive it's correct)
-      let nextTurn = getTurnFromFen(nextMove.value.position.fen);
-      if (!nextTurn && game.currentTurn) {
-        nextTurn = game.currentTurn === "white" ? "black" : "white";
-      } else if (!nextTurn) {
-        nextTurn = "white";
-      }
-
-      game.currentMove = nextMove.value;
-      game.currentMoveIndex = nextMoveId;
-      game.currentPosition = nextMove.value.position;
-      game.currentTurn = nextTurn as "white" | "black";
-      game.validMoves = await getValidMoves(nextMove.value?.position?.fen);
-
-      console.log("Current move:", game.currentMove);
-    },
-
-    async previousMove(boardId: number) {
-      const game = this.activeGameMap.get(boardId);
-      if (game) {
-        // Get the current move (to use it's parent id)
-        const currentMoveId = game.game.move_tree.current_node_id?.idx ?? 0;
-        const currentMove = game.game.move_tree.nodes[currentMoveId];
-
-        // Get the previous move
-        const previousMoveId = currentMove.value?.parent_id?.idx;
-        if (!previousMoveId) return;
-
-        const previousMove = game.game.move_tree.nodes[previousMoveId];
-        if (!previousMove || !previousMove.value) return;
-
-        game.game.move_tree.current_node_id = {
-          idx: previousMoveId,
-          version: previousMove.version,
-        };
-
-        // Try to get the turn from the FEN (that way we are positive it's correct)
-        let previousTurn = getTurnFromFen(previousMove.value.position.fen);
-        if (!previousTurn && game.currentTurn) {
-          previousTurn = game.currentTurn === "white" ? "black" : "white";
-        } else if (!previousTurn) {
-          previousTurn = "white";
-        }
-
-        game.currentMove = previousMove.value;
-        game.currentMoveIndex = previousMoveId;
-        game.currentPosition = previousMove.value.position;
-        game.currentTurn = previousTurn as "white" | "black";
-        game.validMoves = await getValidMoves(
-          previousMove.value?.position?.fen
+        const updatedGame = await api.sessions.POST.makeMove(
+          boardId,
+          moveNotation
         );
+        gameState.game = updatedGame;
 
-        console.log("Previous move:", game.currentMove);
+        console.log("Move made successfully:", updatedGame);
+        return true;
+      } catch (error) {
+        console.error("Failed to make move:", error);
+        gameState.error =
+          error instanceof Error ? error.message : "Failed to make move";
+        return false;
+      } finally {
+        gameState.isLoading = false;
       }
     },
 
-    async jumpToMove(boardId: number, moveId: number) {
-      const game = this.activeGameMap.get(boardId);
-      if (game) {
-        let moveIndex: number | null = null;
-        // Find the move in the game
-        const found_move = game.game.move_tree.nodes.find(
-          (search_move, search_move_index) => {
-            if (search_move.value?.game_move?.id === moveId) {
-              moveIndex = search_move_index;
-              return true;
-            }
-            return false;
-          }
-        );
-        if (!found_move || !found_move.value || !moveIndex) return;
+    /**
+     * Undoes the last move (goes to previous position)
+     */
+    async previousMove(boardId: number): Promise<boolean> {
+      const gameState = this.activeGameMap.get(boardId);
+      if (!gameState) return false;
 
-        // Try to get the turn from the FEN (that way we are positive it's correct)
-        let jumpTurn = getTurnFromFen(found_move.value.position.fen);
-        if (!jumpTurn) {
-          // Try to use the turn's ply to determine the turn
-          jumpTurn =
-            found_move.value.position.ply % 2 === 0 ? "white" : "black";
+      try {
+        gameState.isLoading = true;
+        gameState.error = null;
+
+        const updatedGame = await api.sessions.POST.previousMove(boardId);
+        gameState.game = updatedGame;
+
+        console.log("Moved to previous position:", updatedGame);
+        return true;
+      } catch (error) {
+        console.error("Failed to go to previous move:", error);
+        gameState.error =
+          error instanceof Error
+            ? error.message
+            : "Failed to go to previous move";
+        return false;
+      } finally {
+        gameState.isLoading = false;
+      }
+    },
+
+    /**
+     * Redoes a move (goes to next position)
+     */
+    async nextMove(boardId: number): Promise<boolean> {
+      const gameState = this.activeGameMap.get(boardId);
+      if (!gameState) return false;
+
+      try {
+        gameState.isLoading = true;
+        gameState.error = null;
+
+        // TODO: Handle variations
+        // probably should be a UI component that prompts the user to select a variation
+        // or a dropdown menu that shows the variations
+        const updatedGame = await api.sessions.POST.nextMove(boardId);
+        gameState.game = updatedGame;
+
+        console.log("Moved to next position:", updatedGame);
+        return true;
+      } catch (error) {
+        console.error("Failed to go to next move:", error);
+        gameState.error =
+          error instanceof Error ? error.message : "Failed to go to next move";
+        return false;
+      } finally {
+        gameState.isLoading = false;
+      }
+    },
+
+    /**
+     * Jumps to a specific move number
+     */
+    async jumpToMove(boardId: number, moveNumber: number): Promise<boolean> {
+      const gameState = this.activeGameMap.get(boardId);
+      if (!gameState) return false;
+
+      try {
+        gameState.isLoading = true;
+        gameState.error = null;
+
+        const updatedGame = await api.sessions.POST.resetToPosition(
+          boardId,
+          moveNumber
+        );
+        gameState.game = updatedGame;
+
+        console.log("Jumped to move:", moveNumber, updatedGame);
+        return true;
+      } catch (error) {
+        console.error("Failed to jump to move:", error);
+        gameState.error =
+          error instanceof Error ? error.message : "Failed to jump to move";
+        return false;
+      } finally {
+        gameState.isLoading = false;
+      }
+    },
+
+    /**
+     * Saves the current game session to the database
+     */
+    async saveGame(boardId: number, overwrite = false): Promise<number | null> {
+      const gameState = this.activeGameMap.get(boardId);
+      if (!gameState) return null;
+
+      try {
+        gameState.isLoading = true;
+        gameState.error = null;
+
+        const savedGameId = await api.sessions.POST.save(boardId, overwrite);
+
+        // Update the game ID if it was a new save
+        if (!overwrite) {
+          gameState.id = savedGameId;
         }
 
-        game.game.move_tree.current_node_id = {
-          idx: moveIndex,
-          version: found_move.version,
-        };
-        game.currentMove = found_move.value;
-        game.currentPosition = found_move.value?.position;
-        game.currentTurn = jumpTurn as "white" | "black";
-        game.validMoves = await getValidMoves(found_move.value?.position?.fen);
+        console.log("Game saved with ID:", savedGameId);
+        return savedGameId;
+      } catch (error) {
+        console.error("Failed to save game:", error);
+        gameState.error =
+          error instanceof Error ? error.message : "Failed to save game";
+        return null;
+      } finally {
+        gameState.isLoading = false;
+      }
+    },
+
+    /**
+     * Updates UI preferences for a game
+     */
+    updateUIPreferences(
+      boardId: number,
+      preferences: Partial<
+        Pick<
+          ActiveGameState,
+          "hideEvaluationBar" | "hideBestMove" | "hideThreats"
+        >
+      >
+    ): void {
+      const gameState = this.activeGameMap.get(boardId);
+      if (!gameState) return;
+
+      Object.assign(gameState, preferences);
+    },
+
+    /**
+     * Clears any error state for a game
+     */
+    clearError(boardId: number): void {
+      const gameState = this.activeGameMap.get(boardId);
+      if (gameState) {
+        gameState.error = null;
       }
     },
   },

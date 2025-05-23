@@ -49,23 +49,23 @@ import type { BoardTheme } from "../../shared/themes";
 import { boardToAlgebraic } from "./utils";
 
 const props = defineProps<{
-  row: number; // Row (0-7, 0 = top)
-  col: number; // Column (0-7, 0 = left)
-  squareSize: number;
-  piece?: string;
-  pieceImage?: string;
-  canMove: boolean;
-  isSelected: boolean;
-  isValidMove: boolean;
-  isHighlighted: boolean;
-  isBoardFlipped: boolean;
-  boardTheme: BoardTheme;
+	row: number; // Row (0-7, 0 = top)
+	col: number; // Column (0-7, 0 = left)
+	squareSize: number;
+	piece?: string;
+	pieceImage?: string;
+	canMove: boolean;
+	isSelected: boolean;
+	isValidMove: boolean;
+	isHighlighted: boolean;
+	isBoardFlipped: boolean;
+	boardTheme: BoardTheme;
 }>();
 
 defineEmits<{
-  (e: "drop"): void;
-  (e: "click", event: MouseEvent): void;
-  (e: "dragStart"): void;
+	(e: "drop"): void;
+	(e: "click", event: MouseEvent): void;
+	(e: "dragStart"): void;
 }>();
 
 /**
@@ -73,11 +73,11 @@ defineEmits<{
  * Coordinates are shown on the left and bottom edges of the board
  */
 const shouldDisplayCoordinate = computed(() => {
-  if (!props.boardTheme.displayCoordinates) return false;
-  // Show coordinates on the bottom row and left column (or top/right if flipped)
-  return props.isBoardFlipped
-    ? props.row === 0 || props.col === 7
-    : props.row === 7 || props.col === 0;
+	if (!props.boardTheme.displayCoordinates) return false;
+	// Show coordinates on the bottom row and left column (or top/right if flipped)
+	return props.isBoardFlipped
+		? props.row === 0 || props.col === 7
+		: props.row === 7 || props.col === 0;
 });
 
 /**
@@ -85,27 +85,27 @@ const shouldDisplayCoordinate = computed(() => {
  * Uses algebraic notation for the display
  */
 const coordinateText = computed(() => {
-  if (!props.boardTheme.displayCoordinates) return "";
+	if (!props.boardTheme.displayCoordinates) return "";
 
-  const algebraic = boardToAlgebraic(props.row, props.col);
-  const file = algebraic[0];
-  const rank = algebraic[1];
+	const algebraic = boardToAlgebraic(props.row, props.col);
+	const file = algebraic[0];
+	const rank = algebraic[1];
 
-  const isBottomRow = props.isBoardFlipped ? props.row === 0 : props.row === 7;
-  const isLeftCol = props.isBoardFlipped ? props.col === 7 : props.col === 0;
+	const isBottomRow = props.isBoardFlipped ? props.row === 0 : props.row === 7;
+	const isLeftCol = props.isBoardFlipped ? props.col === 7 : props.col === 0;
 
-  if (isBottomRow && isLeftCol) return algebraic;
-  if (isBottomRow) return file;
-  if (isLeftCol) return rank;
-  return "";
+	if (isBottomRow && isLeftCol) return algebraic;
+	if (isBottomRow) return file;
+	if (isLeftCol) return rank;
+	return "";
 });
 
 const squareStyle = computed(() => ({
-  backgroundColor:
-    (props.row + props.col) % 2 === 0
-      ? props.boardTheme.lightSquare
-      : props.boardTheme.darkSquare,
-  width: `${props.squareSize}px`,
-  height: `${props.squareSize}px`,
+	backgroundColor:
+		(props.row + props.col) % 2 === 0
+			? props.boardTheme.lightSquare
+			: props.boardTheme.darkSquare,
+	width: `${props.squareSize}px`,
+	height: `${props.squareSize}px`,
 }));
 </script>

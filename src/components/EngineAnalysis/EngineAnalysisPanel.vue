@@ -182,7 +182,7 @@ import { useEngineAnalysisStore } from "../../stores/engineAnalysis";
 import EngineSettings from "./EngineSettings.vue";
 
 const props = defineProps<{
-  boardId: number;
+	boardId: number;
 }>();
 
 const globalStore = useGlobalStore();
@@ -197,173 +197,175 @@ const gameAnalysisProgress = ref({ current: 0, total: 0 });
 const engineAnalysisStore = useEngineAnalysisStore();
 
 const engineSettings = computed(() => {
-  // convert the engine settings from a map to a list of key-value pairs
-  return Object.entries(
-    engineAnalysisStore.getEngineSettings(selectedEngine.value) ?? {}
-  )
-    .filter(
-      ([key, value]) =>
-        key !== undefined && value !== undefined && !key.includes("UCI")
-    )
-    .map(
-      ([key, value]) => [key, value as EngineOption] as [string, EngineOption]
-    )
-    .sort((a, b) => a[0].localeCompare(b[0]));
+	// convert the engine settings from a map to a list of key-value pairs
+	return Object.entries(
+		engineAnalysisStore.getEngineSettings(selectedEngine.value) ?? {},
+	)
+		.filter(
+			([key, value]) =>
+				key !== undefined && value !== undefined && !key.includes("UCI"),
+		)
+		.map(
+			([key, value]) => [key, value as EngineOption] as [string, EngineOption],
+		)
+		.sort((a, b) => a[0].localeCompare(b[0]));
 });
 const currentPosition = computed(() => {
-  return gamesStore.getBoardState(props.boardId)?.currentPosition;
+	return gamesStore.getBoardState(props.boardId)?.currentPosition;
 });
 const currentGame = computed(() => {
-  return gamesStore.getBoardState(props.boardId)?.game;
+	return gamesStore.getBoardState(props.boardId)?.game;
 });
 const latestAnalysisResult = computed(() => {
-  return engineAnalysisStore.getLatestAnalysisUpdate(selectedEngine.value);
+	return engineAnalysisStore.getLatestAnalysisUpdate(selectedEngine.value);
 });
 const latestBestMove = computed(() => {
-  return engineAnalysisStore.getLatestBestMove(selectedEngine.value);
+	return engineAnalysisStore.getLatestBestMove(selectedEngine.value);
 });
 
 const engineMessage = ref<string>("");
 const toast = ref<boolean>(false);
 
 const isAnalyzing = computed(() => {
-  const engine = engineAnalysisStore.engines.get(selectedEngine.value);
-  return engine ? engine.isAnalyzing : false;
+	const engine = engineAnalysisStore.engines.get(selectedEngine.value);
+	return engine ? engine.isAnalyzing : false;
 });
 
 const isGameAnalysisInProgress = computed(
-  () => engineAnalysisStore.gameAnalysisInProgress
+	() => engineAnalysisStore.gameAnalysisInProgress,
 );
 
 const onStockfishAnalysisResult = (result: { [key: string]: unknown }) => {
-  const messageType = result.message_type;
-  if (messageType === "info") {
-    // Get the info returned by the engine (the non-empty key-value pairs)
-    const info = Object.fromEntries(
-      Object.entries(result).filter(
-        ([key, value]) =>
-          key !== "message_type" &&
-          value !== "" &&
-          value !== null &&
-          value !== undefined
-      )
-    );
+	const messageType = result.message_type;
+	if (messageType === "info") {
+		// Get the info returned by the engine (the non-empty key-value pairs)
+		const info = Object.fromEntries(
+			Object.entries(result).filter(
+				([key, value]) =>
+					key !== "message_type" &&
+					value !== "" &&
+					value !== null &&
+					value !== undefined,
+			),
+		);
 
-    // Prettify the info object (into key: value format)
-    const prettyInfo = Object.entries(info)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join("\n");
-    engineMessage.value = `Stockfish 17\n${prettyInfo}`;
+		// Prettify the info object (into key: value format)
+		const prettyInfo = Object.entries(info)
+			.map(([key, value]) => `${key}: ${value}`)
+			.join("\n");
+		engineMessage.value = `Stockfish 17\n${prettyInfo}`;
 
-    toast.value = true;
-    setTimeout(() => {
-      toast.value = false;
-    }, 3000);
-  }
+		toast.value = true;
+		setTimeout(() => {
+			toast.value = false;
+		}, 3000);
+	}
 };
 
 // Watch for position changes to update analysis
 watch(currentPosition, (newPosition) => {
-  if (isAnalyzing.value && newPosition?.fen) {
-    startAnalysis();
-  }
+	if (isAnalyzing.value && newPosition?.fen) {
+		startAnalysis();
+	}
 });
 
 onMounted(async () => {
-  engineAnalysisStore.initAnalysisService();
-  try {
-    if (!engineAnalysisStore.engines.has(selectedEngine.value)) {
-      engineAnalysisStore.addAnalysisListener(
-        selectedEngine.value,
-        onStockfishAnalysisResult as unknown as (result: AnalysisUpdate) => void
-      );
-    }
-  } catch (error) {
-    if (error instanceof Error && "EngineError" in error) {
-      console.error("Engine error:", error.EngineError);
-    } else {
-      console.error("Failed to load engine:", error);
-    }
-  }
+	engineAnalysisStore.initAnalysisService();
+	try {
+		if (!engineAnalysisStore.engines.has(selectedEngine.value)) {
+			engineAnalysisStore.addAnalysisListener(
+				selectedEngine.value,
+				onStockfishAnalysisResult as unknown as (
+					result: AnalysisUpdate,
+				) => void,
+			);
+		}
+	} catch (error) {
+		if (error instanceof Error && "EngineError" in error) {
+			console.error("Engine error:", error.EngineError);
+		} else {
+			console.error("Failed to load engine:", error);
+		}
+	}
 });
 
 async function loadEngine() {
-  await engineAnalysisStore.loadEngine(
-    newEngineName.value,
-    newEnginePath.value
-  );
-  if (!availableEngines.value.includes(newEngineName.value)) {
-    availableEngines.value.push(newEngineName.value);
-  }
-  selectedEngine.value = newEngineName.value;
+	await engineAnalysisStore.loadEngine(
+		newEngineName.value,
+		newEnginePath.value,
+	);
+	if (!availableEngines.value.includes(newEngineName.value)) {
+		availableEngines.value.push(newEngineName.value);
+	}
+	selectedEngine.value = newEngineName.value;
 }
 
 async function startAnalysis() {
-  if (!currentPosition.value?.fen) return;
-  try {
-    await engineAnalysisStore.analyzePosition(
-      selectedEngine.value,
-      currentPosition.value.fen
-    );
-  } catch (error) {
-    console.error("Analysis error:", error);
-    engineAnalysisStore.setEngineAnalyzing(selectedEngine.value, false);
-  }
+	if (!currentPosition.value?.fen) return;
+	try {
+		await engineAnalysisStore.analyzePosition(
+			selectedEngine.value,
+			currentPosition.value.fen,
+		);
+	} catch (error) {
+		console.error("Analysis error:", error);
+		engineAnalysisStore.setEngineAnalyzing(selectedEngine.value, false);
+	}
 }
 
 async function stopAnalysis() {
-  try {
-    await engineAnalysisStore.stopAnalysis(selectedEngine.value);
-  } catch (error) {
-    console.error("Failed to stop analysis:", error);
-  }
+	try {
+		await engineAnalysisStore.stopAnalysis(selectedEngine.value);
+	} catch (error) {
+		console.error("Failed to stop analysis:", error);
+	}
 }
 
 async function startGameAnalysis() {
-  if (!currentGame.value) return;
-  try {
-    engineAnalysisStore.setGameAnalysisInProgress(true);
-    gameAnalysisProgress.value = { current: 0, total: 100 };
-    await engineAnalysisStore.analyzeGame(
-      selectedEngine.value,
-      currentGame.value.id
-    );
-    engineAnalysisStore.setGameAnalysisInProgress(false);
-  } catch (error) {
-    console.error("Game analysis error:", error);
-    engineAnalysisStore.setGameAnalysisInProgress(false);
-  }
+	if (!currentGame.value) return;
+	try {
+		engineAnalysisStore.setGameAnalysisInProgress(true);
+		gameAnalysisProgress.value = { current: 0, total: 100 };
+		await engineAnalysisStore.analyzeGame(
+			selectedEngine.value,
+			currentGame.value.id,
+		);
+		engineAnalysisStore.setGameAnalysisInProgress(false);
+	} catch (error) {
+		console.error("Game analysis error:", error);
+		engineAnalysisStore.setGameAnalysisInProgress(false);
+	}
 }
 
 function formatNodes(nodes: number): string {
-  if (nodes >= 1_000_000_000) {
-    return `${(nodes / 1_000_000_000).toFixed(1)}B`;
-  }
-  if (nodes >= 1_000_000) {
-    return `${(nodes / 1_000_000).toFixed(1)}M`;
-  }
-  if (nodes >= 1_000) {
-    return `${(nodes / 1_000).toFixed(1)}K`;
-  }
-  return nodes.toString();
+	if (nodes >= 1_000_000_000) {
+		return `${(nodes / 1_000_000_000).toFixed(1)}B`;
+	}
+	if (nodes >= 1_000_000) {
+		return `${(nodes / 1_000_000).toFixed(1)}M`;
+	}
+	if (nodes >= 1_000) {
+		return `${(nodes / 1_000).toFixed(1)}K`;
+	}
+	return nodes.toString();
 }
 
 function formatSAN(uci: string): string {
-  // Ideally, convert UCI to SAN
-  // For now, just return the UCI
-  return uci;
+	// Ideally, convert UCI to SAN
+	// For now, just return the UCI
+	return uci;
 }
 
 function formatPV(pv: string[]): string {
-  // Ideally, convert each UCI move to SAN
-  // For now, just join them
-  return pv.slice(0, 5).join(" ");
+	// Ideally, convert each UCI move to SAN
+	// For now, just join them
+	return pv.slice(0, 5).join(" ");
 }
 
 function onEngineSettingsUpdate(updatedSettings: [string, EngineOption][]) {
-  // Update the engine settings in the store
-  const settingsObj: Record<string, EngineOption> =
-    Object.fromEntries(updatedSettings);
-  engineAnalysisStore.setEngineSettings(selectedEngine.value, settingsObj);
+	// Update the engine settings in the store
+	const settingsObj: Record<string, EngineOption> =
+		Object.fromEntries(updatedSettings);
+	engineAnalysisStore.setEngineSettings(selectedEngine.value, settingsObj);
 }
 </script>

@@ -50,7 +50,7 @@
     <div class="join">
       <button
         class="join-item btn"
-        :disabled="currentMoveIndex === -1"
+        :disabled="!currentMove"
         @click="handlePreviousMove"
       >
         <PhArrowLeft />
@@ -81,10 +81,10 @@
 
 <script setup lang="ts">
 import {
-  PhArrowLeft,
-  PhArrowRight,
-  PhArrowsClockwise,
-  PhArrowsOutLineHorizontal,
+	PhArrowLeft,
+	PhArrowRight,
+	PhArrowsClockwise,
+	PhArrowsOutLineHorizontal,
 } from "@phosphor-icons/vue";
 import { computed, onMounted, ref, watch } from "vue";
 import api from "../../shared/api";
@@ -92,29 +92,29 @@ import { useGlobalStore } from "../../stores/";
 import AnnotationArrow from "../AnnotationArrow/AnnotationArrow.vue";
 import ChessBoardSquare from "./ChessBoardSquare.vue";
 import {
-  algebraicToBoard,
-  boardToAlgebraic,
-  calculateSquareCenter,
-  getPieceImagePath,
-  isAnnotationClick,
-  isValidPiece,
-  isWhitePiece,
-  parseFen,
-  parseUciMove,
+	algebraicToBoard,
+	boardToAlgebraic,
+	calculateSquareCenter,
+	getPieceImagePath,
+	isAnnotationClick,
+	isValidPiece,
+	isWhitePiece,
+	parseFen,
+	parseUciMove,
 } from "./utils";
 
 // ---------------
 // Props and emits
 // ---------------
 const props = defineProps<{
-  boardId: number;
+	boardId: number;
 }>();
 
 const emit = defineEmits<{
-  (e: "move", move: { from: string; to: string }): void;
-  (e: "error", error: Error): void;
-  (e: "previousMove"): void;
-  (e: "nextMove"): void;
+	(e: "move", move: { from: string; to: string }): void;
+	(e: "error", error: Error): void;
+	(e: "previousMove"): void;
+	(e: "nextMove"): void;
 }>();
 
 // ---------------
@@ -125,33 +125,67 @@ const gamesStore = globalStore.gamesStore;
 
 // Board state from store
 const boardState = computed(() => gamesStore.getBoardState(props.boardId));
-const currentMove = computed(() => boardState.value?.currentMove);
-const currentMoveIndex = computed(() => boardState.value?.currentMoveIndex);
-const currentPosition = computed(() => boardState.value?.currentPosition);
-const currentTurn = computed(() => boardState.value?.currentTurn);
-const validMoves = computed(() => boardState.value?.validMoves);
+
+// Use the new getters from the refactored store
+const currentMove = computed(() => gamesStore.getCurrentMove(props.boardId));
+const currentPosition = computed(() =>
+	gamesStore.getCurrentPosition(props.boardId),
+);
+const currentTurn = computed(() => gamesStore.getCurrentTurn(props.boardId));
+
+// For valid moves, we need to handle the async nature
+const validMoves = ref<Array<{ uci: string; san: string }> | null>(null);
+
+// Watch for position changes and update valid moves
+watch(
+	currentPosition,
+	async (newPosition) => {
+		if (newPosition?.fen) {
+			try {
+				validMoves.value = await api.moves.GET.validMoves(newPosition.fen);
+			} catch (error) {
+				console.error("Failed to fetch valid moves:", error);
+				validMoves.value = null;
+			}
+		} else {
+			validMoves.value = null;
+		}
+	},
+	{ immediate: true },
+);
 
 // Board orientation
 const isBoardFlipped = computed(
-  () => globalStore.uiStore.whiteOnSide === "top"
+	() => globalStore.uiStore.whiteOnSide === "top",
 );
 
 // Board styling
 const squareSizePixels = computed(() => globalStore.uiStore.boardSquareSize);
 const boardTheme = computed(() => globalStore.uiStore.boardTheme);
 
-// Move navigation
-const hasNextMove = computed(
-  () =>
-    currentMove.value?.children_ids?.length &&
-    currentMove.value?.children_ids?.length > 0
-);
+// Move navigation - derive from game tree
+const hasNextMove = computed(() => {
+	if (!boardState.value?.game?.move_tree) return false;
+
+	const currentNodeId =
+		boardState.value.game.move_tree.current_node_id?.idx ?? 0;
+	const currentNode = boardState.value.game.move_tree.nodes[currentNodeId];
+
+	return currentNode?.value?.children_ids?.length > 0;
+});
 
 const formatCurrentMove = computed(() => {
-  if (!currentMove.value?.game_move?.ply_number) return "N/A";
+	const move = currentMove.value;
+	if (!move?.game_move?.ply_number || !move?.game_move?.san) return "Start";
 
-  const moveNumber = Math.floor(currentMove.value.game_move.ply_number / 2) + 1;
-  return `${moveNumber}. ${currentMove.value.game_move.san}`;
+	const moveNumber = Math.floor(move.game_move.ply_number / 2) + 1;
+	const isWhiteMove = move.game_move.ply_number % 2 === 1;
+
+	if (isWhiteMove) {
+		return `${moveNumber}. ${move.game_move.san}`;
+	}
+
+	return `${moveNumber}... ${move.game_move.san}`;
 });
 
 // Selected piece state
@@ -160,38 +194,23 @@ const validPieceMoves = ref<Array<{ row: number; col: number }>>([]);
 
 // Valid moves computed from store - single source of truth
 const validMovesMap = computed(() => {
-  const moves = validMoves.value || [];
-  const movesMap: Record<string, Array<{ row: number; col: number }>> = {};
+	const moves = validMoves.value || [];
+	const movesMap: Record<string, Array<{ row: number; col: number }>> = {};
 
-  for (const move of moves) {
-    const { from, to } = parseUciMove(move.uci);
-    const { row: fromRow, col: fromCol } = algebraicToBoard(from);
-    const { row: toRow, col: toCol } = algebraicToBoard(to);
+	for (const move of moves) {
+		const { from, to } = parseUciMove(move.uci);
+		const { row: fromRow, col: fromCol } = algebraicToBoard(from);
+		const { row: toRow, col: toCol } = algebraicToBoard(to);
 
-    const fromKey = `${fromRow},${fromCol}`;
-    if (!movesMap[fromKey]) {
-      movesMap[fromKey] = [];
-    }
-    movesMap[fromKey].push({ row: toRow, col: toCol });
-  }
+		const fromKey = `${fromRow},${fromCol}`;
+		if (!movesMap[fromKey]) {
+			movesMap[fromKey] = [];
+		}
+		movesMap[fromKey].push({ row: toRow, col: toCol });
+	}
 
-  return movesMap;
+	return movesMap;
 });
-
-// ---------------
-// Board state
-// ---------------
-const currentPositionFEN = computed(() => {
-  if (currentPosition.value?.fen) {
-    return { fen: currentPosition.value.fen };
-  }
-  // Default starting position
-  return { fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" };
-});
-
-const currentPositionParsed = computed(() =>
-  currentPositionFEN.value ? parseFen(currentPositionFEN.value.fen) : undefined
-);
 
 // ---------------
 // Coordinate transformation utilities
@@ -204,12 +223,14 @@ const currentPositionParsed = computed(() =>
  * @returns The piece at the specified position, or undefined if none
  */
 function getPieceAtCoords(row: number, col: number) {
-  const board = currentPositionParsed.value;
-  if (!board) return undefined;
+	const board = currentPosition.value?.fen
+		? parseFen(currentPosition.value.fen)
+		: undefined;
+	if (!board) return undefined;
 
-  // Access the board array directly with coordinates
-  const piece = board[row]?.[col];
-  return isValidPiece(piece) ? piece : undefined;
+	// Access the board array directly with coordinates
+	const piece = board[row]?.[col];
+	return isValidPiece(piece) ? piece : undefined;
 }
 
 /**
@@ -219,20 +240,20 @@ function getPieceAtCoords(row: number, col: number) {
  * @returns True if the piece can be moved, false otherwise
  */
 function canMovePiece(row: number, col: number) {
-  // Check if it's the player's turn
-  const piece = getPieceAtCoords(row, col);
-  if (!piece) return false;
+	// Check if it's the player's turn
+	const piece = getPieceAtCoords(row, col);
+	if (!piece) return false;
 
-  const isWhite = isWhitePiece(piece);
-  const isWhiteTurn = currentTurn.value === "white";
+	const isWhite = isWhitePiece(piece);
+	const isWhiteTurn = currentTurn.value === "white";
 
-  if (isWhite !== isWhiteTurn) {
-    return false;
-  }
+	if (isWhite !== isWhiteTurn) {
+		return false;
+	}
 
-  // Check if the piece has valid moves
-  const positionMoves = validMovesMap.value[`${row},${col}`] || [];
-  return positionMoves.length > 0;
+	// Check if the piece has valid moves
+	const positionMoves = validMovesMap.value[`${row},${col}`] || [];
+	return positionMoves.length > 0;
 }
 
 /**
@@ -242,8 +263,8 @@ function canMovePiece(row: number, col: number) {
  * @returns True if the square is selected, false otherwise
  */
 function isSquareSelected(row: number, col: number) {
-  if (!selectedPiece.value) return false;
-  return selectedPiece.value.row === row && selectedPiece.value.col === col;
+	if (!selectedPiece.value) return false;
+	return selectedPiece.value.row === row && selectedPiece.value.col === col;
 }
 
 /**
@@ -253,9 +274,9 @@ function isSquareSelected(row: number, col: number) {
  * @returns True if the square is a valid move target, false otherwise
  */
 function isValidMoveTarget(row: number, col: number) {
-  return validPieceMoves.value.some(
-    (move) => move.row === row && move.col === col
-  );
+	return validPieceMoves.value.some(
+		(move) => move.row === row && move.col === col,
+	);
 }
 
 /**
@@ -265,113 +286,119 @@ function isValidMoveTarget(row: number, col: number) {
  * @returns True if the square is part of the current move, false otherwise
  */
 function isPartOfCurrentMove(row: number, col: number) {
-  if (!currentMove?.value?.game_move?.uci) return false;
+	if (!currentMove?.value?.game_move?.uci) return false;
 
-  const { from, to } = parseUciMove(currentMove.value.game_move.uci);
+	const { from, to } = parseUciMove(currentMove.value.game_move.uci);
 
-  // Convert algebraic notation to board coordinates
-  const fromCoords = algebraicToBoard(from);
-  const toCoords = algebraicToBoard(to);
+	// Convert algebraic notation to board coordinates
+	const fromCoords = algebraicToBoard(from);
+	const toCoords = algebraicToBoard(to);
 
-  // Check if current square is either the from or to square
-  return (
-    (row === fromCoords.row && col === fromCoords.col) ||
-    (row === toCoords.row && col === toCoords.col)
-  );
+	// Check if current square is either the from or to square
+	return (
+		(row === fromCoords.row && col === fromCoords.col) ||
+		(row === toCoords.row && col === toCoords.col)
+	);
 }
 
 // ---------------
 // Annotations
 // ---------------
+interface Annotation {
+	comment?: string | null;
+	arrows?: string | null;
+	highlights?: string | null;
+}
+
 const annotations = computed(
-  () =>
-    currentMove.value?.game_move?.annotations?.map((annotation) => {
-      const { comment, arrows, highlights } = annotation;
-      return {
-        comment,
-        arrows: arrows ? parseUciMove(arrows) : null,
-        highlights: highlights ? algebraicToBoard(highlights) : null,
-      };
-    }) || []
+	() =>
+		currentMove.value?.game_move?.annotations?.map((annotation: Annotation) => {
+			const { comment, arrows, highlights } = annotation;
+			return {
+				comment,
+				arrows: arrows ? parseUciMove(arrows) : null,
+				highlights: highlights ? algebraicToBoard(highlights) : null,
+			};
+		}) || [],
 );
 
 const arrowCoordinates = computed(() => {
-  if (!annotations.value?.length) return null;
+	if (!annotations.value?.length) return null;
 
-  const validArrows = annotations.value.filter(
-    (annotation) => annotation.arrows
-  );
-  if (!validArrows.length || !validArrows[0].arrows) return null;
+	const validArrows = annotations.value.filter(
+		(annotation) => annotation.arrows,
+	);
+	if (!validArrows.length || !validArrows[0].arrows) return null;
 
-  const { arrows } = validArrows[0];
+	const { arrows } = validArrows[0];
 
-  // Convert algebraic notation to coordinates
-  const fromCoords = algebraicToBoard(arrows.from);
-  const toCoords = algebraicToBoard(arrows.to);
+	// Convert algebraic notation to coordinates
+	const fromCoords = algebraicToBoard(arrows.from);
+	const toCoords = algebraicToBoard(arrows.to);
 
-  // For visual elements like arrows, we need to consider board rotation
-  // since the actual pixel positions change when the board is flipped
-  return {
-    from: calculateSquareCenter(
-      fromCoords.col,
-      fromCoords.row,
-      squareSizePixels.value,
-      isBoardFlipped.value
-    ),
-    to: calculateSquareCenter(
-      toCoords.col,
-      toCoords.row,
-      squareSizePixels.value,
-      isBoardFlipped.value
-    ),
-  };
+	// For visual elements like arrows, we need to consider board rotation
+	// since the actual pixel positions change when the board is flipped
+	return {
+		from: calculateSquareCenter(
+			fromCoords.col,
+			fromCoords.row,
+			squareSizePixels.value,
+			isBoardFlipped.value,
+		),
+		to: calculateSquareCenter(
+			toCoords.col,
+			toCoords.row,
+			squareSizePixels.value,
+			isBoardFlipped.value,
+		),
+	};
 });
 
 // ---------------
 // Move handling
 // ---------------
 function getValidMoves(row: number, col: number) {
-  const piece = getPieceAtCoords(row, col);
-  if (!piece) return [];
+	const piece = getPieceAtCoords(row, col);
+	if (!piece) return [];
 
-  // Get moves directly from computed property
-  const cacheKey = `${row},${col}`;
-  return validMovesMap.value[cacheKey] || [];
+	// Get moves directly from computed property
+	const cacheKey = `${row},${col}`;
+	return validMovesMap.value[cacheKey] || [];
 }
 
 // ---------------
 // Event handlers
 // ---------------
 function handleDragStart(row: number, col: number) {
-  selectedPiece.value = { row, col };
-  validPieceMoves.value = getValidMoves(row, col);
+	selectedPiece.value = { row, col };
+	validPieceMoves.value = getValidMoves(row, col);
 }
 
 async function handleDrop(row: number, col: number) {
-  if (!selectedPiece.value) return;
+	if (!selectedPiece.value) return;
 
-  // Check if the move is valid
-  if (!isValidMoveTarget(row, col)) return;
+	// Check if the move is valid
+	if (!isValidMoveTarget(row, col)) return;
 
-  // Convert coordinates to algebraic notation
-  const fromSquare = boardToAlgebraic(
-    selectedPiece.value.row,
-    selectedPiece.value.col
-  );
-  const toSquare = boardToAlgebraic(row, col);
-  const moveNotation = fromSquare + toSquare;
+	// Convert coordinates to algebraic notation
+	const fromSquare = boardToAlgebraic(
+		selectedPiece.value.row,
+		selectedPiece.value.col,
+	);
+	const toSquare = boardToAlgebraic(row, col);
+	const moveNotation = fromSquare + toSquare;
 
-  try {
-    await gamesStore.makeMove(props.boardId, moveNotation);
-    gamesStore.nextMove(props.boardId);
-  } catch (error) {
-    console.error("Error making move:", error);
-    emit("error", error instanceof Error ? error : new Error(String(error)));
-  } finally {
-    // Reset selection regardless of success/failure
-    selectedPiece.value = null;
-    validPieceMoves.value = [];
-  }
+	try {
+		await gamesStore.makeMove(props.boardId, moveNotation);
+		gamesStore.nextMove(props.boardId);
+	} catch (error) {
+		console.error("Error making move:", error);
+		emit("error", error instanceof Error ? error : new Error(String(error)));
+	} finally {
+		// Reset selection regardless of success/failure
+		selectedPiece.value = null;
+		validPieceMoves.value = [];
+	}
 }
 
 /**
@@ -381,68 +408,72 @@ async function handleDrop(row: number, col: number) {
  * @param col The column of the square (0-7, 0 = left)
  */
 async function handleSquareClick(event: MouseEvent, row: number, col: number) {
-  event.preventDefault();
+	event.preventDefault();
 
-  if (isAnnotationClick(event)) {
-    // Handle annotation click (future enhancement)
-    return;
-  }
+	if (isAnnotationClick(event)) {
+		// Handle annotation click (future enhancement)
+		return;
+	}
 
-  const piece = getPieceAtCoords(row, col);
+	const piece = getPieceAtCoords(row, col);
 
-  if (selectedPiece.value && isValidMoveTarget(row, col)) {
-    // Move the selected piece to this square
-    await handleDrop(row, col);
-  } else if (piece && canMovePiece(row, col) && !isSquareSelected(row, col)) {
-    // Select this piece
-    selectedPiece.value = { row, col };
-    validPieceMoves.value = getValidMoves(row, col);
-  } else {
-    // Deselect
-    selectedPiece.value = null;
-    validPieceMoves.value = [];
-  }
+	if (selectedPiece.value && isValidMoveTarget(row, col)) {
+		// Move the selected piece to this square
+		await handleDrop(row, col);
+		return;
+	}
+
+	if (piece && canMovePiece(row, col) && !isSquareSelected(row, col)) {
+		// Select this piece
+		selectedPiece.value = { row, col };
+		validPieceMoves.value = getValidMoves(row, col);
+		return;
+	}
+
+	// Deselect
+	selectedPiece.value = null;
+	validPieceMoves.value = [];
 }
 
 function handlePreviousMove() {
-  gamesStore.previousMove(props.boardId);
-  emit("previousMove");
+	gamesStore.previousMove(props.boardId);
+	emit("previousMove");
 }
 
 function handleNextMove() {
-  gamesStore.nextMove(props.boardId);
-  emit("nextMove");
+	gamesStore.nextMove(props.boardId);
+	emit("nextMove");
 }
 
 function rotateBoard() {
-  globalStore.uiStore.setWhiteOnSide();
+	globalStore.uiStore.setWhiteOnSide();
 }
 
 function startResize(event: MouseEvent) {
-  event.preventDefault();
-  event.stopPropagation();
+	event.preventDefault();
+	event.stopPropagation();
 
-  const startX = event.clientX;
+	const startX = event.clientX;
 
-  const handleMouseMove = (event: MouseEvent) => {
-    const deltaX = event.clientX - startX;
+	const handleMouseMove = (event: MouseEvent) => {
+		const deltaX = event.clientX - startX;
 
-    // Scale down the deltaX to avoid resizing too quickly
-    const scaleFactor = 0.15;
-    const newSquareSize = Math.max(
-      16,
-      Math.min(96, squareSizePixels.value + deltaX * scaleFactor)
-    );
-    globalStore.uiStore.updateBoardSquareSize(newSquareSize);
-  };
+		// Scale down the deltaX to avoid resizing too quickly
+		const scaleFactor = 0.15;
+		const newSquareSize = Math.max(
+			16,
+			Math.min(96, squareSizePixels.value + deltaX * scaleFactor),
+		);
+		globalStore.uiStore.updateBoardSquareSize(newSquareSize);
+	};
 
-  const handleMouseUp = () => {
-    window.removeEventListener("mousemove", handleMouseMove);
-    window.removeEventListener("mouseup", handleMouseUp);
-  };
+	const handleMouseUp = () => {
+		window.removeEventListener("mousemove", handleMouseMove);
+		window.removeEventListener("mouseup", handleMouseUp);
+	};
 
-  window.addEventListener("mousemove", handleMouseMove);
-  window.addEventListener("mouseup", handleMouseUp);
+	window.addEventListener("mousemove", handleMouseMove);
+	window.addEventListener("mouseup", handleMouseUp);
 }
 
 // ---------------

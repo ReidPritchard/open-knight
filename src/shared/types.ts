@@ -18,15 +18,15 @@ import type { ChessGame, LegalMove } from "./bindings";
  * Fields of `ChessGame` model that are displayed in the explorer/library view
  */
 export const explorerGameFields: (keyof ChessGame)[] = [
-  "id",
-  "white_player",
-  "black_player",
-  "tournament",
-  "opening",
-  "result",
-  "round",
-  "date",
-  "tags",
+	"id",
+	"white_player",
+	"black_player",
+	"tournament",
+	"opening",
+	"result",
+	"round",
+	"date",
+	"tags",
 ] as const;
 
 /**
@@ -43,7 +43,7 @@ export const parseExplorerGame = typia.json.createValidateParse<ExplorerGame>();
  * Parse a JSON string into an array of `ExplorerGame` objects
  */
 export const parseExplorerGames =
-  typia.json.createValidateParse<ExplorerGame[]>();
+	typia.json.createValidateParse<ExplorerGame[]>();
 
 /**
  * Parse a JSON string into an array of `LegalMove` objects
@@ -54,14 +54,14 @@ export const parseLegalMoves = typia.json.createValidateParse<LegalMove[]>();
  * Events emitted by the engine
  */
 export interface EngineEvents {
-  analysisUpdate: AnalysisUpdate;
-  bestMove: BestMove;
+	analysisUpdate: AnalysisUpdate;
+	bestMove: BestMove;
 }
 
 export interface BestMove {
-  move: string;
-  ponder?: string;
-  timestamp: number;
+	move: string;
+	ponder?: string;
+	timestamp: number;
 }
 
 /**
@@ -73,78 +73,78 @@ export type BestMovePayload = [move: string, ponder?: string];
  * Score of the engine's analysis
  */
 export interface Score {
-  value: number;
-  type?: "centipawns" | "mate";
+	value: number;
+	type?: "centipawns" | "mate";
 }
 
 /**
  * Update of the engine's analysis
  */
 export interface AnalysisUpdate {
-  depth?: number;
-  seldepth?: number;
-  time?: number;
-  nodes?: number;
-  pv?: string[];
-  multipv?: number;
-  score?: Score;
-  hashfull?: number;
-  nps?: number;
-  tbhits?: number;
+	depth?: number;
+	seldepth?: number;
+	time?: number;
+	nodes?: number;
+	pv?: string[];
+	multipv?: number;
+	score?: Score;
+	hashfull?: number;
+	nps?: number;
+	tbhits?: number;
 }
 
 /**
  * Analysis update event payload
  */
 export type AnalysisUpdatePayload = [
-  engineName: string,
-  update:
-    | {
-        AnalysisUpdate: AnalysisUpdate;
-      }
-    | {
-        BestMove: BestMovePayload;
-      }
+	engineName: string,
+	update:
+		| {
+				AnalysisUpdate: AnalysisUpdate;
+		  }
+		| {
+				BestMove: BestMovePayload;
+		  },
 ];
 
 /**
  * Parse a JSON string into an `AnalysisUpdatePayload` object
  */
 export const parseAnalysisUpdatePayload =
-  typia.json.createValidateParse<AnalysisUpdatePayload>();
+	typia.json.createValidateParse<AnalysisUpdatePayload>();
 
 /**
  * Engine option
  */
 export interface EngineOption {
-  type: "check" | "spin" | "combo" | "button" | "string";
-  value?: string;
-  default?: string;
-  min?: number;
-  max?: number;
-  var?: string[];
+	type: "check" | "spin" | "combo" | "button" | "string";
+	value?: string;
+	default?: string;
+	min?: number;
+	max?: number;
+	var?: string[];
 }
 
 /**
  * Engine options
  */
 export interface EngineSettings {
-  [name: string]: EngineOption;
+	[name: string]: EngineOption;
 }
 
 /**
  * Engine settings event payload
  */
 export type EngineSettingsPayload = [
-  engineName: string,
-  EngineSettings: EngineSettings
+	engineName: string,
+	EngineSettings: EngineSettings,
 ];
 
 /**
  * Parse a JSON string into an `EngineSettingsPayload` object
  */
 export const parseEngineSettingsPayload =
-  typia.json.createValidateParse<EngineSettingsPayload>();
+	typia.json.createValidateParse<EngineSettingsPayload>();
 
 ////////////////////////////////////////////////////////////
 // Error Types
@@ -154,10 +154,10 @@ export const parseEngineSettingsPayload =
  * Error thrown when interacting with the engine
  */
 export class EngineError extends Error {
-  public readonly EngineError: string;
+	public readonly EngineError: string;
 
-  constructor(message: string) {
-    super(message);
-    this.EngineError = message;
-  }
+	constructor(message: string) {
+		super(message);
+		this.EngineError = message;
+	}
 }

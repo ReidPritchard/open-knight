@@ -78,20 +78,20 @@ import { defineEmits, defineProps } from "vue";
 import type { EngineOption } from "../../shared/types";
 
 const props = defineProps<{
-  engineSettings: [string, EngineOption][];
+	engineSettings: [string, EngineOption][];
 }>();
 const emit =
-  defineEmits<
-    (event: "update:engineSettings", value: [string, EngineOption][]) => void
-  >();
+	defineEmits<
+		(event: "update:engineSettings", value: [string, EngineOption][]) => void
+	>();
 
 function onInput(idx: number, value: unknown) {
-  // Emit the updated settings array
-  const updated = props.engineSettings.map((entry, i) =>
-    i === idx
-      ? ([entry[0], { ...entry[1], value }] as [string, EngineOption])
-      : entry
-  );
-  emit("update:engineSettings", updated);
+	// Emit the updated settings array
+	const updated = props.engineSettings.map((entry, i) =>
+		i === idx
+			? ([entry[0], { ...entry[1], value }] as [string, EngineOption])
+			: entry,
+	);
+	emit("update:engineSettings", updated);
 }
 </script>

@@ -68,6 +68,20 @@ impl GameSessionManager {
         session.redo_move()
     }
 
+    pub fn next_move(&mut self, board_id: i32, variation: usize) -> Result<(), AppError> {
+        let session = self
+            .get_session_mut(board_id)
+            .ok_or(AppError::SessionError("Game session not found".to_string()))?;
+        session.next_move(variation)
+    }
+
+    pub fn previous_move(&mut self, board_id: i32) -> Result<(), AppError> {
+        let session = self
+            .get_session_mut(board_id)
+            .ok_or(AppError::SessionError("Game session not found".to_string()))?;
+        session.previous_move()
+    }
+
     pub fn reset_to_position(&mut self, board_id: i32, move_number: usize) -> Result<(), AppError> {
         let session = self
             .get_session_mut(board_id)

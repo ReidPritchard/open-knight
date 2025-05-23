@@ -24,34 +24,34 @@ const displayMoveTree = computed(() => uiStore.getMoveTreeViewOpen);
 const displayEngineView = computed(() => uiStore.getEngineViewOpen);
 
 const refreshGamesClick = async () => {
-  await globalStore.fetchExplorerGames();
+	await globalStore.fetchExplorerGames();
 };
 
 const resetDatabaseClick = async () => {
-  await globalStore.resetDatabase();
+	await globalStore.resetDatabase();
 };
 
 const newGameClick = async () => {
-  await globalStore.gamesStore.newGame(0);
+	await globalStore.gamesStore.newGame(0);
 };
 
 onMounted(() => {
-  globalStore.fetchExplorerGames();
+	globalStore.fetchExplorerGames();
 
-  // If in development mode, expose the state and API to the window
-  if (import.meta.env.DEV) {
-    const globalWindow = window as unknown as {
-      $$: {
-        store: typeof globalStore;
-        api: typeof globalStore.api;
-      };
-    };
+	// If in development mode, expose the state and API to the window
+	if (import.meta.env.DEV) {
+		const globalWindow = window as unknown as {
+			$$: {
+				store: typeof globalStore;
+				api: typeof globalStore.api;
+			};
+		};
 
-    globalWindow.$$ = {
-      store: globalStore,
-      api: globalStore.api,
-    };
-  }
+		globalWindow.$$ = {
+			store: globalStore,
+			api: globalStore.api,
+		};
+	}
 });
 
 // Setup default styles for Phosphor icons

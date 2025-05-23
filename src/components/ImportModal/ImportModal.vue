@@ -55,8 +55,8 @@ import { ref } from "vue";
 import { useGlobalStore } from "../../stores";
 
 const props = defineProps<{
-  isOpen: boolean;
-  onClose: () => void;
+	isOpen: boolean;
+	onClose: () => void;
 }>();
 
 const globalStore = useGlobalStore();
@@ -66,34 +66,34 @@ const loading = ref(false);
 const pgn = ref("");
 
 const handleFileChange = (event: Event) => {
-  const file = (event.target as HTMLInputElement).files?.[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      pgn.value = e.target?.result as string;
-    };
-    reader.readAsText(file);
-  }
+	const file = (event.target as HTMLInputElement).files?.[0];
+	if (file) {
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			pgn.value = e.target?.result as string;
+		};
+		reader.readAsText(file);
+	}
 };
 
 const importGames = async () => {
-  loading.value = true;
-  await globalStore.importPGNGames(pgn.value);
-  props.onClose();
-  loading.value = false;
+	loading.value = true;
+	await globalStore.importPGNGames(pgn.value);
+	props.onClose();
+	loading.value = false;
 };
 
 const importDemoGames = async () => {
-  // FIXME: Show UI for importing games
-  console.warn("Import UI not implemented - loading demo games");
-  // Use a pgn file from the assets folder
-  try {
-    const pgn = (
-      await import("./../../assets/pgns/demo_multiple_games.pgn?raw")
-    ).default;
-    await globalStore.importPGNGames(pgn);
-  } catch (error) {
-    console.error("Error importing demo games", error);
-  }
+	// FIXME: Show UI for importing games
+	console.warn("Import UI not implemented - loading demo games");
+	// Use a pgn file from the assets folder
+	try {
+		const pgn = (
+			await import("./../../assets/pgns/demo_multiple_games.pgn?raw")
+		).default;
+		await globalStore.importPGNGames(pgn);
+	} catch (error) {
+		console.error("Error importing demo games", error);
+	}
 };
 </script>

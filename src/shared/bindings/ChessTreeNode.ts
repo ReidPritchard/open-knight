@@ -2,4 +2,9 @@
 import type { ChessMove } from "./ChessMove";
 import type { ChessPosition } from "./ChessPosition";
 
-export type ChessTreeNode = { position: ChessPosition, game_move: ChessMove | null, parent_id: { idx: number, version: number } | null, children_ids: { idx: number, version: number }[], };
+export type ChessTreeNode = {
+	position: ChessPosition;
+	game_move: ChessMove | null;
+	parent_id: { idx: number; version: number } | null;
+	children_ids: { idx: number; version: number }[];
+};
