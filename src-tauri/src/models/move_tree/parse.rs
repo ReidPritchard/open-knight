@@ -88,7 +88,7 @@ fn parse_pgn_tokens_recursive(
                 let new_move_ply = *full_move_count * 2 + if *is_white { -1 } else { 0 };
 
                 // post move position
-                let new_move_position = current_position.make_move(&notation)?;
+                let new_move_position = current_position.make_san_move(&notation)?;
 
                 // UCI
                 let uci = generate_uci(notation, &Chess::from(current_position.clone()))?;

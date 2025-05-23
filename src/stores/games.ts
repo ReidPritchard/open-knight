@@ -169,6 +169,9 @@ export const useGamesStore = defineStore("games", {
 
       // Update the game state
       game.game = updatedGame;
+
+      // FIXME: Sync the game state directly instead of this workaround
+      this.previousMove(boardId);
       this.nextMove(boardId);
     },
 

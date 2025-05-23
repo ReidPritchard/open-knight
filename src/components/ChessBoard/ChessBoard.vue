@@ -363,7 +363,7 @@ async function handleDrop(row: number, col: number) {
 
   try {
     await gamesStore.makeMove(props.boardId, moveNotation);
-    emit("move", { from: fromSquare, to: toSquare });
+    gamesStore.nextMove(props.boardId);
   } catch (error) {
     console.error("Error making move:", error);
     emit("error", error instanceof Error ? error : new Error(String(error)));

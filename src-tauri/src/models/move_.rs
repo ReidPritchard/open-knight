@@ -111,7 +111,7 @@ impl ChessPosition {
         })
     }
 
-    pub fn make_move(&self, move_san: &str) -> Result<Self, Box<dyn Error>> {
+    pub fn make_san_move(&self, move_san: &str) -> Result<Self, Box<dyn Error>> {
         let pos = Chess::from(self.clone());
         let parsed_move = San::from_ascii(move_san.as_bytes())?;
         let chess_move = parsed_move.to_move(&pos)?;
@@ -125,9 +125,7 @@ impl ChessPosition {
         })
     }
 
-    /**
-     * Make a move from a UCI notation string
-     */
+    /// Make a move from a UCI notation string
     pub fn make_uci_move(&self, uci: &str) -> Result<Self, Box<dyn Error>> {
         let pos = Chess::from(self.clone());
         let parsed_move = UciMove::from_ascii(uci.as_bytes())?;

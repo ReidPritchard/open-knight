@@ -39,7 +39,7 @@ impl GameSession {
     }
 
     pub async fn make_move(&mut self, move_notation: &str) -> Result<(), AppError> {
-        self.game.make_move(move_notation).await?;
+        self.game.make_uci_move(move_notation).await?;
         self.dirty = true;
         self.move_count_since_save += 1;
         Ok(())

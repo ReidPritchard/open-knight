@@ -650,46 +650,23 @@ impl ChessGame {
         pgn
     }
 
-    /// Makes a move in the game
+    /// Makes a move in the game from the current position (as tracked in the move tree)
     ///
     /// # Arguments
-    /// * `move_notation` - The move in algebraic notation
+    /// * `uci_move_notation` - The move in UCI notation
     ///
     /// # Returns
     /// * `Result<(), AppError>` - Success or an error
-    pub async fn make_move(&mut self, move_notation: &str) -> Result<(), AppError> {
-        if move_notation.trim().is_empty() {
+    pub async fn make_uci_move(&mut self, uci_move_notation: &str) -> Result<(), AppError> {
+        if uci_move_notation.trim().is_empty() {
             return Err(AppError::ChessError(
                 "Move notation cannot be empty".to_string(),
             ));
         }
 
-        let current_node_id = self
-            .move_tree
-            .current_node_id
-            .ok_or_else(|| AppError::ChessError("No current position in move tree".to_string()))?;
+        self.move_tree.make_uci_move(uci_move_notation);
 
-        let current_node = self
-            .move_tree
-            .nodes
-            .get(current_node_id)
-            .ok_or_else(|| AppError::ChessError("Invalid current node in move tree".to_string()))?
-            .clone();
-
-        // Make the move
-        let new_position = current_node
-            .position
-            .make_uci_move(move_notation)
-            .map_err(|e| {
-                AppError::ChessError(format!("Invalid move '{}': {}", move_notation, e))
-            })?;
-
-        // Update the game
-        self.fen = Some(new_position.fen);
-
-        // Update the move tree
-        self.move_tree.make_move(move_notation);
-
+        // No need to update the game as the move tree handles it
         Ok(())
     }
 }
