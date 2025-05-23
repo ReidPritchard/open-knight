@@ -70,14 +70,14 @@ export const useGamesStore = defineStore("games", {
         }
 
         // Create a new game
-        const game = await api.games.POST.newGame();
+        const game = await api.games.POST.newGame(boardId, type);
         console.log("New game:", game);
         // Setup game state
         const initialPosition: ChessPosition = {
           id: 0,
           fen: game.fen ?? "",
           evaluations: [],
-          variant: "Standard", // TODO: Handle variations
+          variant: "Standard", // TODO: Handle variants
         };
         const validMoves = await getValidMoves(initialPosition.fen);
 
@@ -116,12 +116,12 @@ export const useGamesStore = defineStore("games", {
       }
 
       // Open game
-      const game = await api.games.GET.game(gameId);
+      const game = await api.games.POST.openGame(gameId, boardId);
       const initialPosition: ChessPosition = {
         id: 0,
         fen: game.fen ?? "",
         evaluations: [],
-        variant: "Standard", // TODO: Handle variations
+        variant: "Standard", // TODO: Handle variants
       };
       const validMoves = await getValidMoves(initialPosition?.fen);
 
@@ -160,12 +160,12 @@ export const useGamesStore = defineStore("games", {
       const game = this.activeGameMap.get(boardId);
       if (!game) return;
 
+      console.log("Making move:", moveNotation);
+
       // Make the move
-      const updatedGame = await api.moves.POST.makeMove(
-        game.game.id,
-        game.currentMove?.game_move?.id ?? 0,
-        moveNotation
-      );
+      const updatedGame = await api.moves.POST.makeMove(boardId, moveNotation);
+
+      console.log("Updated game:", updatedGame);
 
       // Update the game state
       game.game = updatedGame;

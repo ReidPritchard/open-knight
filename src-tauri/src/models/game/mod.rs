@@ -4,16 +4,15 @@ use sea_orm::prelude::*;
 use sea_orm::sqlx::types::chrono::{self};
 use sea_orm::ActiveValue::Set;
 use sea_orm::DatabaseConnection;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, TransactionTrait};
 use serde::{Deserialize, Serialize};
-use shakmaty::uci::Uci;
-use std::error::Error;
 use ts_rs::TS;
 
 use crate::entities::*;
 use crate::models::{ChessMove, ChessMoveTree, ChessPosition};
 use crate::parse::pgn::PgnToken;
 use crate::ts_export;
+use crate::utils::AppError;
 
 use super::parse::load_moves_from_db;
 
@@ -82,19 +81,41 @@ ts_export! {
 }
 
 impl ChessGame {
-    pub async fn new(_variant: &str, db: &DatabaseConnection) -> Result<Self, Box<dyn Error>> {
-        // Create a new game struct with placeholder values
+    /// Creates a new chess game with default starting position
+    ///
+    /// # Arguments
+    /// * `variant` - The chess variant (currently only "standard" is supported)
+    /// * `db` - Database connection for saving the game
+    ///
+    /// # Returns
+    /// * `Result<Self, AppError>` - The created game or an error
+    pub async fn new(variant: &str, db: &DatabaseConnection) -> Result<Self, AppError> {
+        if variant != "standard" {
+            return Err(AppError::ChessError(format!(
+                "Unsupported chess variant: {}. Only 'standard' is currently supported.",
+                variant
+            )));
+        }
+
+        // Create default players (these will be updated when the game is actually played)
+        let white_player_id = Self::create_default_player(db, "White Player").await?;
+        let black_player_id = Self::create_default_player(db, "Black Player").await?;
+
+        let starting_position = ChessPosition::default();
+        let current_date = chrono::Utc::now().to_rfc3339();
+
+        // Create a new game struct
         let mut game = ChessGame {
-            id: 0,
+            id: 0, // Will be set after database insertion
             white_player: ChessPlayer {
-                id: 1,
-                name: "?".to_string(),
+                id: white_player_id,
+                name: "White Player".to_string(),
                 elo: None,
                 country: None,
             },
             black_player: ChessPlayer {
-                id: 2,
-                name: "?".to_string(),
+                id: black_player_id,
+                name: "Black Player".to_string(),
                 elo: None,
                 country: None,
             },
@@ -102,61 +123,106 @@ impl ChessGame {
             opening: None,
             result: "*".to_string(),
             round: None,
-            date: chrono::Utc::now().to_rfc3339(),
+            date: current_date.clone(),
             move_tree: ChessMoveTree::default(),
             tags: vec!["local".to_string()],
-            fen: Some(ChessPosition::default().fen),
+            fen: Some(starting_position.fen),
             pgn: None,
         };
 
-        // TODO: Init with more data
-
         // Insert into database
-
-        // FIXME: Make sure this model matches the created game struct
-        // we need to search for existing players and maybe the tournament
         let db_game_model = game::ActiveModel {
-            white_player_id: Set(game.white_player.id.clone()),
-            black_player_id: Set(game.black_player.id.clone()),
+            white_player_id: Set(white_player_id),
+            black_player_id: Set(black_player_id),
             tournament_id: Set(None),
             opening_id: Set(None),
             result: Set(Some(game.result.clone())),
             round_number: Set(game.round),
-            date_played: Set(Some(game.date.clone())),
+            date_played: Set(Some(current_date)),
             fen: Set(game.fen.clone()),
             pgn: Set("".to_string()),
+            created_at: Set(Some(chrono::Utc::now())),
             ..Default::default()
         };
 
-        let insert_result = game::Entity::insert(db_game_model).exec(db).await?;
+        let insert_result = game::Entity::insert(db_game_model)
+            .exec(db)
+            .await
+            .map_err(|e| AppError::DatabaseError(format!("Failed to create new game: {}", e)))?;
+
         game.id = insert_result.last_insert_id;
 
         Ok(game)
     }
 
-    pub async fn load(db: &DatabaseConnection, game_id: i32) -> Result<Self, Box<dyn Error>> {
+    /// Creates a default player for new games
+    async fn create_default_player(db: &DatabaseConnection, name: &str) -> Result<i32, AppError> {
+        let player_model = player::ActiveModel {
+            name: Set(name.to_string()),
+            elo_rating: Set(None),
+            country_code: Set(None),
+            created_at: Set(Some(chrono::Utc::now())),
+            updated_at: Set(Some(chrono::Utc::now())),
+            ..Default::default()
+        };
+
+        let result = player::Entity::insert(player_model)
+            .exec(db)
+            .await
+            .map_err(|e| {
+                AppError::DatabaseError(format!("Failed to create default player: {}", e))
+            })?;
+
+        Ok(result.last_insert_id)
+    }
+
+    /// Loads a chess game from the database by ID
+    ///
+    /// # Arguments
+    /// * `db` - Database connection
+    /// * `game_id` - The ID of the game to load
+    ///
+    /// # Returns
+    /// * `Result<Self, AppError>` - The loaded game or an error
+    pub async fn load(db: &DatabaseConnection, game_id: i32) -> Result<Self, AppError> {
         // Load the game
         let game = game::Entity::find_by_id(game_id)
             .one(db)
-            .await?
-            .ok_or("Game not found")?;
+            .await
+            .map_err(|e| AppError::DatabaseError(format!("Failed to query game: {}", e)))?
+            .ok_or_else(|| {
+                AppError::DatabaseError(format!("Game with ID {} not found", game_id))
+            })?;
 
         // Load players
         let white_player = player::Entity::find_by_id(game.white_player_id)
             .one(db)
-            .await?
-            .ok_or("White player not found")?;
+            .await
+            .map_err(|e| AppError::DatabaseError(format!("Failed to query white player: {}", e)))?
+            .ok_or_else(|| {
+                AppError::DatabaseError(format!(
+                    "White player with ID {} not found",
+                    game.white_player_id
+                ))
+            })?;
 
         let black_player = player::Entity::find_by_id(game.black_player_id)
             .one(db)
-            .await?
-            .ok_or("Black player not found")?;
+            .await
+            .map_err(|e| AppError::DatabaseError(format!("Failed to query black player: {}", e)))?
+            .ok_or_else(|| {
+                AppError::DatabaseError(format!(
+                    "Black player with ID {} not found",
+                    game.black_player_id
+                ))
+            })?;
 
         // Load tournament if exists
         let tournament = if let Some(tournament_id) = game.tournament_id {
             tournament::Entity::find_by_id(tournament_id)
                 .one(db)
-                .await?
+                .await
+                .map_err(|e| AppError::DatabaseError(format!("Failed to query tournament: {}", e)))?
                 .map(|t| ChessTournament {
                     id: t.tournament_id,
                     name: t.name,
@@ -174,7 +240,8 @@ impl ChessGame {
         let opening = if let Some(opening_id) = game.opening_id {
             opening::Entity::find_by_id(opening_id)
                 .one(db)
-                .await?
+                .await
+                .map_err(|e| AppError::DatabaseError(format!("Failed to query opening: {}", e)))?
                 .map(|o| ChessOpening {
                     id: o.opening_id,
                     eco: o.eco_code.map(|s| s.to_string()),
@@ -202,9 +269,9 @@ impl ChessGame {
             },
             tournament,
             opening,
-            result: game.result.map_or("?".to_string(), |s| s.to_string()),
+            result: game.result.unwrap_or_else(|| "*".to_string()),
             round: game.round_number,
-            date: game.date_played.map_or("?".to_string(), |s| s.to_string()),
+            date: game.date_played.unwrap_or_else(|| "????-??-??".to_string()),
             move_tree: ChessMoveTree::default(),
             tags: Vec::new(),
             fen: game.fen,
@@ -212,19 +279,39 @@ impl ChessGame {
         })
     }
 
-    pub async fn load_moves(&mut self, db: &DatabaseConnection) -> Result<(), Box<dyn Error>> {
-        let starting_position = ChessPosition::from_fen(self.fen.clone(), None).unwrap();
-        let move_tree = load_moves_from_db(db, self.id, starting_position).await?;
+    /// Loads the move tree for this game from the database
+    ///
+    /// # Arguments
+    /// * `db` - Database connection
+    ///
+    /// # Returns
+    /// * `Result<(), AppError>` - Success or an error
+    pub async fn load_moves(&mut self, db: &DatabaseConnection) -> Result<(), AppError> {
+        let starting_position = ChessPosition::from_fen(self.fen.clone(), None)
+            .map_err(|e| AppError::ChessError(format!("Invalid FEN in game: {}", e)))?;
+
+        let move_tree = load_moves_from_db(db, self.id, starting_position)
+            .await
+            .map_err(|e| AppError::DatabaseError(format!("Failed to load moves: {}", e)))?;
+
         self.move_tree = move_tree;
         Ok(())
     }
 
-    pub async fn load_tags(&mut self, db: &DatabaseConnection) -> Result<(), Box<dyn Error>> {
+    /// Loads the tags for this game from the database
+    ///
+    /// # Arguments
+    /// * `db` - Database connection
+    ///
+    /// # Returns
+    /// * `Result<(), AppError>` - Success or an error
+    pub async fn load_tags(&mut self, db: &DatabaseConnection) -> Result<(), AppError> {
         let tags = game_tag::Entity::find()
             .filter(game_tag::Column::GameId.eq(self.id))
             .find_also_related(tag::Entity)
             .all(db)
-            .await?;
+            .await
+            .map_err(|e| AppError::DatabaseError(format!("Failed to load tags: {}", e)))?;
 
         self.tags = tags
             .into_iter()
@@ -235,25 +322,42 @@ impl ChessGame {
         Ok(())
     }
 
-    async fn save_or_find_player(
-        db: &DatabaseConnection,
-        player: &ChessPlayer,
-    ) -> Result<i32, Box<dyn Error>> {
-        use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    /// Finds an existing player or creates a new one
+    ///
+    /// # Arguments
+    /// * `db` - Database connection or transaction
+    /// * `player` - Player information to save or find
+    ///
+    /// # Returns
+    /// * `Result<i32, AppError>` - The player ID or an error
+    async fn save_or_find_player<C>(db: &C, player: &ChessPlayer) -> Result<i32, AppError>
+    where
+        C: ConnectionTrait,
+    {
+        // Validate player name
+        if player.name.trim().is_empty() {
+            return Err(AppError::ChessError(
+                "Player name cannot be empty".to_string(),
+            ));
+        }
 
         // Try to find an existing player with the same name
         if let Some(existing_player) = player::Entity::find()
             .filter(player::Column::Name.eq(&player.name))
             .one(db)
-            .await?
+            .await
+            .map_err(|e| AppError::DatabaseError(format!("Failed to query player: {}", e)))?
         {
-            // Update ELO if the new one is more recent (assuming added games have more recent ELOs)
-            // TODO: We should be checking if game was added more recently than the player's last known ELO
-            if player.elo.is_some() {
-                let mut player_model: player::ActiveModel = existing_player.clone().into();
-                player_model.elo_rating = Set(player.elo);
-                player_model.updated_at = Set(Some(chrono::Utc::now()));
-                player_model.update(db).await?;
+            // Update ELO if the new one is provided and different
+            if let Some(new_elo) = player.elo {
+                if existing_player.elo_rating != Some(new_elo) {
+                    let mut player_model: player::ActiveModel = existing_player.clone().into();
+                    player_model.elo_rating = Set(Some(new_elo));
+                    player_model.updated_at = Set(Some(chrono::Utc::now()));
+                    player_model.update(db).await.map_err(|e| {
+                        AppError::DatabaseError(format!("Failed to update player ELO: {}", e))
+                    })?;
+                }
             }
             Ok(existing_player.player_id)
         } else {
@@ -266,133 +370,201 @@ impl ChessGame {
                 updated_at: Set(Some(chrono::Utc::now())),
                 ..Default::default()
             };
-            let result = player::Entity::insert(player_model).exec(db).await?;
+            let result = player::Entity::insert(player_model)
+                .exec(db)
+                .await
+                .map_err(|e| AppError::DatabaseError(format!("Failed to create player: {}", e)))?;
             Ok(result.last_insert_id)
         }
     }
 
-    pub async fn save_from_pgn(
-        db: &DatabaseConnection,
-        pgn: &str,
-    ) -> Result<Vec<Self>, Box<dyn Error>> {
+    /// Saves multiple chess games from PGN format to the database
+    ///
+    /// # Arguments
+    /// * `db` - Database connection
+    /// * `pgn` - PGN string containing one or more games
+    ///
+    /// # Returns
+    /// * `Result<Vec<Self>, AppError>` - Vector of saved games or an error
+    pub async fn save_from_pgn(db: &DatabaseConnection, pgn: &str) -> Result<Vec<Self>, AppError> {
+        if pgn.trim().is_empty() {
+            return Err(AppError::ParseError("PGN string is empty".to_string()));
+        }
+
         println!("Parsing PGN games...");
-        let chess_games = Self::from_pgn_games(pgn)?;
-        println!("PGN games parsed successfully");
+        let chess_games = Self::from_pgn_games(pgn)
+            .map_err(|e| AppError::ParseError(format!("Failed to parse PGN: {}", e)))?;
+        println!("PGN games parsed successfully: {} games", chess_games.len());
+
+        if chess_games.is_empty() {
+            return Err(AppError::ParseError("No games found in PGN".to_string()));
+        }
 
         println!(
             "Attempting to save {} games to database...",
             chess_games.len()
         );
 
-        // Create a vector to store the handles to our spawned tasks
-        let mut handles = Vec::new();
-        let db = db.clone(); // Clone the connection for use in tasks
-
-        // Spawn a task for each game
-        for chess_game in chess_games {
-            let db = db.clone();
-
-            // Save or find players synchronously
-            // kinda hacky, but we want to avoid race conditions
-            // that cause duplicate players to be created.
-            let white_player_id = Self::save_or_find_player(&db, &chess_game.white_player).await?;
-            let black_player_id = Self::save_or_find_player(&db, &chess_game.black_player).await?;
-
-            println!("Spawning game save task #{}", handles.len());
-
-            let handle = tokio::spawn(async move {
-                let mut game = chess_game.clone();
-
-                game.white_player.id = white_player_id;
-                game.black_player.id = black_player_id;
-
-                // Save tournament if exists
-                let tournament_id = if let Some(t) = &game.tournament {
-                    let tournament = tournament::ActiveModel {
-                        name: Set(t.name.to_owned()),
-                        r#type: Set(t.tournament_type.to_owned()),
-                        time_control: Set(t.time_control.to_owned()),
-                        start_date: Set(t.start_date.to_owned()),
-                        end_date: Set(t.end_date.to_owned()),
-                        location: Set(t.location.to_owned()),
-                        ..Default::default()
-                    };
-                    let result = tournament::Entity::insert(tournament).exec(&db).await?;
-                    Some(result.last_insert_id)
-                } else {
-                    None
-                };
-
-                // Save opening if exists
-                let opening_id = if let Some(o) = &game.opening {
-                    let opening = opening::ActiveModel {
-                        eco_code: Set(o.eco.to_owned()),
-                        name: Set(o.name.clone().map_or("?".to_string(), |s| s.to_owned())),
-                        variation: Set(o.variation.clone()),
-                        ..Default::default()
-                    };
-                    let result = opening::Entity::insert(opening).exec(&db).await?;
-                    Some(result.last_insert_id)
-                } else {
-                    None
-                };
-
-                let game_date = if game.date == "????-??-??" {
-                    None
-                } else {
-                    Some(game.date.clone())
-                };
-
-                // Save game
-                let game_model = game::ActiveModel {
-                    white_player_id: Set(game.white_player.id),
-                    black_player_id: Set(game.black_player.id),
-                    tournament_id: Set(tournament_id),
-                    opening_id: Set(opening_id),
-                    result: Set(Some(game.result.clone())),
-                    round_number: Set(game.round),
-                    date_played: Set(game_date),
-                    fen: Set(game.fen.clone()),
-                    pgn: Set(game.pgn.clone().map_or("?".to_string(), |s| s.to_string())),
-                    created_at: Set(Some(chrono::Utc::now())),
-                    ..Default::default()
-                };
-                let result = game::Entity::insert(game_model).exec(&db).await?;
-                game.id = result.last_insert_id;
-
-                // Update game_id for all moves and save them
-                let moves = game
-                    .move_tree
-                    .depth_first_move_traversal()
-                    .map(|mut m| {
-                        m.game_id = game.id;
-                        m
-                    })
-                    .collect::<Vec<_>>();
-
-                if !moves.is_empty() {
-                    ChessMove::save_moves(&db, &moves).await?;
-                }
-
-                Ok::<_, Box<dyn Error + Send + Sync>>(game)
-            });
-            handles.push(handle);
-        }
-
-        // Wait for all tasks to complete and collect results
         let mut saved_games = Vec::new();
-        for handle in handles {
-            match handle.await {
-                Ok(Ok(game)) => saved_games.push(game),
-                Ok(Err(e)) => eprintln!("Error saving game: {}", e),
-                Err(e) => eprintln!("Task panicked: {}", e),
+
+        // Process games in smaller batches to avoid overwhelming the database
+        const BATCH_SIZE: usize = 10;
+        for (batch_index, batch) in chess_games.chunks(BATCH_SIZE).enumerate() {
+            println!(
+                "Processing batch {} of {}",
+                batch_index + 1,
+                (chess_games.len() + BATCH_SIZE - 1) / BATCH_SIZE
+            );
+
+            let mut batch_results = Vec::new();
+
+            for chess_game in batch {
+                match Self::save_single_game(db, chess_game).await {
+                    Ok(game) => batch_results.push(game),
+                    Err(e) => {
+                        eprintln!("Error saving game: {}", e);
+                        // Continue with other games instead of failing the entire batch
+                    }
+                }
             }
+
+            saved_games.extend(batch_results);
         }
 
+        println!(
+            "Successfully saved {} out of {} games",
+            saved_games.len(),
+            chess_games.len()
+        );
         Ok(saved_games)
     }
 
-    pub fn to_pgn(&mut self) -> String {
+    /// Saves a single chess game to the database
+    async fn save_single_game(
+        db: &DatabaseConnection,
+        chess_game: &ChessGame,
+    ) -> Result<Self, AppError> {
+        // Use a transaction to ensure data consistency
+        let txn = db
+            .begin()
+            .await
+            .map_err(|e| AppError::DatabaseError(format!("Failed to start transaction: {}", e)))?;
+
+        let result = async {
+            let mut game = chess_game.clone();
+
+            // Save or find players
+            game.white_player.id =
+                Self::save_or_find_player(&txn, &chess_game.white_player).await?;
+            game.black_player.id =
+                Self::save_or_find_player(&txn, &chess_game.black_player).await?;
+
+            // Save tournament if exists
+            let tournament_id = if let Some(t) = &game.tournament {
+                let tournament = tournament::ActiveModel {
+                    name: Set(t.name.clone()),
+                    r#type: Set(t.tournament_type.clone()),
+                    time_control: Set(t.time_control.clone()),
+                    start_date: Set(t.start_date.clone()),
+                    end_date: Set(t.end_date.clone()),
+                    location: Set(t.location.clone()),
+                    ..Default::default()
+                };
+                let result = tournament::Entity::insert(tournament)
+                    .exec(&txn)
+                    .await
+                    .map_err(|e| {
+                        AppError::DatabaseError(format!("Failed to save tournament: {}", e))
+                    })?;
+                Some(result.last_insert_id)
+            } else {
+                None
+            };
+
+            // Save opening if exists
+            let opening_id = if let Some(o) = &game.opening {
+                let opening = opening::ActiveModel {
+                    eco_code: Set(o.eco.clone()),
+                    name: Set(o.name.clone().unwrap_or_else(|| "Unknown".to_string())),
+                    variation: Set(o.variation.clone()),
+                    ..Default::default()
+                };
+                let result = opening::Entity::insert(opening)
+                    .exec(&txn)
+                    .await
+                    .map_err(|e| {
+                        AppError::DatabaseError(format!("Failed to save opening: {}", e))
+                    })?;
+                Some(result.last_insert_id)
+            } else {
+                None
+            };
+
+            let game_date = if game.date == "????-??-??" {
+                None
+            } else {
+                Some(game.date.clone())
+            };
+
+            // Save game
+            let game_model = game::ActiveModel {
+                white_player_id: Set(game.white_player.id),
+                black_player_id: Set(game.black_player.id),
+                tournament_id: Set(tournament_id),
+                opening_id: Set(opening_id),
+                result: Set(Some(game.result.clone())),
+                round_number: Set(game.round),
+                date_played: Set(game_date),
+                fen: Set(game.fen.clone()),
+                pgn: Set(game.pgn.clone().unwrap_or_else(|| "".to_string())),
+                created_at: Set(Some(chrono::Utc::now())),
+                ..Default::default()
+            };
+            let result = game::Entity::insert(game_model)
+                .exec(&txn)
+                .await
+                .map_err(|e| AppError::DatabaseError(format!("Failed to save game: {}", e)))?;
+            game.id = result.last_insert_id;
+
+            // Update game_id for all moves and save them
+            let moves = game
+                .move_tree
+                .depth_first_move_traversal()
+                .map(|mut m| {
+                    m.game_id = game.id;
+                    m
+                })
+                .collect::<Vec<_>>();
+
+            if !moves.is_empty() {
+                ChessMove::save_moves(&txn, &moves)
+                    .await
+                    .map_err(|e| AppError::DatabaseError(format!("Failed to save moves: {}", e)))?;
+            }
+
+            Ok::<_, AppError>(game)
+        }
+        .await;
+
+        match result {
+            Ok(game) => {
+                txn.commit().await.map_err(|e| {
+                    AppError::DatabaseError(format!("Failed to commit transaction: {}", e))
+                })?;
+                Ok(game)
+            }
+            Err(e) => {
+                let _ = txn.rollback().await; // Ignore rollback errors
+                Err(e)
+            }
+        }
+    }
+
+    /// Converts the game to PGN format
+    ///
+    /// # Returns
+    /// * `String` - The game in PGN format
+    pub fn to_pgn(&self) -> String {
         let mut pgn = String::new();
 
         // Add standard tags
@@ -400,7 +572,7 @@ impl ChessGame {
             "[Event \"{}\"]\n",
             self.tournament
                 .as_ref()
-                .map_or("?".to_string(), |t| t.name.clone())
+                .map_or("Casual Game".to_string(), |t| t.name.clone())
         ));
         pgn.push_str(&format!(
             "[Site \"{}\"]\n",
@@ -459,7 +631,7 @@ impl ChessGame {
 
         pgn.push('\n');
 
-        // Add moves (this is a basic implementation, you might want to enhance it)
+        // Add moves
         let mut move_number = 1;
         let mut is_white = true;
         for chess_move in self.move_tree.depth_first_move_traversal() {
@@ -478,28 +650,46 @@ impl ChessGame {
         pgn
     }
 
-    pub async fn make_move(
-        &mut self,
-        move_notation: &str,
-        current_move_id: i32,
-    ) -> Result<Self, Box<dyn Error>> {
-        let mut move_tree = self.move_tree.clone();
+    /// Makes a move in the game
+    ///
+    /// # Arguments
+    /// * `move_notation` - The move in algebraic notation
+    ///
+    /// # Returns
+    /// * `Result<(), AppError>` - Success or an error
+    pub async fn make_move(&mut self, move_notation: &str) -> Result<(), AppError> {
+        if move_notation.trim().is_empty() {
+            return Err(AppError::ChessError(
+                "Move notation cannot be empty".to_string(),
+            ));
+        }
 
-        // FIXME: Implement a better way to find the move we want to add the new move to
+        let current_node_id = self
+            .move_tree
+            .current_node_id
+            .ok_or_else(|| AppError::ChessError("No current position in move tree".to_string()))?;
 
-        // Goto the `current_move_id` and add the new move
-        let current_move = move_tree.find_move(current_move_id).unwrap();
+        let current_node = self
+            .move_tree
+            .nodes
+            .get(current_node_id)
+            .ok_or_else(|| AppError::ChessError("Invalid current node in move tree".to_string()))?
+            .clone();
 
         // Make the move
-        let new_position = current_move.position.make_move(move_notation)?;
+        let new_position = current_node
+            .position
+            .make_uci_move(move_notation)
+            .map_err(|e| {
+                AppError::ChessError(format!("Invalid move '{}': {}", move_notation, e))
+            })?;
 
         // Update the game
         self.fen = Some(new_position.fen);
 
         // Update the move tree
-        move_tree.make_move(move_notation);
-        self.move_tree = move_tree;
+        self.move_tree.make_move(move_notation);
 
-        Ok(self.clone())
+        Ok(())
     }
 }

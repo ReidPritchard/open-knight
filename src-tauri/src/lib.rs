@@ -1,4 +1,4 @@
-use api::command::AppState;
+use api::AppState;
 use tauri::Manager;
 
 pub mod api;
@@ -9,6 +9,7 @@ pub mod macros;
 pub mod migrations;
 pub mod models;
 pub mod parse;
+pub mod session;
 pub mod utils;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -26,23 +27,43 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             // Database commands
-            api::command::import_pgn_games,
-            api::command::new_game,
-            api::command::empty_db,
-            api::command::query_games,
-            api::command::query_entities,
-            api::command::get_entity_by_id,
-            api::command::get_game_by_id,
-            api::command::get_legal_moves,
+            api::commands::database::import_pgn_games,
+            api::commands::database::empty_db,
+            api::commands::database::query_games,
+            api::commands::database::query_entities,
+            api::commands::database::get_entity_by_id,
+            api::commands::database::get_game_by_id,
+            // Session lifecycle commands
+            api::commands::game::create_session,
+            api::commands::game::load_game_into_session,
+            api::commands::game::get_session,
+            api::commands::game::get_all_sessions,
+            api::commands::game::close_session,
+            api::commands::game::close_all_sessions,
+            // Session operation commands
+            api::commands::game::make_move,
+            api::commands::game::undo_move,
+            api::commands::game::redo_move,
+            api::commands::game::reset_to_position,
+            api::commands::game::get_session_moves,
+            // Session persistence commands
+            api::commands::game::save_session,
+            api::commands::game::save_all_sessions,
+            // Legacy game session commands (for backward compatibility)
+            api::commands::game::new_game,
+            api::commands::game::open_game,
+            api::commands::game::close_game,
+            // Chess commands
+            api::commands::chess::get_legal_moves,
             // Engine commands
-            api::command::load_engine,
-            api::command::unload_engine,
-            api::command::analyze_position,
-            api::command::stop_analysis,
-            api::command::set_engine_option,
-            api::command::set_position,
-            api::command::analyze_game,
-            api::command::get_all_engine_state,
+            api::commands::engine::load_engine,
+            api::commands::engine::unload_engine,
+            api::commands::engine::analyze_position,
+            api::commands::engine::stop_analysis,
+            api::commands::engine::set_engine_option,
+            api::commands::engine::set_position,
+            api::commands::engine::analyze_game,
+            api::commands::engine::get_all_engine_state,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

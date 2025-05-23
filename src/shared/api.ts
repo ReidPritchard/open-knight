@@ -3,7 +3,6 @@ import type { ChessGame, LegalMove, QueryParams } from "./bindings";
 import {
   type ExplorerGame,
   explorerGameFields,
-  parseExplorerGames,
   parseLegalMoves,
 } from "./types";
 
@@ -96,23 +95,218 @@ export default {
         return JSON.parse(response);
       },
     },
+
     POST: {
       importPGNGames: async (pgn: string): Promise<void> => {
         await invoke("import_pgn_games", { pgn });
       },
+
+      /**
+       * Create a new game session (uses session-based backend)
+       * @param boardId The ID of the board to create the session on
+       * @param variant The chess variant to create
+       * @returns Promise<ChessGame> The new game
+       */
       newGame: async (
+        boardId: number,
         variant: "standard" | "puzzle" | "960" = "standard"
       ): Promise<ChessGame> => {
         try {
-          const response = await invoke<string>("new_game", { variant });
+          const response = await invoke<string>("create_session", {
+            boardId,
+            variant,
+          });
           return JSON.parse(response);
         } catch (error) {
           console.error("Error creating new game:", error);
           throw error;
         }
       },
+
+      /**
+       * Open an existing game in a session (uses session-based backend)
+       * @param gameId The ID of the game to open
+       * @param boardId The ID of the board to open the game on
+       * @returns Promise<ChessGame> The loaded game
+       */
+      openGame: async (gameId: number, boardId: number): Promise<ChessGame> => {
+        const response = await invoke<string>("load_game_into_session", {
+          gameId,
+          boardId,
+        });
+        return JSON.parse(response);
+      },
+
+      /**
+       * Close a game session (uses session-based backend)
+       * @param boardId The ID of the board to close the session on
+       */
+      closeGame: async (boardId: number): Promise<void> => {
+        await invoke("close_session", { boardId });
+      },
     },
   },
+
+  /**
+   * Session-focused API for managing game sessions
+   */
+  sessions: {
+    GET: {
+      /**
+       * Get the current state of a specific game session
+       * @param boardId The ID of the board/session to retrieve
+       * @returns Promise<ChessGame> The current game state
+       */
+      get: async (boardId: number): Promise<ChessGame> => {
+        const response = await invoke<string>("get_session", { boardId });
+        return JSON.parse(response);
+      },
+
+      /**
+       * Get all active game sessions
+       * @returns Promise<Record<number, ChessGame>> All active sessions with their board IDs
+       */
+      getAll: async (): Promise<Record<number, ChessGame>> => {
+        const response = await invoke<string>("get_all_sessions");
+        return JSON.parse(response);
+      },
+
+      /**
+       * Get the move history for a game session
+       * @param boardId The ID of the board/session
+       * @returns Promise<unknown> The move history
+       */
+      moves: async (boardId: number): Promise<unknown> => {
+        const response = await invoke<string>("get_session_moves", { boardId });
+        return JSON.parse(response);
+      },
+    },
+
+    POST: {
+      /**
+       * Create a new game session
+       * @param boardId The ID of the board to create the session on
+       * @param variant The chess variant to create
+       * @returns Promise<ChessGame> The new game
+       */
+      create: async (
+        boardId: number,
+        variant: "standard" | "puzzle" | "960" = "standard"
+      ): Promise<ChessGame> => {
+        const response = await invoke<string>("create_session", {
+          boardId,
+          variant,
+        });
+        return JSON.parse(response);
+      },
+
+      /**
+       * Load an existing game into a session
+       * @param gameId The ID of the game to load
+       * @param boardId The ID of the board to load the game on
+       * @returns Promise<ChessGame> The loaded game
+       */
+      load: async (gameId: number, boardId: number): Promise<ChessGame> => {
+        const response = await invoke<string>("load_game_into_session", {
+          gameId,
+          boardId,
+        });
+        return JSON.parse(response);
+      },
+
+      /**
+       * Close a game session
+       * @param boardId The ID of the board to close the session on
+       */
+      close: async (boardId: number): Promise<void> => {
+        await invoke("close_session", { boardId });
+      },
+
+      /**
+       * Close all active game sessions
+       */
+      closeAll: async (): Promise<void> => {
+        await invoke("close_all_sessions");
+      },
+
+      /**
+       * Make a move in a game session
+       * @param boardId The ID of the board/session
+       * @param moveNotation The move in algebraic notation
+       * @returns Promise<ChessGame> The updated game state
+       */
+      makeMove: async (
+        boardId: number,
+        moveNotation: string
+      ): Promise<ChessGame> => {
+        const response = await invoke<string>("make_move", {
+          boardId,
+          moveNotation,
+        });
+        return JSON.parse(response);
+      },
+
+      /**
+       * Undo the last move in a game session
+       * @param boardId The ID of the board/session
+       * @returns Promise<ChessGame> The updated game state
+       */
+      undoMove: async (boardId: number): Promise<ChessGame> => {
+        const response = await invoke<string>("undo_move", { boardId });
+        return JSON.parse(response);
+      },
+
+      /**
+       * Redo a previously undone move in a game session
+       * @param boardId The ID of the board/session
+       * @returns Promise<ChessGame> The updated game state
+       */
+      redoMove: async (boardId: number): Promise<ChessGame> => {
+        const response = await invoke<string>("redo_move", { boardId });
+        return JSON.parse(response);
+      },
+
+      /**
+       * Reset a game session to a specific position/move number
+       * @param boardId The ID of the board/session
+       * @param moveNumber The move number to reset to (0 = start position)
+       * @returns Promise<ChessGame> The updated game state
+       */
+      resetToPosition: async (
+        boardId: number,
+        moveNumber: number
+      ): Promise<ChessGame> => {
+        const response = await invoke<string>("reset_to_position", {
+          boardId,
+          moveNumber,
+        });
+        return JSON.parse(response);
+      },
+
+      /**
+       * Save a game session to the database
+       * @param boardId The ID of the board/session to save
+       * @param overwrite Whether to overwrite existing game or create new one
+       * @returns Promise<number> The ID of the saved game
+       */
+      save: async (boardId: number, overwrite = false): Promise<number> => {
+        return await invoke<number>("save_session", { boardId, overwrite });
+      },
+
+      /**
+       * Save all active game sessions to the database
+       * @param overwrite Whether to overwrite existing games or create new ones
+       * @returns Promise<number[]> The IDs of the saved games
+       */
+      saveAll: async (overwrite = false): Promise<number[]> => {
+        const response = await invoke<string>("save_all_sessions", {
+          overwrite,
+        });
+        return JSON.parse(response);
+      },
+    },
+  },
+
   moves: {
     GET: {
       /**
@@ -135,20 +329,18 @@ export default {
     },
     POST: {
       /**
-       * Make a move in the backend.
-       * @param gameId The ID of the game
-       * @param move The move to make in UCI notation
+       * Make a move in a game session (alias for sessions.POST.makeMove)
+       * @param boardId The ID of the board/session
+       * @param moveNotation The move to make in algebraic notation
        * @returns Promise<ChessGame> The updated game
        */
       makeMove: async (
-        gameId: number,
-        current_move_id: number,
-        move: string
+        boardId: number,
+        moveNotation: string
       ): Promise<ChessGame> => {
         const response = await invoke<string>("make_move", {
-          id: gameId,
-          current_move_id,
-          move,
+          boardId,
+          moveNotation,
         });
         return JSON.parse(response);
       },

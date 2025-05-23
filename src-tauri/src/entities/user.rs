@@ -27,3 +27,15 @@ impl Related<super::annotation::Entity> for Entity {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+// Custom implementations (not generated)
+impl Default for Model {
+    fn default() -> Self {
+        Self {
+            user_id: 0,
+            username: "guest".to_string(),
+            email: "guest@example.com".to_string(),
+            created_at: None,
+        }
+    }
+}

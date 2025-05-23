@@ -1,11 +1,13 @@
 use crate::entities::{annotation, move_time_tracking, position, r#move};
 use crate::ts_export;
 
+use sea_orm::prelude::*;
 use sea_orm::sqlx::types::chrono;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{DatabaseConnection, EntityTrait};
+use sea_orm::{ConnectionTrait, EntityTrait};
 use serde::{Deserialize, Serialize};
 use shakmaty::fen::Fen;
+use shakmaty::uci::UciMove;
 use shakmaty::{san::San, Chess, Position};
 use shakmaty::{CastlingMode, EnPassantMode};
 use std::error::Error;
@@ -124,6 +126,23 @@ impl ChessPosition {
     }
 
     /**
+     * Make a move from a UCI notation string
+     */
+    pub fn make_uci_move(&self, uci: &str) -> Result<Self, Box<dyn Error>> {
+        let pos = Chess::from(self.clone());
+        let parsed_move = UciMove::from_ascii(uci.as_bytes())?;
+        let chess_move = parsed_move.to_move(&pos)?;
+        let new_pos = pos.play(&chess_move)?;
+        let fen = Fen::from_position(new_pos, EnPassantMode::Legal).to_string();
+        Ok(ChessPosition {
+            id: self.id,
+            fen,
+            evaluations: Vec::new(),
+            variant: self.variant.clone(),
+        })
+    }
+
+    /**
      * Default constructor
      * Creates a new position with the starting position of a standard chess game
      */
@@ -207,10 +226,13 @@ impl ChessMove {
         Ok(())
     }
 
-    pub async fn save_moves(
-        db: &DatabaseConnection,
+    pub async fn save_moves<C>(
+        db: &C,
         moves: &[ChessMove],
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    ) -> Result<(), Box<dyn Error + Send + Sync>>
+    where
+        C: ConnectionTrait,
+    {
         let mut parent_move_id = None;
 
         for chess_move in moves {

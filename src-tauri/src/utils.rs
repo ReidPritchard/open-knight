@@ -8,6 +8,7 @@ pub enum AppError {
     SerializationError(String),
     ChessError(String),
     EngineError(String),
+    SessionError(String),
 }
 
 impl std::fmt::Display for AppError {
@@ -18,6 +19,7 @@ impl std::fmt::Display for AppError {
             AppError::SerializationError(e) => write!(f, "Serialization error: {}", e),
             AppError::ChessError(e) => write!(f, "Chess error: {}", e),
             AppError::EngineError(e) => write!(f, "Engine error: {}", e),
+            AppError::SessionError(e) => write!(f, "Session error: {}", e),
         }
     }
 }

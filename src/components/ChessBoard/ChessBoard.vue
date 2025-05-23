@@ -158,14 +158,25 @@ const formatCurrentMove = computed(() => {
 const selectedPiece = ref<{ row: number; col: number } | null>(null);
 const validPieceMoves = ref<Array<{ row: number; col: number }>>([]);
 
-// Valid moves cache
-// Key format: "row,col" where row and col are 0-based indices
-// FIXME: This pattern of updating the position, fetching valid moves, and then
-// creating a map/cache of valid moves is not great. It's probably worth revisiting
-// and redesigning to avoid async race conditions or unnecessary re-renders.
-const validPositionMoves = ref<
-  Record<string, Array<{ row: number; col: number }>>
->({});
+// Valid moves computed from store - single source of truth
+const validMovesMap = computed(() => {
+  const moves = validMoves.value || [];
+  const movesMap: Record<string, Array<{ row: number; col: number }>> = {};
+
+  for (const move of moves) {
+    const { from, to } = parseUciMove(move.uci);
+    const { row: fromRow, col: fromCol } = algebraicToBoard(from);
+    const { row: toRow, col: toCol } = algebraicToBoard(to);
+
+    const fromKey = `${fromRow},${fromCol}`;
+    if (!movesMap[fromKey]) {
+      movesMap[fromKey] = [];
+    }
+    movesMap[fromKey].push({ row: toRow, col: toCol });
+  }
+
+  return movesMap;
+});
 
 // ---------------
 // Board state
@@ -220,7 +231,7 @@ function canMovePiece(row: number, col: number) {
   }
 
   // Check if the piece has valid moves
-  const positionMoves = validPositionMoves.value[`${row},${col}`] || [];
+  const positionMoves = validMovesMap.value[`${row},${col}`] || [];
   return positionMoves.length > 0;
 }
 
@@ -319,62 +330,21 @@ const arrowCoordinates = computed(() => {
 // ---------------
 // Move handling
 // ---------------
-async function getValidMoves(row: number, col: number) {
+function getValidMoves(row: number, col: number) {
   const piece = getPieceAtCoords(row, col);
   if (!piece) return [];
 
-  // Check cache first using coordinates
+  // Get moves directly from computed property
   const cacheKey = `${row},${col}`;
-  if (validPositionMoves.value[cacheKey]) {
-    return validPositionMoves.value[cacheKey];
-  }
-
-  // Fetch if not cached
-  await fetchValidMoves();
-  return validPositionMoves.value[cacheKey] || [];
-}
-
-async function fetchValidMoves() {
-  try {
-    const moves = validMoves.value || [];
-    validPositionMoves.value = moves.reduce((acc, move) => {
-      const { from, to } = parseUciMove(move.uci);
-
-      // Convert algebraic notation to coordinates
-      const { row: fromRow, col: fromCol } = algebraicToBoard(from);
-      const { row: toRow, col: toCol } = algebraicToBoard(to);
-
-      // Create a cache entry using coordinates
-      const fromKey = `${fromRow},${fromCol}`;
-
-      // Create the key if it doesn't exist
-      acc[fromKey] = acc[fromKey] || [];
-
-      // Add the move to the key
-      acc[fromKey].push({ row: toRow, col: toCol });
-      return acc;
-    }, {} as Record<string, Array<{ row: number; col: number }>>);
-
-    // Log the cache (for debugging)
-    console.group("Valid moves cache");
-    for (const key in validPositionMoves.value) {
-      const [row, col] = key.split(",").map(Number);
-      console.log(
-        `${boardToAlgebraic(row, col)}: ${validPositionMoves.value[key].length}`
-      );
-    }
-    console.groupEnd();
-  } catch (error) {
-    emit("error", error instanceof Error ? error : new Error(String(error)));
-  }
+  return validMovesMap.value[cacheKey] || [];
 }
 
 // ---------------
 // Event handlers
 // ---------------
-async function handleDragStart(row: number, col: number) {
+function handleDragStart(row: number, col: number) {
   selectedPiece.value = { row, col };
-  validPieceMoves.value = await getValidMoves(row, col);
+  validPieceMoves.value = getValidMoves(row, col);
 }
 
 async function handleDrop(row: number, col: number) {
@@ -395,6 +365,7 @@ async function handleDrop(row: number, col: number) {
     await gamesStore.makeMove(props.boardId, moveNotation);
     emit("move", { from: fromSquare, to: toSquare });
   } catch (error) {
+    console.error("Error making move:", error);
     emit("error", error instanceof Error ? error : new Error(String(error)));
   } finally {
     // Reset selection regardless of success/failure
@@ -425,7 +396,7 @@ async function handleSquareClick(event: MouseEvent, row: number, col: number) {
   } else if (piece && canMovePiece(row, col) && !isSquareSelected(row, col)) {
     // Select this piece
     selectedPiece.value = { row, col };
-    validPieceMoves.value = await getValidMoves(row, col);
+    validPieceMoves.value = getValidMoves(row, col);
   } else {
     // Deselect
     selectedPiece.value = null;
@@ -477,19 +448,6 @@ function startResize(event: MouseEvent) {
 // ---------------
 // Setup
 // ---------------
-watch(currentMove, async () => {
-  // Reset the move cache when the current move changes
-  validPositionMoves.value = {};
-  await fetchValidMoves();
-});
-
-onMounted(async () => {
-  try {
-    await fetchValidMoves();
-  } catch (error) {
-    emit("error", error instanceof Error ? error : new Error(String(error)));
-  }
-});
 </script>
 
 <!-- 
