@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col h-full bg-base-200 select-none">
     <!-- Header/Toolbar (filter, sort, etc.) -->
-    <div class="flex gap-4 p-1 justify-center">
+    <div class="flex gap-4 p-1 px-10 justify-center">
       <!-- Filter dropdown -->
       <div class="dropdown">
         <label tabindex="0" class="btn m-1">Filter</label>
@@ -97,63 +97,63 @@ const currentFilter = ref("all");
 
 // Filter function
 const setFilter = (filterType: string) => {
-	currentFilter.value = filterType;
+  currentFilter.value = filterType;
 };
 
 // Computed property for filtered and sorted games
 const gameList = computed(() => {
-	let games = [...globalStore.explorerGames];
+  let games = [...globalStore.explorerGames];
 
-	// Apply filter
-	if (currentFilter.value !== "all") {
-		games = games.filter((game) => {
-			switch (currentFilter.value) {
-				case "my_games":
-					return (
-						game.white_player.name === "You" || game.black_player.name === "You"
-					);
-				case "wins":
-					return (
-						(game.white_player.name === "You" && game.result === "1-0") ||
-						(game.black_player.name === "You" && game.result === "0-1")
-					);
-				case "losses":
-					return (
-						(game.white_player.name === "You" && game.result === "0-1") ||
-						(game.black_player.name === "You" && game.result === "1-0")
-					);
-				case "draws":
-					return game.result === "1/2-1/2";
-				default:
-					return true;
-			}
-		});
-	}
+  // Apply filter
+  if (currentFilter.value !== "all") {
+    games = games.filter((game) => {
+      switch (currentFilter.value) {
+        case "my_games":
+          return (
+            game.white_player.name === "You" || game.black_player.name === "You"
+          );
+        case "wins":
+          return (
+            (game.white_player.name === "You" && game.result === "1-0") ||
+            (game.black_player.name === "You" && game.result === "0-1")
+          );
+        case "losses":
+          return (
+            (game.white_player.name === "You" && game.result === "0-1") ||
+            (game.black_player.name === "You" && game.result === "1-0")
+          );
+        case "draws":
+          return game.result === "1/2-1/2";
+        default:
+          return true;
+      }
+    });
+  }
 
-	// Apply sort
-	games.sort((a, b) => {
-		switch (currentSort.value) {
-			case "date_desc":
-			case "date_asc": {
-				// Assuming dates are stored as ISO strings, convert to timestamps for comparison
-				const dateA = new Date(a.date || "").getTime();
-				const dateB = new Date(b.date || "").getTime();
-				return currentSort.value === "date_desc"
-					? dateB - dateA
-					: dateA - dateB;
-			}
-			case "white":
-				return a.white_player.name.localeCompare(b.white_player.name);
-			case "black":
-				return a.black_player.name.localeCompare(b.black_player.name);
-			case "result":
-				return a.result.localeCompare(b.result);
-			default:
-				return 0;
-		}
-	});
+  // Apply sort
+  games.sort((a, b) => {
+    switch (currentSort.value) {
+      case "date_desc":
+      case "date_asc": {
+        // Assuming dates are stored as ISO strings, convert to timestamps for comparison
+        const dateA = new Date(a.date || "").getTime();
+        const dateB = new Date(b.date || "").getTime();
+        return currentSort.value === "date_desc"
+          ? dateB - dateA
+          : dateA - dateB;
+      }
+      case "white":
+        return a.white_player.name.localeCompare(b.white_player.name);
+      case "black":
+        return a.black_player.name.localeCompare(b.black_player.name);
+      case "result":
+        return a.result.localeCompare(b.result);
+      default:
+        return 0;
+    }
+  });
 
-	return games;
+  return games;
 });
 
 // const layout = computed(() => uiStore.gameLibraryView);
@@ -168,30 +168,33 @@ const tableContainer = ref<HTMLDivElement | null>(null);
 // maybe we could render the rows one at a time
 // until one is outside of the viewport then split the page there
 const pageSize = computed(() => {
-	// biome-ignore lint/complexity/noExtraBooleanCast: <explanation>
-	if (!!tableContainer?.value) {
-		// The largest row I've seen is 105px (likely larger rows are possible)
-		return Math.floor(tableContainer.value.clientHeight / 95);
-	}
-	return 10;
+  // biome-ignore lint/complexity/noExtraBooleanCast: <explanation>
+  if (!!tableContainer?.value) {
+    // The largest row I've seen is 105px (likely larger rows are possible)
+    return Math.floor(tableContainer.value.clientHeight / 95);
+  }
+  return 10;
 });
 const pageCount = computed(() =>
-	Math.max(1, Math.ceil(gameList.value.length / pageSize.value)),
+  Math.max(1, Math.ceil(gameList.value.length / pageSize.value))
 );
 
 const pageDecrement = () => {
-	page.value = Math.max(1, page.value - 1);
+  page.value = Math.max(1, page.value - 1);
 };
 
 const pageIncrement = () => {
-	page.value = Math.min(pageCount.value, page.value + 1);
+  page.value = Math.min(pageCount.value, page.value + 1);
 };
 
 const pageOffset = computed(() => (page.value - 1) * pageSize.value);
 
 const openGame = (gameId: number) => {
-	// TODO: Check if the game should be opened in a new board or replace an existing one
-	console.log("openGame", gameId);
-	gamesStore.openGame(gameId, 0);
+  // TODO: Check if the game should be opened in a new board or replace an existing one
+
+  const activeBoardId = uiStore.activeBoardId;
+
+  console.debug(`Opening game ${gameId} in board ${activeBoardId}`);
+  gamesStore.openGame(gameId, activeBoardId);
 };
 </script>

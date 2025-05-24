@@ -48,8 +48,7 @@
   - [About the Project](#about-the-project)
     - [Screenshots](#screenshots)
     - [Tech Stack](#tech-stack)
-    - [Features (more in development)](#features-more-in-development)
-    - [Environment Variables](#environment-variables)
+    - [Features](#features)
   - [Getting Started](#getting-started)
     - [Prerequisites](#prerequisites)
     - [Run the project locally](#run-the-project-locally)
@@ -71,9 +70,7 @@
 ### Screenshots
 
 <div align="center">
-  <img src="docs/assets/UI-Apr1-2025.png" alt="Screenshot of the current Open Knight UI" />
-
-  <img src="docs/assets/UI-May12-2025.png" alt="Screenshot of new engine analysis and settings UI" />
+  <img src="docs/assets/UI-May24-2025.png" alt="Screenshot of the current Open Knight UI" />
 </div>
 
 <!-- TechStack -->
@@ -105,13 +102,19 @@
 </details>
 
 <!-- Features -->
-### Features (more in development)
+### Features
 
 - Import PGN files
-- Chess game viewer
-- Game/Move annotations
+- Chess game viewer and editor
 - Move tree/list
-- UCI Engine support (Work in progress, basic position analysis exists)
+- Multiple board support
+- UCI engine support
+
+<small>
+  <i>
+    Some features are not fully implemented and are in development, however the core functionality is there.
+  </i>
+</small>
 
 <!-- Env Variables -->
 ### Environment Variables
@@ -182,9 +185,9 @@ Listed in no particular order and likely to change (also the checked items are n
 - [x] Chess game viewer
 - [x] Basic UI layout customization
 - [x] Move tree/list
-- [x] UCI support (In Progress)
+- [x] UCI support
+- [x] Theme support
 - [ ] Game/Move annotations (In Progress)
-- [ ] Theme support
 - [ ] Drag and drop imports
 - [ ] PGN export
 - [ ] Position search
