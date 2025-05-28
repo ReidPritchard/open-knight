@@ -22,6 +22,11 @@ export const useGlobalStore = defineStore("global", {
 		settingsStore: (state) => state.internalSettingsStore,
 		engineAnalysisStore: (state) => state.internalEngineAnalysisStore,
 		explorerGames: (state) => state.explorer.games,
+		activeGame: (state) => {
+			const activeBoardId = state.internalUiStore.getActiveBoardId;
+			const gameState = state.internalGamesStore.getBoardState(activeBoardId);
+			return gameState?.game || null;
+		},
 		api: () => {
 			console.warn("For development purposes only! Use at your own risk!");
 			return api;
@@ -47,13 +52,14 @@ export const useGlobalStore = defineStore("global", {
 				console.error("No board game found");
 				return;
 			}
-			if (!boardGame.currentPosition) {
+			const currentPosition = this.gamesStore.getCurrentPosition(boardId);
+			if (!currentPosition) {
 				console.error("No FEN found for current position");
 				return;
 			}
 			await api.engines.POST.analyzePosition(
 				engineName,
-				boardGame.currentPosition.fen,
+				currentPosition.fen,
 				10,
 				1000,
 			);

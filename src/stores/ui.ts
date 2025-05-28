@@ -23,78 +23,9 @@ interface LayoutConfig {
   };
 }
 
-// Workspace configuration
-interface Workspace {
-  id: string;
-  name: string;
-  layout: LayoutConfig;
-  panelVisibility: {
-    gameLibrary: boolean;
-    moveTree: boolean;
-    engine: boolean;
-  };
-  description?: string;
-}
-
-// Default workspaces
-const DEFAULT_WORKSPACES: Workspace[] = [
-  {
-    id: "analysis",
-    name: "Analysis",
-    description: "Full analysis setup with all panels",
-    layout: {
-      leftPanelWidth: 300,
-      rightPanelWidth: 250,
-      enginePanelWidth: 400,
-      boardHeight: 600,
-      panelCollapsed: { left: false, right: false, engine: false },
-    },
-    panelVisibility: {
-      gameLibrary: true,
-      moveTree: true,
-      engine: true,
-    },
-  },
-  {
-    id: "study",
-    name: "Study",
-    description: "Game library and move tree for studying",
-    layout: {
-      leftPanelWidth: 350,
-      rightPanelWidth: 300,
-      enginePanelWidth: 400,
-      boardHeight: 600,
-      panelCollapsed: { left: false, right: false, engine: true },
-    },
-    panelVisibility: {
-      gameLibrary: true,
-      moveTree: true,
-      engine: false,
-    },
-  },
-  {
-    id: "minimal",
-    name: "Minimal",
-    description: "Just the chess board for focused play",
-    layout: {
-      leftPanelWidth: 300,
-      rightPanelWidth: 250,
-      enginePanelWidth: 400,
-      boardHeight: 600,
-      panelCollapsed: { left: true, right: true, engine: true },
-    },
-    panelVisibility: {
-      gameLibrary: false,
-      moveTree: false,
-      engine: false,
-    },
-  },
-];
-
 const defaultLightThemeKey = "defaultLightTheme";
 const defaultDarkThemeKey = "defaultDarkTheme";
 const layoutPreferencesKey = "layoutPreferences";
-const workspaceKey = "activeWorkspace";
 
 function getDefaultTheme(): UITheme {
   const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -123,12 +54,14 @@ export const useUIStore = defineStore("ui", {
       "Result",
       "Opening",
     ] as string[],
+
     theme: getDefaultTheme(),
     defaultLightTheme: (localStorage.getItem(defaultLightThemeKey) ??
       "light") as LightUITheme,
     defaultDarkTheme: (localStorage.getItem(defaultDarkThemeKey) ??
       "dark") as DarkUITheme,
     boardTheme: getDefaultBoardTheme(),
+
     boardSquareSize: 64,
     _whiteOnSide: "top" as "top" | "bottom",
 
@@ -141,17 +74,23 @@ export const useUIStore = defineStore("ui", {
       panelCollapsed: { left: false, right: false, engine: false },
     } as LayoutConfig,
 
-    // Workspace management
-    workspaces: DEFAULT_WORKSPACES,
-    currentWorkspaceId: "analysis",
-    customWorkspaces: [] as Workspace[],
-
     // Multi-board support
     activeBoardIds: [0] as number[],
     activeBoardId: 0,
     nextBoardId: 1,
 
-    // Panel visibility (legacy - now part of workspace)
+    // Stacked panel states
+    stackedPanelStates: {} as {
+      [panelId: string]: {
+        mode: "tabs" | "accordion" | "vertical";
+        activeTab?: string;
+        collapsedSections?: string[];
+      };
+    },
+
+    // Panel visibility
+    leftPanelOpen: true,
+    rightPanelOpen: true,
     gameLibraryViewOpen: true,
     moveTreeViewOpen: true,
     engineViewOpen: false,
@@ -174,26 +113,19 @@ export const useUIStore = defineStore("ui", {
   }),
 
   getters: {
-    // Existing getters
+    getLeftPanelOpen: (state) => state.leftPanelOpen,
+    getRightPanelOpen: (state) => state.rightPanelOpen,
     getGameLibraryViewOpen: (state) => state.gameLibraryViewOpen,
     getMoveTreeViewOpen: (state) => state.moveTreeViewOpen,
     getEngineViewOpen: (state) => state.engineViewOpen,
+
+    getTheme: (state) => state.theme,
+    isDarkMode: (state) => darkUIThemes.includes(state.theme as DarkUITheme),
     getBoardTheme: (state) => state.boardTheme,
     getBoardSquareSize: (state) => state.boardSquareSize,
     whiteOnSide: (state) => state._whiteOnSide,
+
     getSettingsModalOpen: (state) => state.settingsModalOpen,
-
-    // Enhanced layout getters
-    currentWorkspace: (state): Workspace | undefined => {
-      return [...state.workspaces, ...state.customWorkspaces].find(
-        (w) => w.id === state.currentWorkspaceId
-      );
-    },
-
-    availableWorkspaces: (state) => [
-      ...state.workspaces,
-      ...state.customWorkspaces,
-    ],
 
     // Multi-board getters
     getActiveBoardIds: (state) => state.activeBoardIds,
@@ -293,59 +225,6 @@ export const useUIStore = defineStore("ui", {
         side ?? (this._whiteOnSide === "top" ? "bottom" : "top");
     },
 
-    // Workspace management
-    switchWorkspace(workspaceId: string) {
-      const workspace = this.availableWorkspaces.find(
-        (w) => w.id === workspaceId
-      );
-      if (!workspace) return;
-
-      this.currentWorkspaceId = workspaceId;
-      this.layout = { ...workspace.layout };
-
-      // Apply panel visibility
-      this.gameLibraryViewOpen = workspace.panelVisibility.gameLibrary;
-      this.moveTreeViewOpen = workspace.panelVisibility.moveTree;
-      this.engineViewOpen = workspace.panelVisibility.engine;
-
-      localStorage.setItem(workspaceKey, workspaceId);
-      this.saveLayoutPreferences();
-    },
-
-    createCustomWorkspace(name: string, description?: string) {
-      const newWorkspace: Workspace = {
-        id: `custom_${Date.now()}`,
-        name,
-        description,
-        layout: { ...this.layout },
-        panelVisibility: {
-          gameLibrary: this.gameLibraryViewOpen,
-          moveTree: this.moveTreeViewOpen,
-          engine: this.engineViewOpen,
-        },
-      };
-
-      this.customWorkspaces.push(newWorkspace);
-      this.saveLayoutPreferences();
-      return newWorkspace.id;
-    },
-
-    deleteCustomWorkspace(workspaceId: string) {
-      const index = this.customWorkspaces.findIndex(
-        (w) => w.id === workspaceId
-      );
-      if (index !== -1) {
-        this.customWorkspaces.splice(index, 1);
-
-        // Switch to default workspace if deleting current one
-        if (this.currentWorkspaceId === workspaceId) {
-          this.switchWorkspace("analysis");
-        }
-
-        this.saveLayoutPreferences();
-      }
-    },
-
     // Multi-board management
     createNewBoard(): number {
       const newBoardId = this.nextBoardId++;
@@ -378,24 +257,29 @@ export const useUIStore = defineStore("ui", {
       }
     },
 
-    // Panel visibility (legacy support)
+    // Panel visibility
     updateSettingsModalOpen(open?: boolean) {
       this.settingsModalOpen = open ?? !this.settingsModalOpen;
     },
 
+    toggleLeftPanel() {
+      this.leftPanelOpen = !this.leftPanelOpen;
+    },
+
+    toggleRightPanel() {
+      this.rightPanelOpen = !this.rightPanelOpen;
+    },
+
     toggleGameLibraryView() {
       this.gameLibraryViewOpen = !this.gameLibraryViewOpen;
-      this.updateCurrentWorkspaceVisibility();
     },
 
     toggleMoveTreeView() {
       this.moveTreeViewOpen = !this.moveTreeViewOpen;
-      this.updateCurrentWorkspaceVisibility();
     },
 
     toggleEngineView() {
       this.engineViewOpen = !this.engineViewOpen;
-      this.updateCurrentWorkspaceVisibility();
     },
 
     // Game library actions
@@ -451,8 +335,6 @@ export const useUIStore = defineStore("ui", {
     saveLayoutPreferences() {
       const preferences = {
         layout: this.layout,
-        currentWorkspaceId: this.currentWorkspaceId,
-        customWorkspaces: this.customWorkspaces,
         panelVisibility: {
           gameLibrary: this.gameLibraryViewOpen,
           moveTree: this.moveTreeViewOpen,
@@ -460,6 +342,7 @@ export const useUIStore = defineStore("ui", {
         },
         activeBoardIds: this.activeBoardIds,
         activeBoardId: this.activeBoardId,
+        stackedPanelStates: this.stackedPanelStates,
       };
 
       localStorage.setItem(layoutPreferencesKey, JSON.stringify(preferences));
@@ -475,21 +358,6 @@ export const useUIStore = defineStore("ui", {
         // Apply saved layout
         if (preferences.layout) {
           this.layout = { ...this.layout, ...preferences.layout };
-        }
-
-        // Apply workspace
-        if (preferences.currentWorkspaceId) {
-          const workspace = this.availableWorkspaces.find(
-            (w) => w.id === preferences.currentWorkspaceId
-          );
-          if (workspace) {
-            this.currentWorkspaceId = preferences.currentWorkspaceId;
-          }
-        }
-
-        // Apply custom workspaces
-        if (preferences.customWorkspaces) {
-          this.customWorkspaces = preferences.customWorkspaces;
         }
 
         // Apply panel visibility
@@ -510,22 +378,13 @@ export const useUIStore = defineStore("ui", {
             preferences.activeBoardId ?? preferences.activeBoardIds[0];
           this.nextBoardId = Math.max(...preferences.activeBoardIds) + 1;
         }
+
+        // Apply stacked panel states
+        if (preferences.stackedPanelStates) {
+          this.stackedPanelStates = preferences.stackedPanelStates;
+        }
       } catch (error) {
         console.warn("Failed to load layout preferences:", error);
-      }
-    },
-
-    // Helper to update current workspace when panels change
-    updateCurrentWorkspaceVisibility() {
-      const currentWorkspace = this.currentWorkspace;
-      if (currentWorkspace?.id?.startsWith("custom_")) {
-        // Update custom workspace
-        currentWorkspace.panelVisibility = {
-          gameLibrary: this.gameLibraryViewOpen,
-          moveTree: this.moveTreeViewOpen,
-          engine: this.engineViewOpen,
-        };
-        this.saveLayoutPreferences();
       }
     },
 
@@ -538,8 +397,65 @@ export const useUIStore = defineStore("ui", {
         boardHeight: 600,
         panelCollapsed: { left: false, right: false, engine: false },
       };
-      this.switchWorkspace("analysis");
       localStorage.removeItem(layoutPreferencesKey);
+    },
+
+    // Stacked panel management
+    updateStackedPanelState(
+      panelId: string,
+      updates: Partial<{
+        mode: "tabs" | "accordion" | "vertical";
+        activeTab: string;
+        collapsedSections: string[];
+      }>
+    ) {
+      if (!this.stackedPanelStates[panelId]) {
+        this.stackedPanelStates[panelId] = {
+          mode: "accordion",
+          collapsedSections: [],
+        };
+      }
+
+      Object.assign(this.stackedPanelStates[panelId], updates);
+      this.saveLayoutPreferences();
+    },
+
+    setStackedPanelActiveTab(panelId: string, tabId: string) {
+      this.updateStackedPanelState(panelId, { activeTab: tabId });
+    },
+
+    toggleStackedPanelSection(panelId: string, sectionId: string) {
+      const panelState = this.stackedPanelStates[panelId];
+      if (!panelState) {
+        this.updateStackedPanelState(panelId, {
+          collapsedSections: [sectionId],
+        });
+        return;
+      }
+
+      const collapsedSections = panelState.collapsedSections || [];
+      const isCollapsed = collapsedSections.includes(sectionId);
+
+      if (isCollapsed) {
+        // Expand section
+        this.updateStackedPanelState(panelId, {
+          collapsedSections: collapsedSections.filter((id) => id !== sectionId),
+        });
+      } else {
+        // Collapse section
+        this.updateStackedPanelState(panelId, {
+          collapsedSections: [...collapsedSections, sectionId],
+        });
+      }
+    },
+
+    getStackedPanelState(panelId: string) {
+      return (
+        this.stackedPanelStates[panelId] || {
+          mode: "accordion" as const,
+          collapsedSections: [],
+        }
+      );
     },
   },
 });

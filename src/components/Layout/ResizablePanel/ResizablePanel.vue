@@ -1,7 +1,11 @@
 <template>
-  <div class="relative flex" :class="containerClasses" :style="containerStyle">
-    <!-- Panel Content -->
-    <div class="flex-1 overflow-hidden">
+  <div
+    class="relative flex overflow-hidden"
+    :class="[direction === 'horizontal' ? 'flex-row' : 'flex-col']"
+    :style="containerStyle"
+  >
+    <!-- Panel Content - Layout container manages overflow -->
+    <div class="flex-1 min-h-0 min-w-0 overflow-auto flex flex-col">
       <slot />
     </div>
 
@@ -18,6 +22,7 @@
     <!-- Collapse/Expand Button -->
     <button
       v-if="collapsible"
+      class="absolute z-10 btn btn-xs btn-ghost"
       :class="collapseButtonClasses"
       @click="toggleCollapse"
       :title="isCollapsed ? 'Expand panel' : 'Collapse panel'"
@@ -64,11 +69,6 @@ const isCollapsed = ref(false);
 const isResizing = ref(false);
 
 // Computed properties for styling
-const containerClasses = computed(() => ({
-  "flex-row": props.direction === "horizontal",
-  "flex-col": props.direction === "vertical",
-}));
-
 const containerStyle = computed(() => {
   if (isCollapsed.value) {
     return props.direction === "horizontal"
@@ -81,42 +81,47 @@ const containerStyle = computed(() => {
     : { height: `${currentSize.value}px` };
 });
 
-const handleClasses = computed(() => ({
-  "absolute cursor-col-resize hover:bg-primary/20 transition-colors":
-    props.direction === "horizontal",
-  "absolute cursor-row-resize hover:bg-primary/20 transition-colors":
-    props.direction === "vertical",
-  "right-0 top-0 w-1 h-full":
-    props.direction === "horizontal" && props.position === "left",
-  "left-0 top-0 w-1 h-full":
-    props.direction === "horizontal" && props.position === "right",
-  "bottom-0 left-0 w-full h-1":
-    props.direction === "vertical" && props.position === "top",
-  "top-0 left-0 w-full h-1":
-    props.direction === "vertical" && props.position === "bottom",
-  "bg-primary/50": isResizing.value,
-}));
+const handleClasses = computed(() => [
+  "absolute hover:bg-accent/50 transition-colors z-10",
+  isResizing.value ? "bg-accent/50" : "",
+  // Cursor styles
+  props.direction === "horizontal" ? "cursor-col-resize" : "cursor-row-resize",
+  // Position styles
+  props.direction === "horizontal" && props.position === "left"
+    ? "right-0 top-0 w-2 h-full"
+    : "",
+  props.direction === "horizontal" && props.position === "right"
+    ? "left-0 top-0 w-2 h-full"
+    : "",
+  props.direction === "vertical" && props.position === "top"
+    ? "bottom-0 left-0 w-full h-2"
+    : "",
+  props.direction === "vertical" && props.position === "bottom"
+    ? "top-0 left-0 w-full h-2"
+    : "",
+]);
 
-const handleBarClasses = computed(() => ({
-  "w-full h-8 bg-base-300 opacity-0 hover:opacity-100 transition-opacity rounded-sm":
-    props.direction === "horizontal",
-  "h-full w-8 bg-base-300 opacity-0 hover:opacity-100 transition-opacity rounded-sm":
-    props.direction === "vertical",
-  "absolute top-1/2 -translate-y-1/2": props.direction === "horizontal",
-  "absolute left-1/2 -translate-x-1/2": props.direction === "vertical",
-}));
+const handleBarClasses = computed(() => [
+  "bg-base-300 opacity-0 hover:opacity-100 transition-opacity rounded-sm absolute",
+  props.direction === "horizontal"
+    ? "w-full h-8 top-1/2 -translate-y-1/2"
+    : "h-full w-8 left-1/2 -translate-x-1/2",
+]);
 
-const collapseButtonClasses = computed(() => ({
-  "absolute z-10 btn btn-xs btn-ghost btn-soft btn-neutral": true,
-  "right-1 top-2":
-    props.direction === "horizontal" && props.position === "left",
-  "left-1 top-2":
-    props.direction === "horizontal" && props.position === "right",
-  "top-1 right-2":
-    props.direction === "vertical" && props.position === "bottom",
-  "bottom-1 right-2":
-    props.direction === "vertical" && props.position === "top",
-}));
+const collapseButtonClasses = computed(() => [
+  props.direction === "horizontal" && props.position === "left"
+    ? "right-1 bottom-2"
+    : "",
+  props.direction === "horizontal" && props.position === "right"
+    ? "left-1 bottom-2"
+    : "",
+  props.direction === "vertical" && props.position === "bottom"
+    ? "top-1 right-2"
+    : "",
+  props.direction === "vertical" && props.position === "top"
+    ? "bottom-1 right-2"
+    : "",
+]);
 
 const collapseIcon = computed(() => {
   if (props.direction === "horizontal") {
@@ -194,7 +199,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Custom resize cursor for better UX */
+/* Custom resize cursor for better UX - not available in Tailwind */
 .cursor-col-resize:hover::after {
   content: "";
   position: absolute;

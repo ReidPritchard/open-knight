@@ -1,9 +1,12 @@
 <template>
-  <header>
+  <header class="sticky top-0 z-50 max-h-16">
     <div class="navbar bg-base-200 text-base-content px-4 select-none">
       <!-- Left: App Title -->
       <div class="navbar-start">
-        <h1 class="text-xl font-bold text-base-content cursor-default">
+        <Logo width="48" height="48" class-name="mr-2 text-accent" />
+        <h1
+          class="text-lg font-bold text-base-content cursor-default hidden xl:block"
+        >
           Open Knight
         </h1>
       </div>
@@ -17,7 +20,7 @@
           @click="newGameClick"
         >
           <PhPlus class="w-4 h-4" />
-          <span class="hidden sm:inline ml-1">New</span>
+          <span class="hidden xl:inline ml-1">New</span>
         </button>
 
         <!-- Import -->
@@ -28,40 +31,29 @@
           @click="importModalOpen = true"
         >
           <PhDownload class="w-4 h-4" />
-          <span class="hidden sm:inline ml-1">Import</span>
+          <span class="hidden xl:inline ml-1">Import</span>
         </button>
 
-        <!-- Game Library Toggle -->
+        <!-- Left Panel Toggle -->
         <button
           class="btn btn-sm tooltip tooltip-bottom"
-          data-tip="Toggle Game Library"
-          :class="{ 'btn-neutral': displayGameLibrary }"
-          @click="toggleGameLibraryView"
+          data-tip="Toggle Left Panel"
+          :class="{ 'btn-neutral': displayLeftPanel }"
+          @click="toggleLeftPanel"
         >
-          <PhBooks class="w-4 h-4" />
-          <span class="hidden sm:inline ml-1">Library</span>
+          <PhAlignLeftSimple class="w-4 h-4" />
+          <span class="hidden xl:inline ml-1">Left Panel</span>
         </button>
 
-        <!-- Move Tree Toggle -->
+        <!-- Right Panel Toggle -->
         <button
           class="btn btn-sm tooltip tooltip-bottom"
-          data-tip="Toggle Move Tree"
-          :class="{ 'btn-neutral': displayMoveTree }"
-          @click="toggleMoveTreeView"
+          data-tip="Toggle Right Panel"
+          :class="{ 'btn-neutral': displayRightPanel }"
+          @click="toggleRightPanel"
         >
-          <PhTree class="w-4 h-4" />
-          <span class="hidden sm:inline ml-1">Moves</span>
-        </button>
-
-        <!-- Engine View Toggle -->
-        <button
-          class="btn btn-sm tooltip tooltip-bottom"
-          data-tip="Toggle Engine Analysis"
-          :class="{ 'btn-neutral': displayEngineView }"
-          @click="toggleEngineView"
-        >
-          <PhMagnifyingGlass class="w-4 h-4" />
-          <span class="hidden sm:inline ml-1">Engine</span>
+          <PhAlignRightSimple class="w-4 h-4" />
+          <span class="hidden xl:inline ml-1">Right Panel</span>
         </button>
 
         <!-- Refresh -->
@@ -71,7 +63,7 @@
           @click="refreshGamesClick"
         >
           <PhArrowClockwise class="w-4 h-4" />
-          <span class="hidden sm:inline ml-1">Refresh</span>
+          <span class="hidden xl:inline ml-1">Refresh</span>
         </button>
       </div>
 
@@ -117,17 +109,17 @@
 
 <script setup lang="ts">
 import {
+  PhAlignLeftSimple,
+  PhAlignRightSimple,
   PhArrowClockwise,
-  PhBooks,
   PhDownload,
   PhGear,
-  PhMagnifyingGlass,
   PhPlus,
   PhTrash,
-  PhTree,
 } from "@phosphor-icons/vue";
 import { computed } from "vue";
 import { useGlobalStore } from "../../stores";
+import Logo from "../Logo/Logo.vue";
 
 const props = defineProps<{
   importModalOpen: boolean;
@@ -143,20 +135,15 @@ const emit = defineEmits<{
 const globalStore = useGlobalStore();
 const uiStore = globalStore.uiStore;
 
-const displayGameLibrary = computed(() => uiStore.getGameLibraryViewOpen);
-const displayMoveTree = computed(() => uiStore.getMoveTreeViewOpen);
-const displayEngineView = computed(() => uiStore.getEngineViewOpen);
+const displayLeftPanel = computed(() => uiStore.getLeftPanelOpen);
+const displayRightPanel = computed(() => uiStore.getRightPanelOpen);
 
-const toggleGameLibraryView = () => {
-  uiStore.toggleGameLibraryView();
+const toggleLeftPanel = () => {
+  uiStore.toggleLeftPanel();
 };
 
-const toggleMoveTreeView = () => {
-  uiStore.toggleMoveTreeView();
-};
-
-const toggleEngineView = () => {
-  uiStore.toggleEngineView();
+const toggleRightPanel = () => {
+  uiStore.toggleRightPanel();
 };
 
 const refreshGamesClick = () => {

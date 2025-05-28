@@ -74,7 +74,6 @@
 </template>
 
 <script setup lang="ts">
-import { defineEmits, defineProps } from "vue";
 import type { EngineOption } from "../../shared/types";
 
 const props = defineProps<{

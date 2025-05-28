@@ -1,5 +1,7 @@
 <template>
-  <div class="flex flex-col h-screen w-screen">
+  <div
+    class="h-screen w-screen max-h-screen max-w-screen flex flex-col select-none"
+  >
     <Navbar
       v-model:importModalOpen="importModalOpen"
       @refreshGames="refreshGamesClick"
@@ -7,10 +9,10 @@
     />
 
     <!-- Main Layout with Resizable Split Panes -->
-    <main class="flex-1 flex">
+    <main class="flex-1 min-h-0 min-w-0 overflow-auto flex flex-row">
       <!-- Left Panel (Game Library) -->
       <ResizablePanel
-        v-if="displayGameLibrary"
+        v-if="displayLeftPanel"
         :initial-size="layout.leftPanelWidth"
         :min-size="200"
         :max-size="600"
@@ -18,7 +20,21 @@
         @resize="updateLeftPanelWidth"
         class="border-r border-base-300"
       >
-        <GameLibrary />
+        <StackedPanel
+          name="leftPanel"
+          mode="accordion"
+          @section-toggle="handleLeftPanelSectionToggle"
+        >
+          <StackedSection
+            title="Game Library"
+            :icon="PhBooks"
+            :collapsed="isLeftPanelSectionCollapsed('gameLibrary')"
+            @toggle="toggleLeftPanelSection('gameLibrary', $event)"
+            :min-height="400"
+          >
+            <GameLibrary />
+          </StackedSection>
+        </StackedPanel>
       </ResizablePanel>
 
       <!-- Center Content Area -->
@@ -48,26 +64,12 @@
               </div>
             </div>
           </div>
-
-          <!-- Engine Analysis Panel -->
-          <ResizablePanel
-            v-if="displayEngineView"
-            :initial-size="layout.enginePanelWidth"
-            :min-size="300"
-            :max-size="800"
-            direction="horizontal"
-            position="right"
-            @resize="updateEnginePanelWidth"
-            class="border-l border-base-300"
-          >
-            <EngineAnalysisPanel :board-id="activeBoardId" />
-          </ResizablePanel>
         </div>
       </div>
 
       <!-- Right Panel (Move Tree / Analysis) -->
       <ResizablePanel
-        v-if="displayMoveTree"
+        v-if="displayRightPanel"
         :initial-size="layout.rightPanelWidth"
         :min-size="200"
         :max-size="500"
@@ -76,7 +78,37 @@
         @resize="updateRightPanelWidth"
         class="border-l border-base-300"
       >
-        <MoveTree :board-id="activeBoardId" />
+        <StackedPanel
+          name="rightPanel"
+          mode="tabs"
+          :sections="rightPanelSections"
+          :active-tab="rightPanelActiveTab"
+          @tab-change="handleRightPanelTabChange"
+          persist-state
+          storage-key="right-panel-tabs"
+        >
+          <template #moveTree>
+            <MoveTree
+              v-if="globalStore?.activeGame !== null"
+              :moveTree="globalStore.activeGame.move_tree"
+              @select-move="handleMoveSelect"
+              @navigate-start="navigateToStart"
+              @navigate-end="navigateToEnd"
+              @navigate-previous="navigateToPrevious"
+              @navigate-next="navigateToNext"
+            />
+            <div
+              v-else
+              class="flex flex-col items-center justify-center h-full"
+            >
+              <p class="text-base-content/60">No game selected</p>
+            </div>
+          </template>
+
+          <template #engine>
+            <EngineAnalysisPanel :board-id="activeBoardId" />
+          </template>
+        </StackedPanel>
       </ResizablePanel>
     </main>
   </div>
@@ -90,6 +122,7 @@
 </template>
 
 <script setup lang="ts">
+import { PhBooks, PhEngine, PhPlus, PhTree } from "@phosphor-icons/vue";
 import { computed, onMounted, provide, ref } from "vue";
 import ChessBoard from "./components/ChessBoard/ChessBoard.vue";
 import EngineAnalysisPanel from "./components/EngineAnalysis/EngineAnalysisPanel.vue";
@@ -98,6 +131,7 @@ import GameLibrary from "./components/GameLibrary/GameLibrary.vue";
 import ImportModal from "./components/ImportModal/ImportModal.vue";
 import BoardTabs from "./components/Layout/BoardTabs/BoardTabs.vue";
 import ResizablePanel from "./components/Layout/ResizablePanel/ResizablePanel.vue";
+import { StackedPanel, StackedSection } from "./components/Layout/StackedPanel";
 import MoveTree from "./components/MoveTree/MoveTree.vue";
 import Navbar from "./components/Navbar/Navbar.vue";
 import SettingsModal from "./components/Settings/SettingsModal.vue";
@@ -111,13 +145,31 @@ const uiStore = globalStore.uiStore;
 // Layout state
 const layout = computed(() => uiStore.layout);
 const settingsModalOpen = computed(() => uiStore.getSettingsModalOpen);
-const displayGameLibrary = computed(() => uiStore.getGameLibraryViewOpen);
-const displayMoveTree = computed(() => uiStore.getMoveTreeViewOpen);
-const displayEngineView = computed(() => uiStore.getEngineViewOpen);
+const displayLeftPanel = computed(() => uiStore.getLeftPanelOpen);
+const displayRightPanel = computed(() => uiStore.getRightPanelOpen);
 
 // Multi-board support
 const activeBoardIds = computed(() => uiStore.getActiveBoardIds);
 const activeBoardId = computed(() => uiStore.getActiveBoardId);
+
+// Right panel tabs configuration
+const rightPanelSections = computed(() => [
+  {
+    id: "moveTree",
+    title: "Move Tree",
+    icon: PhTree,
+  },
+  {
+    id: "engine",
+    title: "Engine",
+    icon: PhEngine,
+  },
+]);
+
+const rightPanelActiveTab = computed(() => {
+  const panelState = uiStore.getStackedPanelState("rightPanel");
+  return panelState.activeTab || "moveTree";
+});
 
 // Layout resize handlers
 const updateLeftPanelWidth = (width: number) => {
@@ -126,10 +178,6 @@ const updateLeftPanelWidth = (width: number) => {
 
 const updateRightPanelWidth = (width: number) => {
   uiStore.updateLayoutDimension("rightPanelWidth", width);
-};
-
-const updateEnginePanelWidth = (width: number) => {
-  uiStore.updateLayoutDimension("enginePanelWidth", width);
 };
 
 // Board management
@@ -155,6 +203,27 @@ const resetDatabaseClick = async () => {
   await globalStore.resetDatabase();
 };
 
+// Stacked panel handlers
+const handleLeftPanelSectionToggle = (
+  sectionId: string,
+  collapsed: boolean
+) => {
+  uiStore.toggleStackedPanelSection("leftPanel", sectionId);
+};
+
+const toggleLeftPanelSection = (sectionId: string, collapsed: boolean) => {
+  uiStore.toggleStackedPanelSection("leftPanel", sectionId);
+};
+
+const isLeftPanelSectionCollapsed = (sectionId: string) => {
+  const panelState = uiStore.getStackedPanelState("leftPanel");
+  return panelState.collapsedSections?.includes(sectionId) ?? false;
+};
+
+const handleRightPanelTabChange = (tabId: string) => {
+  uiStore.setStackedPanelActiveTab("rightPanel", tabId);
+};
+
 onMounted(() => {
   globalStore.fetchExplorerGames();
 
@@ -175,6 +244,27 @@ provide("color", "currentColor");
 provide("size", 30);
 provide("weight", "bold");
 provide("mirrored", false);
+
+// Navigation event handlers for MoveTree
+const handleMoveSelect = async (nodeId: { idx: number; version: number }) => {
+  await globalStore.gamesStore.navigateToNode(activeBoardId.value, nodeId);
+};
+
+const navigateToStart = async () => {
+  await globalStore.gamesStore.navigateToStart(activeBoardId.value);
+};
+
+const navigateToEnd = async () => {
+  await globalStore.gamesStore.navigateToEnd(activeBoardId.value);
+};
+
+const navigateToPrevious = async () => {
+  await globalStore.gamesStore.previousMove(activeBoardId.value);
+};
+
+const navigateToNext = async () => {
+  await globalStore.gamesStore.nextMove(activeBoardId.value);
+};
 </script>
 
 <style>
