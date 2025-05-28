@@ -43,9 +43,11 @@
         <BoardTabs
           :boards="activeBoardIds"
           :active-board="activeBoardId"
+          :board-metadata="uiStore.getActiveBoardMetadata"
           @create-board="createNewBoard"
           @switch-board="setActiveBoardId"
           @close-board="closeBoardTab"
+          @rename-board="renameBoard"
           class="border-b border-base-300"
         />
 
@@ -154,89 +156,93 @@ const activeBoardId = computed(() => uiStore.getActiveBoardId);
 
 // Right panel tabs configuration
 const rightPanelSections = computed(() => [
-  {
-    id: "moveTree",
-    title: "Move Tree",
-    icon: PhTree,
-  },
-  {
-    id: "engine",
-    title: "Engine",
-    icon: PhEngine,
-  },
+	{
+		id: "moveTree",
+		title: "Move Tree",
+		icon: PhTree,
+	},
+	{
+		id: "engine",
+		title: "Engine",
+		icon: PhEngine,
+	},
 ]);
 
 const rightPanelActiveTab = computed(() => {
-  const panelState = uiStore.getStackedPanelState("rightPanel");
-  return panelState.activeTab || "moveTree";
+	const panelState = uiStore.getStackedPanelState("rightPanel");
+	return panelState.activeTab || "moveTree";
 });
 
 // Layout resize handlers
 const updateLeftPanelWidth = (width: number) => {
-  uiStore.updateLayoutDimension("leftPanelWidth", width);
+	uiStore.updateLayoutDimension("leftPanelWidth", width);
 };
 
 const updateRightPanelWidth = (width: number) => {
-  uiStore.updateLayoutDimension("rightPanelWidth", width);
+	uiStore.updateLayoutDimension("rightPanelWidth", width);
 };
 
 // Board management
 const setActiveBoardId = (boardId: number) => {
-  uiStore.setActiveBoardId(boardId);
+	uiStore.setActiveBoardId(boardId);
 };
 
 const closeBoardTab = (boardId: number) => {
-  uiStore.closeBoardTab(boardId);
-  globalStore.gamesStore.closeGame(boardId);
+	uiStore.closeBoardTab(boardId);
+	globalStore.gamesStore.closeGame(boardId);
 };
 
 const createNewBoard = () => {
-  uiStore.createNewBoard();
+	uiStore.createNewBoard();
+};
+
+const renameBoard = (boardId: number, newName: string) => {
+	uiStore.renameBoard(boardId, newName);
 };
 
 // Existing handlers
 const refreshGamesClick = async () => {
-  await globalStore.fetchExplorerGames();
+	await globalStore.fetchExplorerGames();
 };
 
 const resetDatabaseClick = async () => {
-  await globalStore.resetDatabase();
+	await globalStore.resetDatabase();
 };
 
 // Stacked panel handlers
 const handleLeftPanelSectionToggle = (
-  sectionId: string,
-  collapsed: boolean
+	sectionId: string,
+	collapsed: boolean,
 ) => {
-  uiStore.toggleStackedPanelSection("leftPanel", sectionId);
+	uiStore.toggleStackedPanelSection("leftPanel", sectionId);
 };
 
 const toggleLeftPanelSection = (sectionId: string, collapsed: boolean) => {
-  uiStore.toggleStackedPanelSection("leftPanel", sectionId);
+	uiStore.toggleStackedPanelSection("leftPanel", sectionId);
 };
 
 const isLeftPanelSectionCollapsed = (sectionId: string) => {
-  const panelState = uiStore.getStackedPanelState("leftPanel");
-  return panelState.collapsedSections?.includes(sectionId) ?? false;
+	const panelState = uiStore.getStackedPanelState("leftPanel");
+	return panelState.collapsedSections?.includes(sectionId) ?? false;
 };
 
 const handleRightPanelTabChange = (tabId: string) => {
-  uiStore.setStackedPanelActiveTab("rightPanel", tabId);
+	uiStore.setStackedPanelActiveTab("rightPanel", tabId);
 };
 
 onMounted(() => {
-  globalStore.fetchExplorerGames();
+	globalStore.fetchExplorerGames();
 
-  // Load saved layout preferences
-  uiStore.loadLayoutPreferences();
+	// Load saved layout preferences
+	uiStore.loadLayoutPreferences();
 
-  // Development mode exposure
-  if (import.meta.env.DEV) {
-    const globalWindow = window as unknown as {
-      $$: { store: typeof globalStore; api: typeof globalStore.api };
-    };
-    globalWindow.$$ = { store: globalStore, api: globalStore.api };
-  }
+	// Development mode exposure
+	if (import.meta.env.DEV) {
+		const globalWindow = window as unknown as {
+			$$: { store: typeof globalStore; api: typeof globalStore.api };
+		};
+		globalWindow.$$ = { store: globalStore, api: globalStore.api };
+	}
 });
 
 // Setup default styles for Phosphor icons
@@ -247,23 +253,23 @@ provide("mirrored", false);
 
 // Navigation event handlers for MoveTree
 const handleMoveSelect = async (nodeId: { idx: number; version: number }) => {
-  await globalStore.gamesStore.navigateToNode(activeBoardId.value, nodeId);
+	await globalStore.gamesStore.navigateToNode(activeBoardId.value, nodeId);
 };
 
 const navigateToStart = async () => {
-  await globalStore.gamesStore.navigateToStart(activeBoardId.value);
+	await globalStore.gamesStore.navigateToStart(activeBoardId.value);
 };
 
 const navigateToEnd = async () => {
-  await globalStore.gamesStore.navigateToEnd(activeBoardId.value);
+	await globalStore.gamesStore.navigateToEnd(activeBoardId.value);
 };
 
 const navigateToPrevious = async () => {
-  await globalStore.gamesStore.previousMove(activeBoardId.value);
+	await globalStore.gamesStore.previousMove(activeBoardId.value);
 };
 
 const navigateToNext = async () => {
-  await globalStore.gamesStore.nextMove(activeBoardId.value);
+	await globalStore.gamesStore.nextMove(activeBoardId.value);
 };
 </script>
 

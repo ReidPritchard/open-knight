@@ -109,27 +109,27 @@
 
 <script setup lang="ts">
 import {
-  PhAlignLeftSimple,
-  PhAlignRightSimple,
-  PhArrowClockwise,
-  PhDownload,
-  PhGear,
-  PhPlus,
-  PhTrash,
+	PhAlignLeftSimple,
+	PhAlignRightSimple,
+	PhArrowClockwise,
+	PhDownload,
+	PhGear,
+	PhPlus,
+	PhTrash,
 } from "@phosphor-icons/vue";
 import { computed } from "vue";
 import { useGlobalStore } from "../../stores";
 import Logo from "../Logo/Logo.vue";
 
 const props = defineProps<{
-  importModalOpen: boolean;
+	importModalOpen: boolean;
 }>();
 
 const emit = defineEmits<{
-  (e: "update:importModalOpen", value: boolean): void;
-  (e: "refreshGames"): void;
-  (e: "resetDatabase"): void;
-  (e: "newGame"): void;
+	(e: "update:importModalOpen", value: boolean): void;
+	(e: "refreshGames"): void;
+	(e: "resetDatabase"): void;
+	(e: "newGame"): void;
 }>();
 
 const globalStore = useGlobalStore();
@@ -139,31 +139,31 @@ const displayLeftPanel = computed(() => uiStore.getLeftPanelOpen);
 const displayRightPanel = computed(() => uiStore.getRightPanelOpen);
 
 const toggleLeftPanel = () => {
-  uiStore.toggleLeftPanel();
+	uiStore.toggleLeftPanel();
 };
 
 const toggleRightPanel = () => {
-  uiStore.toggleRightPanel();
+	uiStore.toggleRightPanel();
 };
 
 const refreshGamesClick = () => {
-  emit("refreshGames");
+	emit("refreshGames");
 };
 
 const resetDatabaseClick = () => {
-  emit("resetDatabase");
+	emit("resetDatabase");
 };
 
 const importModalOpen = computed({
-  get: () => props.importModalOpen,
-  set: (value) => emit("update:importModalOpen", value),
+	get: () => props.importModalOpen,
+	set: (value) => emit("update:importModalOpen", value),
 });
 
 const openSettingsModal = () => {
-  uiStore.updateSettingsModalOpen(true);
+	uiStore.updateSettingsModalOpen(true);
 };
 
 const newGameClick = () => {
-  emit("newGame");
+	emit("newGame");
 };
 </script>

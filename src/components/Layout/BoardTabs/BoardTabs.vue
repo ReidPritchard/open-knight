@@ -13,7 +13,18 @@
           @contextmenu.prevent="showContextMenu($event, boardId)"
           :title="getBoardTitle(boardId)"
         >
-          <span class="flex-1 truncate text-sm">
+          <input
+            v-if="renamingBoardId === boardId"
+            ref="renameInput"
+            v-model="tempName"
+            class="input input-xs bg-transparent border-none outline-none focus:bg-base-100 focus:border-primary flex-1 text-sm px-1"
+            @keydown.enter="saveRename"
+            @keydown.escape="cancelRename"
+            @blur="saveRename"
+            @click.stop
+            autofocus
+          />
+          <span v-else class="flex-1 truncate text-sm">
             {{ getBoardDisplayName(boardId) }}
           </span>
 
@@ -106,12 +117,13 @@ import {
 	PhPlus,
 	PhX,
 } from "@phosphor-icons/vue";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import { ContextMenu, type MenuItem } from "../ContextMenu";
 
 interface Props {
 	boards: number[];
 	activeBoard: number;
+	boardMetadata: Record<number, { name?: string; hasUnsavedChanges?: boolean }>;
 }
 
 interface RecentBoard {
@@ -141,10 +153,10 @@ const contextMenu = ref({
 // Recent boards (would be managed by store in real implementation)
 const recentBoards = ref<RecentBoard[]>([]);
 
-// Board metadata (would come from store)
-const boardMetadata = ref<
-	Record<number, { name?: string; hasUnsavedChanges?: boolean }>
->({});
+// Rename state
+const renamingBoardId = ref<number | null>(null);
+const tempName = ref("");
+const renameInput = ref<HTMLInputElement>();
 
 // Context menu items
 const contextMenuItems = computed((): MenuItem[] => {
@@ -187,7 +199,7 @@ const tabClasses = (boardId: number) => ({
 });
 
 const getBoardDisplayName = (boardId: number): string => {
-	const metadata = boardMetadata.value[boardId];
+	const metadata = props.boardMetadata[boardId];
 	if (metadata?.name) return metadata.name;
 	return boardId === 0 ? "Main Board" : `Board ${boardId}`;
 };
@@ -199,7 +211,7 @@ const getBoardTitle = (boardId: number): string => {
 };
 
 const hasUnsavedChanges = (boardId: number): boolean => {
-	return boardMetadata.value[boardId]?.hasUnsavedChanges ?? false;
+	return props.boardMetadata[boardId]?.hasUnsavedChanges ?? false;
 };
 
 // Context menu handlers
@@ -248,11 +260,33 @@ const duplicateBoard = (boardId: number) => {
 
 const renameBoard = (boardId: number) => {
 	const currentName = getBoardDisplayName(boardId);
-	const newName = prompt("Enter new board name:", currentName);
+	renamingBoardId.value = boardId;
+	tempName.value = currentName;
 
-	if (newName?.trim() && newName !== currentName) {
-		emit("renameBoard", boardId, newName.trim());
+	// Focus the input on next tick
+	nextTick(() => {
+		renameInput.value?.focus();
+		renameInput.value?.select();
+	});
+};
+
+const saveRename = () => {
+	if (renamingBoardId.value === null) return;
+
+	const boardId = renamingBoardId.value;
+	const currentName = getBoardDisplayName(boardId);
+	const newName = tempName.value.trim();
+
+	if (newName && newName !== currentName) {
+		emit("renameBoard", boardId, newName);
 	}
+
+	cancelRename();
+};
+
+const cancelRename = () => {
+	renamingBoardId.value = null;
+	tempName.value = "";
 };
 
 const closeAllOtherBoards = () => {

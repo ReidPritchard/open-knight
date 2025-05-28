@@ -1,9 +1,9 @@
 <template>
-  <div class="relative w-full h-full">
+  <div class="relative w-full h-full pointer-events-none">
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 512 512"
-      class="absolute inset-0 pointer-events-none z-10 opacity-40"
+      class="absolute inset-0 pointer-events-none z-10 opacity-80"
     >
       <defs>
         <marker
@@ -39,27 +39,27 @@
 import { computed, toRefs } from "vue";
 
 const props = defineProps<{
-	to: {
-		x: number;
-		y: number;
-	};
-	from: {
-		x: number;
-		y: number;
-	};
-	options: {
-		color?: string;
-		size?: number;
-	};
+  to: {
+    x: number;
+    y: number;
+  };
+  from: {
+    x: number;
+    y: number;
+  };
+  options: {
+    color?: string;
+    size?: number;
+  };
 }>();
 
 const { color, size } = toRefs(props.options);
 
 const computedSize = computed(() => {
-	return size?.value ?? 10;
+  return size?.value ?? 10;
 });
 
 const computedColor = computed(() => {
-	return color?.value ?? "currentColor";
+  return color?.value ?? "currentColor";
 });
 </script>

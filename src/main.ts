@@ -22,11 +22,11 @@ const globalStore = useGlobalStore();
 // Initialize hotkeys with default callbacks
 // These are the callbacks that will be used no matter the hotkey configuration
 settingsStore.initializeHotkeys({
-  next_move: () =>
-    globalStore.gamesStore.nextMove(globalStore.uiStore.activeBoardId),
-  prev_move: () =>
-    globalStore.gamesStore.previousMove(globalStore.uiStore.activeBoardId),
-  toggle_left_panel: () => globalStore.uiStore.toggleLeftPanel(),
-  toggle_right_panel: () => globalStore.uiStore.toggleRightPanel(),
-  open_settings: () => globalStore.uiStore.updateSettingsModalOpen(true),
+	next_move: () =>
+		globalStore.gamesStore.nextMove(globalStore.uiStore.activeBoardId),
+	prev_move: () =>
+		globalStore.gamesStore.previousMove(globalStore.uiStore.activeBoardId),
+	toggle_left_panel: () => globalStore.uiStore.toggleLeftPanel(),
+	toggle_right_panel: () => globalStore.uiStore.toggleRightPanel(),
+	open_settings: () => globalStore.uiStore.updateSettingsModalOpen(true),
 });

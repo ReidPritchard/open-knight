@@ -84,135 +84,135 @@ import { computed, ref } from "vue";
 import type { Component } from "vue";
 
 interface Props {
-  title: string;
-  icon?: Component;
-  badge?: string | number;
-  collapsible?: boolean;
-  collapsed?: boolean;
-  variant?: "default" | "primary" | "secondary" | "accent";
-  size?: "sm" | "md" | "lg";
-  headerClass?: string;
-  contentClass?: string;
-  minHeight?: number;
-  maxHeight?: number;
+	title: string;
+	icon?: Component;
+	badge?: string | number;
+	collapsible?: boolean;
+	collapsed?: boolean;
+	variant?: "default" | "primary" | "secondary" | "accent";
+	size?: "sm" | "md" | "lg";
+	headerClass?: string;
+	contentClass?: string;
+	minHeight?: number;
+	maxHeight?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  collapsible: true,
-  collapsed: false,
-  variant: "default",
-  size: "md",
-  minHeight: 0,
+	collapsible: true,
+	collapsed: false,
+	variant: "default",
+	size: "md",
+	minHeight: 0,
 });
 
 const emit = defineEmits<{
-  toggle: [collapsed: boolean];
-  expand: [];
-  collapse: [];
+	toggle: [collapsed: boolean];
+	expand: [];
+	collapse: [];
 }>();
 
 const isCollapsed = ref(props.collapsed);
 
 // Computed classes using Tailwind/DaisyUI
 const sectionSizeClasses = computed(() => ({
-  "stacked-section--sm": props.size === "sm",
-  "stacked-section--md": props.size === "md",
-  "stacked-section--lg": props.size === "lg",
+	"stacked-section--sm": props.size === "sm",
+	"stacked-section--md": props.size === "md",
+	"stacked-section--lg": props.size === "lg",
 }));
 
 const headerVariantClasses = computed(() => ({
-  "bg-primary/5 text-primary": props.variant === "primary",
-  "bg-secondary/5 text-secondary": props.variant === "secondary",
-  "bg-accent/5 text-accent": props.variant === "accent",
+	"bg-primary/5 text-primary": props.variant === "primary",
+	"bg-secondary/5 text-secondary": props.variant === "secondary",
+	"bg-accent/5 text-accent": props.variant === "accent",
 }));
 
 const headerSizeClasses = computed(() => ({
-  "py-2": props.size === "sm",
-  "py-3": props.size === "md",
-  "py-4": props.size === "lg",
+	"py-2": props.size === "sm",
+	"py-3": props.size === "md",
+	"py-4": props.size === "lg",
 }));
 
 const titleClasses = computed(() => ({
-  "text-xs": props.size === "sm",
-  "text-sm": props.size === "md",
-  "text-base": props.size === "lg",
+	"text-xs": props.size === "sm",
+	"text-sm": props.size === "md",
+	"text-base": props.size === "lg",
 }));
 
 const textSizeClasses = computed(() => ({
-  "text-xs": props.size === "sm",
-  "text-sm": props.size === "md",
-  "text-base": props.size === "lg",
+	"text-xs": props.size === "sm",
+	"text-sm": props.size === "md",
+	"text-base": props.size === "lg",
 }));
 
 const iconClasses = computed(() => ({
-  "text-primary": props.variant === "primary",
-  "text-secondary": props.variant === "secondary",
-  "text-accent": props.variant === "accent",
-  "text-base-content/70": props.variant === "default",
+	"text-primary": props.variant === "primary",
+	"text-secondary": props.variant === "secondary",
+	"text-accent": props.variant === "accent",
+	"text-base-content/70": props.variant === "default",
 }));
 
 const badgeClasses = computed(() => ({
-  "badge-primary": props.variant === "primary",
-  "badge-secondary": props.variant === "secondary",
-  "badge-accent": props.variant === "accent",
-  "badge-neutral": props.variant === "default",
+	"badge-primary": props.variant === "primary",
+	"badge-secondary": props.variant === "secondary",
+	"badge-accent": props.variant === "accent",
+	"badge-neutral": props.variant === "default",
 }));
 
 const contentStyle = computed(() => ({
-  minHeight: props.minHeight ? `${props.minHeight}px` : undefined,
+	minHeight: props.minHeight ? `${props.minHeight}px` : undefined,
 }));
 
 const collapseIcon = computed(() => PhCaretDown);
 
 // Methods
 const toggleCollapse = () => {
-  if (!props.collapsible) return;
+	if (!props.collapsible) return;
 
-  isCollapsed.value = !isCollapsed.value;
-  emit("toggle", isCollapsed.value);
+	isCollapsed.value = !isCollapsed.value;
+	emit("toggle", isCollapsed.value);
 
-  if (isCollapsed.value) {
-    emit("collapse");
-  } else {
-    emit("expand");
-  }
+	if (isCollapsed.value) {
+		emit("collapse");
+	} else {
+		emit("expand");
+	}
 };
 
 // Animation handlers
 const onEnter = (el: Element) => {
-  const element = el as HTMLElement;
-  element.style.height = "0";
-  element.offsetHeight; // Force reflow
-  element.style.height = `${element.scrollHeight}px`;
+	const element = el as HTMLElement;
+	element.style.height = "0";
+	element.offsetHeight; // Force reflow
+	element.style.height = `${element.scrollHeight}px`;
 };
 
 const onAfterEnter = (el: Element) => {
-  const element = el as HTMLElement;
-  element.style.height = "auto";
+	const element = el as HTMLElement;
+	element.style.height = "auto";
 };
 
 const onLeave = (el: Element) => {
-  const element = el as HTMLElement;
-  element.style.height = `${element.scrollHeight}px`;
-  element.offsetHeight; // Force reflow
-  element.style.height = "0";
+	const element = el as HTMLElement;
+	element.style.height = `${element.scrollHeight}px`;
+	element.offsetHeight; // Force reflow
+	element.style.height = "0";
 };
 
 const onAfterLeave = (el: Element) => {
-  const element = el as HTMLElement;
-  element.style.height = "auto";
+	const element = el as HTMLElement;
+	element.style.height = "auto";
 };
 
 // Expose methods for parent component
 defineExpose({
-  toggle: toggleCollapse,
-  expand: () => {
-    if (isCollapsed.value) toggleCollapse();
-  },
-  collapse: () => {
-    if (!isCollapsed.value) toggleCollapse();
-  },
-  isCollapsed: () => isCollapsed.value,
+	toggle: toggleCollapse,
+	expand: () => {
+		if (isCollapsed.value) toggleCollapse();
+	},
+	collapse: () => {
+		if (!isCollapsed.value) toggleCollapse();
+	},
+	isCollapsed: () => isCollapsed.value,
 });
 </script>
 

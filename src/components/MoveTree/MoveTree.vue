@@ -193,29 +193,29 @@
 
 <script setup>
 import {
-  PhCaretLeft,
-  PhCaretLineLeft,
-  PhCaretLineRight,
-  PhCaretRight,
-  PhChartLine,
-  PhChatText,
-  PhClock,
+	PhCaretLeft,
+	PhCaretLineLeft,
+	PhCaretLineRight,
+	PhCaretRight,
+	PhChartLine,
+	PhChatText,
+	PhClock,
 } from "@phosphor-icons/vue";
 import { computed, nextTick, ref, watch } from "vue";
 
 const props = defineProps({
-  moveTree: {
-    type: Object,
-    required: true,
-  },
+	moveTree: {
+		type: Object,
+		required: true,
+	},
 });
 
 const emit = defineEmits([
-  "select-move",
-  "navigate-start",
-  "navigate-end",
-  "navigate-previous",
-  "navigate-next",
+	"select-move",
+	"navigate-start",
+	"navigate-end",
+	"navigate-previous",
+	"navigate-next",
 ]);
 
 // State
@@ -224,15 +224,15 @@ const moveContainer = ref(null);
 
 // Computed properties
 const rootNode = computed(() => {
-  if (!props.moveTree.root_id) return null;
-  return props.moveTree.nodes[props.moveTree.root_id.idx]?.value;
+	if (!props.moveTree.root_id) return null;
+	return props.moveTree.nodes[props.moveTree.root_id.idx]?.value;
 });
 
 const currentNodeId = computed(() => props.moveTree.current_node_id);
 
 const currentNode = computed(() => {
-  if (!currentNodeId.value) return null;
-  return props.moveTree.nodes[currentNodeId.value.idx]?.value;
+	if (!currentNodeId.value) return null;
+	return props.moveTree.nodes[currentNodeId.value.idx]?.value;
 });
 
 const currentMove = computed(() => currentNode.value?.game_move);
@@ -240,157 +240,157 @@ const currentMove = computed(() => currentNode.value?.game_move);
 const currentPosition = computed(() => currentNode.value?.position);
 
 const currentEvaluation = computed(() => {
-  if (!currentPosition.value?.evaluations?.length) return null;
-  return currentPosition.value.evaluations.reduce((best, evaluation) => {
-    if (!best || (evaluation.depth && evaluation.depth > (best.depth || 0)))
-      return evaluation;
-    return best;
-  }, null);
+	if (!currentPosition.value?.evaluations?.length) return null;
+	return currentPosition.value.evaluations.reduce((best, evaluation) => {
+		if (!best || (evaluation.depth && evaluation.depth > (best.depth || 0)))
+			return evaluation;
+		return best;
+	}, null);
 });
 
 const currentAnnotations = computed(() => {
-  if (!currentMove.value?.annotations) return [];
-  return currentMove.value.annotations.filter((a) => a.comment);
+	if (!currentMove.value?.annotations) return [];
+	return currentMove.value.annotations.filter((a) => a.comment);
 });
 
 const canNavigateBack = computed(() => {
-  return currentNode.value?.parent_id != null;
+	return currentNode.value?.parent_id != null;
 });
 
 const canNavigateForward = computed(() => {
-  return currentNode.value?.children_ids?.length > 0;
+	return currentNode.value?.children_ids?.length > 0;
 });
 
 const hasMainLine = computed(() => {
-  return props.moveTree.nodes.some((n) => n.value?.game_move);
+	return props.moveTree.nodes.some((n) => n.value?.game_move);
 });
 
 // Flatten move tree for compact/tabular views
 const flattenedMoves = computed(() => {
-  if (!rootNode.value) return [];
+	if (!rootNode.value) return [];
 
-  const moves = [];
-  const visited = new Set();
+	const moves = [];
+	const visited = new Set();
 
-  function traverse(node, isMainLine = true, depth = 0) {
-    const nodeWrapper = props.moveTree.nodes.find((n) => n.value === node);
-    if (!nodeWrapper) return;
+	function traverse(node, isMainLine = true, depth = 0) {
+		const nodeWrapper = props.moveTree.nodes.find((n) => n.value === node);
+		if (!nodeWrapper) return;
 
-    const nodeId = {
-      idx: props.moveTree.nodes.indexOf(nodeWrapper),
-      version: nodeWrapper.version,
-    };
+		const nodeId = {
+			idx: props.moveTree.nodes.indexOf(nodeWrapper),
+			version: nodeWrapper.version,
+		};
 
-    // Avoid cycles
-    const nodeKey = `${nodeId.idx}-${nodeId.version}`;
-    if (visited.has(nodeKey)) return;
-    visited.add(nodeKey);
+		// Avoid cycles
+		const nodeKey = `${nodeId.idx}-${nodeId.version}`;
+		if (visited.has(nodeKey)) return;
+		visited.add(nodeKey);
 
-    if (node.game_move) {
-      moves.push({
-        nodeId,
-        node,
-        move: node.game_move,
-        san: node.game_move.san,
-        plyNumber: node.game_move.ply_number,
-        moveNumber: Math.ceil(node.game_move.ply_number / 2),
-        showNumber: node.game_move.ply_number % 2 === 1,
-        isWhite: node.game_move.ply_number % 2 === 1,
-        isMainLine,
-        isVariation: !isMainLine,
-        depth,
-      });
-    }
+		if (node.game_move) {
+			moves.push({
+				nodeId,
+				node,
+				move: node.game_move,
+				san: node.game_move.san,
+				plyNumber: node.game_move.ply_number,
+				moveNumber: Math.ceil(node.game_move.ply_number / 2),
+				showNumber: node.game_move.ply_number % 2 === 1,
+				isWhite: node.game_move.ply_number % 2 === 1,
+				isMainLine,
+				isVariation: !isMainLine,
+				depth,
+			});
+		}
 
-    // Process children
-    const children = node.children_ids
-      .map((childId) => props.moveTree.nodes[childId.idx]?.value)
-      .filter(Boolean);
+		// Process children
+		const children = node.children_ids
+			.map((childId) => props.moveTree.nodes[childId.idx]?.value)
+			.filter(Boolean);
 
-    // First child continues main line
-    if (children.length > 0) {
-      traverse(children[0], isMainLine, depth);
+		// First child continues main line
+		if (children.length > 0) {
+			traverse(children[0], isMainLine, depth);
 
-      // Other children are variations
-      for (let i = 1; i < children.length; i++) {
-        traverse(children[i], false, depth + 1);
-      }
-    }
-  }
+			// Other children are variations
+			for (let i = 1; i < children.length; i++) {
+				traverse(children[i], false, depth + 1);
+			}
+		}
+	}
 
-  traverse(rootNode.value);
-  return moves;
+	traverse(rootNode.value);
+	return moves;
 });
 
 // Chunk moves for compact view (10 moves per line)
 const moveChunks = computed(() => {
-  const mainLineMoves = flattenedMoves.value.filter((m) => m.isMainLine);
-  const chunks = [];
-  const movesPerChunk = 10;
+	const mainLineMoves = flattenedMoves.value.filter((m) => m.isMainLine);
+	const chunks = [];
+	const movesPerChunk = 10;
 
-  for (let i = 0; i < mainLineMoves.length; i += movesPerChunk) {
-    chunks.push(mainLineMoves.slice(i, i + movesPerChunk));
-  }
+	for (let i = 0; i < mainLineMoves.length; i += movesPerChunk) {
+		chunks.push(mainLineMoves.slice(i, i + movesPerChunk));
+	}
 
-  return chunks;
+	return chunks;
 });
 
 // Group moves by pairs for tabular view
 const moveRows = computed(() => {
-  const mainLineMoves = flattenedMoves.value.filter((m) => m.isMainLine);
-  const rows = [];
-  let currentRow = null;
+	const mainLineMoves = flattenedMoves.value.filter((m) => m.isMainLine);
+	const rows = [];
+	let currentRow = null;
 
-  for (const move of mainLineMoves) {
-    if (move.isWhite) {
-      currentRow = { number: move.moveNumber, white: move, black: null };
-      rows.push(currentRow);
-    } else if (currentRow) {
-      currentRow.black = move;
-    }
-  }
+	for (const move of mainLineMoves) {
+		if (move.isWhite) {
+			currentRow = { number: move.moveNumber, white: move, black: null };
+			rows.push(currentRow);
+		} else if (currentRow) {
+			currentRow.black = move;
+		}
+	}
 
-  return rows;
+	return rows;
 });
 
 // Methods
 const handleMoveSelect = (nodeId) => {
-  emit("select-move", nodeId);
+	emit("select-move", nodeId);
 };
 
 const isCurrentMove = (nodeId) => {
-  return (
-    currentNodeId.value &&
-    currentNodeId.value.idx === nodeId.idx &&
-    currentNodeId.value.version === nodeId.version
-  );
+	return (
+		currentNodeId.value &&
+		currentNodeId.value.idx === nodeId.idx &&
+		currentNodeId.value.version === nodeId.version
+	);
 };
 
 const formatEvaluation = (evaluation) => {
-  if (!evaluation || evaluation.score == null) return "?";
-  const score = evaluation.score / 100;
-  if (evaluation.eval_type === "mate") {
-    return `#${evaluation.score > 0 ? "+" : ""}${evaluation.score}`;
-  }
-  return `${score > 0 ? "+" : ""}${score.toFixed(2)}`;
+	if (!evaluation || evaluation.score == null) return "?";
+	const score = evaluation.score / 100;
+	if (evaluation.eval_type === "mate") {
+		return `#${evaluation.score > 0 ? "+" : ""}${evaluation.score}`;
+	}
+	return `${score > 0 ? "+" : ""}${score.toFixed(2)}`;
 };
 
 const formatTime = (ms) => {
-  if (!ms) return "0:00";
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+	if (!ms) return "0:00";
+	const seconds = Math.floor(ms / 1000);
+	const minutes = Math.floor(seconds / 60);
+	const remainingSeconds = seconds % 60;
+	return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 };
 
 // Auto-scroll to current move
 watch(currentNodeId, async () => {
-  await nextTick();
-  if (moveContainer.value) {
-    const currentButton = moveContainer.value.querySelector(".bg-primary");
-    if (currentButton) {
-      currentButton.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }
+	await nextTick();
+	if (moveContainer.value) {
+		const currentButton = moveContainer.value.querySelector(".bg-primary");
+		if (currentButton) {
+			currentButton.scrollIntoView({ behavior: "smooth", block: "center" });
+		}
+	}
 });
 </script>

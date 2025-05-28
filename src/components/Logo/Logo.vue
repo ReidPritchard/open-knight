@@ -49,14 +49,14 @@
 
 <script setup lang="ts">
 interface Props {
-  width?: string | number;
-  height?: string | number;
-  className?: string;
+	width?: string | number;
+	height?: string | number;
+	className?: string;
 }
 
 withDefaults(defineProps<Props>(), {
-  width: "100%",
-  height: "100%",
-  className: "",
+	width: "100%",
+	height: "100%",
+	className: "",
 });
 </script>

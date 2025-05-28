@@ -70,7 +70,7 @@
 ### Screenshots
 
 <div align="center">
-  <img src="docs/assets/UI-May24-2025.png" alt="Screenshot of the current Open Knight UI" />
+  <img src="docs/assets/UI-May28-2025.png" alt="Screenshot of the current Open Knight UI" />
 </div>
 
 <!-- TechStack -->

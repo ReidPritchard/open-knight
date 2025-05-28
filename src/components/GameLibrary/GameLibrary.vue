@@ -230,14 +230,14 @@
 
 <script setup lang="ts">
 import {
-  PhArrowSquareOut,
-  PhCopy,
-  PhFilePlus,
-  PhPencilSimpleLine,
-  PhShare,
-  PhSortAscending,
-  PhSortDescending,
-  PhTrash,
+	PhArrowSquareOut,
+	PhCopy,
+	PhFilePlus,
+	PhPencilSimpleLine,
+	PhShare,
+	PhSortAscending,
+	PhSortDescending,
+	PhTrash,
 } from "@phosphor-icons/vue";
 import { computed, ref, watch } from "vue";
 import { useGlobalStore } from "../../stores";
@@ -245,11 +245,11 @@ import { ContextMenu, type MenuItem } from "../Layout/ContextMenu";
 
 // Types
 interface ExplorerGame {
-  id: number;
-  date?: string;
-  white_player: { name: string };
-  black_player: { name: string };
-  result: string;
+	id: number;
+	date?: string;
+	white_player: { name: string };
+	black_player: { name: string };
+	result: string;
 }
 
 const globalStore = useGlobalStore();
@@ -266,10 +266,10 @@ const error = ref<string | null>(null);
 
 // Context menu state
 const contextMenu = ref({
-  visible: false,
-  x: 0,
-  y: 0,
-  gameId: 0,
+	visible: false,
+	x: 0,
+	y: 0,
+	gameId: 0,
 });
 
 // Constants
@@ -278,252 +278,252 @@ const PAGE_SIZE = 20; // Fixed page size - layout container handles overflow
 
 // Filter function
 function setFilter(filterType: string) {
-  currentFilter.value = filterType;
-  page.value = 1; // Reset to first page when filter changes
+	currentFilter.value = filterType;
+	page.value = 1; // Reset to first page when filter changes
 }
 
 // Get filter label for display
 const getFilterLabel = (filter: string): string => {
-  const labels: Record<string, string> = {
-    my_games: "My Games",
-    wins: "Wins",
-    losses: "Losses",
-    draws: "Draws",
-  };
-  return labels[filter] || filter;
+	const labels: Record<string, string> = {
+		my_games: "My Games",
+		wins: "Wins",
+		losses: "Losses",
+		draws: "Draws",
+	};
+	return labels[filter] || filter;
 };
 
 // Format date for display
 const formatDate = (dateString?: string): string => {
-  if (!dateString) return "—";
+	if (!dateString) return "—";
 
-  try {
-    const date = new Date(dateString);
-    if (Number.isNaN(date.getTime())) return "—";
+	try {
+		const date = new Date(dateString);
+		if (Number.isNaN(date.getTime())) return "—";
 
-    return date.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "numeric",
-      day: "numeric",
-    });
-  } catch {
-    return "—";
-  }
+		return date.toLocaleDateString(undefined, {
+			year: "numeric",
+			month: "numeric",
+			day: "numeric",
+		});
+	} catch {
+		return "—";
+	}
 };
 
 // Computed property for filtered and sorted games
 const gameList = computed(() => {
-  try {
-    let games: ExplorerGame[] = [...(globalStore.explorerGames || [])];
+	try {
+		let games: ExplorerGame[] = [...(globalStore.explorerGames || [])];
 
-    // Apply search filter
-    if (searchQuery.value.trim()) {
-      const query = searchQuery.value.toLowerCase().trim();
-      games = games.filter(
-        (game) =>
-          game.white_player.name.toLowerCase().includes(query) ||
-          game.black_player.name.toLowerCase().includes(query)
-      );
-    }
+		// Apply search filter
+		if (searchQuery.value.trim()) {
+			const query = searchQuery.value.toLowerCase().trim();
+			games = games.filter(
+				(game) =>
+					game.white_player.name.toLowerCase().includes(query) ||
+					game.black_player.name.toLowerCase().includes(query),
+			);
+		}
 
-    // Apply category filter
-    if (currentFilter.value !== "all") {
-      games = games.filter((game) => {
-        switch (currentFilter.value) {
-          case "my_games":
-            return (
-              game.white_player.name === CURRENT_USER_NAME ||
-              game.black_player.name === CURRENT_USER_NAME
-            );
-          case "wins":
-            return (
-              (game.white_player.name === CURRENT_USER_NAME &&
-                game.result === "1-0") ||
-              (game.black_player.name === CURRENT_USER_NAME &&
-                game.result === "0-1")
-            );
-          case "losses":
-            return (
-              (game.white_player.name === CURRENT_USER_NAME &&
-                game.result === "0-1") ||
-              (game.black_player.name === CURRENT_USER_NAME &&
-                game.result === "1-0")
-            );
-          case "draws":
-            return game.result === "1/2-1/2";
-          default:
-            return true;
-        }
-      });
-    }
+		// Apply category filter
+		if (currentFilter.value !== "all") {
+			games = games.filter((game) => {
+				switch (currentFilter.value) {
+					case "my_games":
+						return (
+							game.white_player.name === CURRENT_USER_NAME ||
+							game.black_player.name === CURRENT_USER_NAME
+						);
+					case "wins":
+						return (
+							(game.white_player.name === CURRENT_USER_NAME &&
+								game.result === "1-0") ||
+							(game.black_player.name === CURRENT_USER_NAME &&
+								game.result === "0-1")
+						);
+					case "losses":
+						return (
+							(game.white_player.name === CURRENT_USER_NAME &&
+								game.result === "0-1") ||
+							(game.black_player.name === CURRENT_USER_NAME &&
+								game.result === "1-0")
+						);
+					case "draws":
+						return game.result === "1/2-1/2";
+					default:
+						return true;
+				}
+			});
+		}
 
-    // Apply sort
-    games.sort((a, b) => {
-      switch (currentSort.value) {
-        case "date_desc":
-        case "date_asc": {
-          const dateA = new Date(a.date || "").getTime() || 0;
-          const dateB = new Date(b.date || "").getTime() || 0;
-          return currentSort.value === "date_desc"
-            ? dateB - dateA
-            : dateA - dateB;
-        }
-        case "white":
-          return a.white_player.name.localeCompare(b.white_player.name);
-        case "black":
-          return a.black_player.name.localeCompare(b.black_player.name);
-        case "result":
-          return a.result.localeCompare(b.result);
-        default:
-          return 0;
-      }
-    });
+		// Apply sort
+		games.sort((a, b) => {
+			switch (currentSort.value) {
+				case "date_desc":
+				case "date_asc": {
+					const dateA = new Date(a.date || "").getTime() || 0;
+					const dateB = new Date(b.date || "").getTime() || 0;
+					return currentSort.value === "date_desc"
+						? dateB - dateA
+						: dateA - dateB;
+				}
+				case "white":
+					return a.white_player.name.localeCompare(b.white_player.name);
+				case "black":
+					return a.black_player.name.localeCompare(b.black_player.name);
+				case "result":
+					return a.result.localeCompare(b.result);
+				default:
+					return 0;
+			}
+		});
 
-    return games;
-  } catch (err) {
-    console.error("Error processing games:", err);
-    error.value = "Error loading games";
-    return [];
-  }
+		return games;
+	} catch (err) {
+		console.error("Error processing games:", err);
+		error.value = "Error loading games";
+		return [];
+	}
 });
 
 // Fixed page size - no dynamic calculation needed
 const pageSize = computed(() => PAGE_SIZE);
 
 const pageCount = computed(() =>
-  Math.max(1, Math.ceil(gameList.value.length / pageSize.value))
+	Math.max(1, Math.ceil(gameList.value.length / pageSize.value)),
 );
 
 const pageOffset = computed(() => (page.value - 1) * pageSize.value);
 
 const paginatedGames = computed(() =>
-  gameList.value.slice(pageOffset.value, pageOffset.value + pageSize.value)
+	gameList.value.slice(pageOffset.value, pageOffset.value + pageSize.value),
 );
 
 // Context menu items
 const contextMenuItems = computed((): MenuItem[] => [
-  {
-    id: "open",
-    label: "Open Game",
-    icon: PhFilePlus,
-  },
-  {
-    id: "open-new-board",
-    label: "Open in New Board",
-    icon: PhArrowSquareOut,
-  },
-  {
-    id: "divider",
-    label: "",
-    type: "divider",
-  },
-  {
-    id: "copy",
-    label: "Copy Game",
-    icon: PhCopy,
-  },
-  {
-    id: "export",
-    label: "Export Game",
-    icon: PhShare,
-  },
-  {
-    id: "divider-2",
-    label: "",
-    type: "divider",
-  },
-  {
-    id: "edit",
-    label: "Edit Game",
-    icon: PhPencilSimpleLine,
-  },
-  {
-    id: "delete",
-    label: "Delete Game",
-    icon: PhTrash,
-    type: "destructive",
-  },
+	{
+		id: "open",
+		label: "Open Game",
+		icon: PhFilePlus,
+	},
+	{
+		id: "open-new-board",
+		label: "Open in New Board",
+		icon: PhArrowSquareOut,
+	},
+	{
+		id: "divider",
+		label: "",
+		type: "divider",
+	},
+	{
+		id: "copy",
+		label: "Copy Game",
+		icon: PhCopy,
+	},
+	{
+		id: "export",
+		label: "Export Game",
+		icon: PhShare,
+	},
+	{
+		id: "divider-2",
+		label: "",
+		type: "divider",
+	},
+	{
+		id: "edit",
+		label: "Edit Game",
+		icon: PhPencilSimpleLine,
+	},
+	{
+		id: "delete",
+		label: "Delete Game",
+		icon: PhTrash,
+		type: "destructive",
+	},
 ]);
 
 // Pagination controls
 const pageDecrement = () => {
-  page.value = Math.max(1, page.value - 1);
+	page.value = Math.max(1, page.value - 1);
 };
 
 const pageIncrement = () => {
-  page.value = Math.min(pageCount.value, page.value + 1);
+	page.value = Math.min(pageCount.value, page.value + 1);
 };
 
 // Reset page when filters change
 watch([currentFilter, currentSort, searchQuery], () => {
-  page.value = 1;
+	page.value = 1;
 });
 
 // Ensure page is valid when game list changes
 watch(pageCount, (newPageCount) => {
-  if (page.value > newPageCount) {
-    page.value = Math.max(1, newPageCount);
-  }
+	if (page.value > newPageCount) {
+		page.value = Math.max(1, newPageCount);
+	}
 });
 
 const openGame = (gameId: number) => {
-  try {
-    const activeBoardId = uiStore.activeBoardId;
-    console.debug(`Opening game ${gameId} in board ${activeBoardId}`);
-    gamesStore.openGame(gameId, activeBoardId);
-  } catch (err) {
-    console.error("Error opening game:", err);
-    error.value = "Error opening game";
-  }
+	try {
+		const activeBoardId = uiStore.activeBoardId;
+		console.debug(`Opening game ${gameId} in board ${activeBoardId}`);
+		gamesStore.openGame(gameId, activeBoardId);
+	} catch (err) {
+		console.error("Error opening game:", err);
+		error.value = "Error opening game";
+	}
 };
 
 const showContextMenu = (event: MouseEvent, gameId: number) => {
-  contextMenu.value = {
-    visible: true,
-    x: event.clientX,
-    y: event.clientY,
-    gameId,
-  };
+	contextMenu.value = {
+		visible: true,
+		x: event.clientX,
+		y: event.clientY,
+		gameId,
+	};
 };
 
 const hideContextMenu = () => {
-  contextMenu.value.visible = false;
+	contextMenu.value.visible = false;
 };
 
 const setSort = (sortType: string) => {
-  if (sortType === "date") {
-    currentSort.value =
-      currentSort.value === "date_desc" ? "date_asc" : "date_desc";
-  } else {
-    currentSort.value = sortType;
-  }
+	if (sortType === "date") {
+		currentSort.value =
+			currentSort.value === "date_desc" ? "date_asc" : "date_desc";
+	} else {
+		currentSort.value = sortType;
+	}
 };
 
 // Handle context menu item clicks
 const handleContextMenuClick = (itemId: string) => {
-  const gameId = contextMenu.value.gameId;
+	const gameId = contextMenu.value.gameId;
 
-  switch (itemId) {
-    case "open":
-      openGame(gameId);
-      break;
-    case "open-new-board":
-      // TODO: Implement opening in new board
-      console.log("Open in new board:", gameId);
-      break;
-    case "copy":
-      // TODO: Implement copy game
-      console.log("Copy game:", gameId);
-      break;
-    case "export":
-      // TODO: Implement export game
-      console.log("Export game:", gameId);
-      break;
-    case "delete":
-      // TODO: Implement delete game
-      console.log("Delete game:", gameId);
-      break;
-  }
+	switch (itemId) {
+		case "open":
+			openGame(gameId);
+			break;
+		case "open-new-board":
+			// TODO: Implement opening in new board
+			console.log("Open in new board:", gameId);
+			break;
+		case "copy":
+			// TODO: Implement copy game
+			console.log("Copy game:", gameId);
+			break;
+		case "export":
+			// TODO: Implement export game
+			console.log("Export game:", gameId);
+			break;
+		case "delete":
+			// TODO: Implement delete game
+			console.log("Delete game:", gameId);
+			break;
+	}
 };
 </script>
 
