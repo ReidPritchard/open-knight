@@ -13,6 +13,13 @@
           @contextmenu.prevent="showContextMenu($event, boardId)"
           :title="getBoardTitle(boardId)"
         >
+          <!-- Unsaved changes indicator -->
+          <div
+            v-if="hasUnsavedChanges(boardId)"
+            class="w-2 h-2 bg-warning rounded-full ml-1"
+            title="Unsaved changes"
+          />
+
           <input
             v-if="renamingBoardId === boardId"
             ref="renameInput"
@@ -27,13 +34,6 @@
           <span v-else class="flex-1 truncate text-sm">
             {{ getBoardDisplayName(boardId) }}
           </span>
-
-          <!-- Unsaved changes indicator -->
-          <div
-            v-if="hasUnsavedChanges(boardId)"
-            class="w-2 h-2 bg-warning rounded-full ml-1"
-            title="Unsaved changes"
-          />
 
           <!-- Close button -->
           <button
@@ -113,6 +113,7 @@ import {
 	PhClock,
 	PhCopy,
 	PhDotsThree,
+	PhFloppyDisk,
 	PhPencil,
 	PhPlus,
 	PhX,
@@ -140,6 +141,7 @@ const emit = defineEmits<{
 	createBoard: [];
 	duplicateBoard: [boardId: number];
 	renameBoard: [boardId: number, newName: string];
+	saveBoard: [boardId: number];
 }>();
 
 // Context menu state
@@ -172,6 +174,14 @@ const contextMenuItems = computed((): MenuItem[] => {
 			icon: PhCopy,
 		},
 	];
+
+	if (hasUnsavedChanges(props.activeBoard)) {
+		items.push({
+			id: "save",
+			label: "Save Board",
+			icon: PhFloppyDisk,
+		});
+	}
 
 	if (props.boards.length > 1) {
 		items.push(
@@ -242,6 +252,9 @@ const handleContextMenuClick = (itemId: string) => {
 		case "close":
 			emit("closeBoard", boardId);
 			break;
+		case "save":
+			saveBoard(boardId);
+			break;
 	}
 };
 
@@ -307,6 +320,10 @@ const closeAllBoards = () => {
 const reopenBoard = (recentBoard: RecentBoard) => {
 	// Implementation would depend on how boards are managed
 	console.log("Reopening board:", recentBoard);
+};
+
+const saveBoard = (boardId: number) => {
+	emit("saveBoard", boardId);
 };
 
 // Keyboard shortcuts

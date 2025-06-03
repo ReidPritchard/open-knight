@@ -144,6 +144,15 @@ export default {
 			closeGame: async (boardId: number): Promise<void> => {
 				await invoke("close_session", { boardId });
 			},
+
+			/**
+			 * Delete/remove a game from the database
+			 * @param gameId The ID of the game to delete
+			 */
+			delete: async (gameId: number): Promise<void> => {
+				// TODO: Implement a 'soft' delete (by setting a deleted flag or timestamp)
+				await invoke("delete_game", { gameId });
+			},
 		},
 	},
 
@@ -291,18 +300,18 @@ export default {
 			},
 
 			/**
-			 * Reset a game session to a specific position/move number
+			 * Jump to a specific move in a game session
 			 * @param boardId The ID of the board/session
-			 * @param moveNumber The move number to reset to (0 = start position)
+			 * @param moveId The database ID of the move to jump to
 			 * @returns Promise<ChessGame> The updated game state
 			 */
-			resetToPosition: async (
+			jumpToMove: async (
 				boardId: number,
-				moveNumber: number,
+				moveId: number,
 			): Promise<ChessGame> => {
 				const response = await invoke<string>("reset_to_position", {
 					boardId,
-					moveNumber,
+					moveDbId: moveId,
 				});
 				return JSON.parse(response);
 			},

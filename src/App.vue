@@ -48,6 +48,7 @@
           @switch-board="setActiveBoardId"
           @close-board="closeBoardTab"
           @rename-board="renameBoard"
+          @save-board="saveBoard"
           class="border-b border-base-300"
         />
 
@@ -121,10 +122,11 @@
     @close="uiStore.updateSettingsModalOpen(false)"
   />
   <ImportModal :is-open="importModalOpen" @close="importModalOpen = false" />
+  <Toasts />
 </template>
 
 <script setup lang="ts">
-import { PhBooks, PhEngine, PhPlus, PhTree } from "@phosphor-icons/vue";
+import { PhBooks, PhEngine, PhTree } from "@phosphor-icons/vue";
 import { computed, onMounted, provide, ref } from "vue";
 import ChessBoard from "./components/ChessBoard/ChessBoard.vue";
 import EngineAnalysisPanel from "./components/EngineAnalysis/EngineAnalysisPanel.vue";
@@ -137,6 +139,7 @@ import { StackedPanel, StackedSection } from "./components/Layout/StackedPanel";
 import MoveTree from "./components/MoveTree/MoveTree.vue";
 import Navbar from "./components/Navbar/Navbar.vue";
 import SettingsModal from "./components/Settings/SettingsModal.vue";
+import Toasts from "./components/Toast/Toasts.vue";
 import { useGlobalStore } from "./stores";
 
 const importModalOpen = ref(false);
@@ -200,6 +203,11 @@ const renameBoard = (boardId: number, newName: string) => {
 	uiStore.renameBoard(boardId, newName);
 };
 
+const saveBoard = (boardId: number) => {
+	globalStore.gamesStore.saveGame(boardId);
+	uiStore.activeBoardMetadata[boardId].hasUnsavedChanges = false;
+};
+
 // Existing handlers
 const refreshGamesClick = async () => {
 	await globalStore.fetchExplorerGames();
@@ -212,12 +220,12 @@ const resetDatabaseClick = async () => {
 // Stacked panel handlers
 const handleLeftPanelSectionToggle = (
 	sectionId: string,
-	collapsed: boolean,
+	_collapsed: boolean,
 ) => {
 	uiStore.toggleStackedPanelSection("leftPanel", sectionId);
 };
 
-const toggleLeftPanelSection = (sectionId: string, collapsed: boolean) => {
+const toggleLeftPanelSection = (sectionId: string, _collapsed: boolean) => {
 	uiStore.toggleStackedPanelSection("leftPanel", sectionId);
 };
 
@@ -252,8 +260,8 @@ provide("weight", "bold");
 provide("mirrored", false);
 
 // Navigation event handlers for MoveTree
-const handleMoveSelect = async (nodeId: { idx: number; version: number }) => {
-	await globalStore.gamesStore.navigateToNode(activeBoardId.value, nodeId);
+const handleMoveSelect = async (moveId: number) => {
+	await globalStore.gamesStore.jumpToMove(activeBoardId.value, moveId);
 };
 
 const navigateToStart = async () => {

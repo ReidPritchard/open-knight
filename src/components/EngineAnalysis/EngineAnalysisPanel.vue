@@ -172,7 +172,7 @@
 
 <script setup lang="ts">
 import { PhBinary, PhIdentificationCard } from "@phosphor-icons/vue";
-import { Teleport, computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import type { AnalysisUpdate, EngineOption } from "../../shared/types";
 import { useGlobalStore } from "../../stores";
 import { useEngineAnalysisStore } from "../../stores/engineAnalysis";

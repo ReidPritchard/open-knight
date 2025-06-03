@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use shakmaty::fen::Fen;
 use shakmaty::uci::UciMove;
 use shakmaty::{san::San, Chess, Position};
-use shakmaty::{CastlingMode, EnPassantMode};
+use shakmaty::{CastlingMode, EnPassantMode, Move};
 use std::error::Error;
 use std::hash::{DefaultHasher, Hasher};
 use ts_rs::TS;
@@ -126,18 +126,21 @@ impl ChessPosition {
     }
 
     /// Make a move from a UCI notation string
-    pub fn make_uci_move(&self, uci: &str) -> Result<Self, Box<dyn Error>> {
+    pub fn make_uci_move(&self, uci: &str) -> Result<(Self, Move), Box<dyn Error>> {
         let pos = Chess::from(self.clone());
         let parsed_move = UciMove::from_ascii(uci.as_bytes())?;
         let chess_move = parsed_move.to_move(&pos)?;
         let new_pos = pos.play(&chess_move)?;
         let fen = Fen::from_position(new_pos, EnPassantMode::Legal).to_string();
-        Ok(ChessPosition {
-            id: self.id,
-            fen,
-            evaluations: Vec::new(),
-            variant: self.variant.clone(),
-        })
+        Ok((
+            ChessPosition {
+                id: self.id,
+                fen,
+                evaluations: Vec::new(),
+                variant: self.variant.clone(),
+            },
+            chess_move,
+        ))
     }
 
     /**
@@ -231,6 +234,8 @@ impl ChessMove {
     where
         C: ConnectionTrait,
     {
+        // FIXME: I think this doesn't handle variations correctly since multiple moves can have the same parent move id
+        // and this assumes that all moves are the children of the previous move
         let mut parent_move_id = None;
 
         for chess_move in moves {
@@ -340,8 +345,16 @@ impl ChessMove {
         }
     }
 
+    /// Create a ChessMove from a UCI notation string
+    ///
+    /// This is a convenience function that creates a ChessMove from a UCI notation string.
+    /// It does not load the position from the database, so the position will be None.
+    /// It also does not correctly generate the SAN notation, so the SAN will be the UCI string!!
+    ///
+    /// @param uci - The UCI notation string
+    /// @returns the converted ChessMove
     pub fn from_uci(uci: &str) -> Result<Self, Box<dyn Error>> {
-        let move_san = San::from_ascii(uci.as_bytes())?;
+        let move_san = San::from_ascii(uci.as_bytes())?; // FIXME: This is not correct
         let chess_move = ChessMove {
             id: 0,
             uci: uci.to_string(),

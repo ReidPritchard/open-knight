@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::error::Error;
 
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, LoaderTrait, QueryFilter};
@@ -102,7 +103,7 @@ fn parse_pgn_tokens_recursive(
                     position: Some(new_move_position.clone()),
                     annotations: Vec::new(),
                     time_info: None,
-                    parent_move_id: None, // Make sure to set this once the moves have ids
+                    parent_move_id: None, // Make sure to set this once the moves have database ids
                 };
 
                 // Create a new node for the move
@@ -177,8 +178,8 @@ pub async fn load_moves_from_db(
         .await?;
     let move_positions = all_db_moves.load_one(position::Entity, db).await?;
 
-    // But now we can construct the tree with arena allocation
     let mut nodes = SlotMap::new();
+    let mut db_id_to_key: HashMap<i32, DefaultKey> = HashMap::new();
 
     // Create root node
     let root_node = ChessTreeNode {
@@ -189,12 +190,10 @@ pub async fn load_moves_from_db(
     };
 
     let root_id = nodes.insert(root_node);
-    let mut current_id = root_id;
 
-    // Build the tree from loaded moves...
-    // [Implementation details]
-    for (move_entity, position_entity) in all_db_moves.into_iter().zip(move_positions.into_iter()) {
-        let move_position = position_entity.map_or(
+    // First pass: Create all move nodes and build the ID mapping
+    for (move_entity, position_entity) in all_db_moves.iter().zip(move_positions.iter()) {
+        let move_position = position_entity.as_ref().map_or(
             ChessPosition {
                 id: 0,
                 fen: "".to_string(),
@@ -203,7 +202,7 @@ pub async fn load_moves_from_db(
             },
             |p| ChessPosition {
                 id: p.position_id,
-                fen: p.fen,
+                fen: p.fen.clone(),
                 evaluations: Vec::new(),
                 variant: None,
             },
@@ -215,27 +214,47 @@ pub async fn load_moves_from_db(
                 id: move_entity.move_id,
                 game_id,
                 ply_number: move_entity.ply_number,
-                san: move_entity.san,
-                uci: move_entity.uci,
+                san: move_entity.san.clone(),
+                uci: move_entity.uci.clone(),
                 position: Some(move_position),
                 annotations: Vec::new(),
                 time_info: None,
-                parent_move_id: move_entity.parent_move_id.clone(),
+                parent_move_id: move_entity.parent_move_id,
             }),
-            parent_id: Some(current_id),
+            parent_id: None, // Will be set in second pass
             children_ids: Vec::new(),
         };
 
         let new_id = nodes.insert(new_move_node);
-        nodes[current_id].children_ids.push(new_id);
-        current_id = new_id;
+        db_id_to_key.insert(move_entity.move_id, new_id);
+    }
+
+    // Second pass: Establish parent-child relationships
+    for move_entity in &all_db_moves {
+        let current_key = db_id_to_key[&move_entity.move_id];
+
+        let parent_key = match move_entity.parent_move_id {
+            None => root_id, // Move has no parent, so it's a child of root
+            Some(parent_db_id) => {
+                // Find the SlotMap key for the parent move
+                *db_id_to_key
+                    .get(&parent_db_id)
+                    .ok_or("Parent move not found")?
+            }
+        };
+
+        // Set the parent_id for the current node
+        nodes[current_key].parent_id = Some(parent_key);
+
+        // Add current node to parent's children
+        nodes[parent_key].children_ids.push(current_key);
     }
 
     Ok(ChessMoveTree {
         game_id,
         nodes,
         root_id: Some(root_id),
-        current_node_id: Some(root_id), // Or last position in the main line
+        current_node_id: Some(root_id),
     })
 }
 

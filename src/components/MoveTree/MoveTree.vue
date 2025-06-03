@@ -18,7 +18,7 @@
           <PhCaretLeft :size="16" />
         </button>
         <button
-          @click="$emit('navigate-next')"
+          @click="$emit('navigate-next', 0)"
           class="btn btn-sm btn-ghost"
           :disabled="!canNavigateForward"
         >
@@ -34,11 +34,11 @@
       </div>
     </div>
 
-    <!-- View mode toggle -->
-    <div class="flex justify-center mb-2">
+    <!-- View mode toggle and options -->
+    <div class="flex justify-center mb-2 gap-4">
       <div class="join">
         <button
-          v-for="mode in ['compact', 'tabular']"
+          v-for="mode in (['compact', 'tabular'] as const)"
           :key="mode"
           @click="viewMode = mode"
           class="join-item btn btn-xs"
@@ -46,6 +46,18 @@
         >
           {{ mode }}
         </button>
+      </div>
+
+      <!-- Show variations toggle -->
+      <div class="form-control">
+        <label class="label cursor-pointer gap-2">
+          <span class="label-text text-xs">Show variations</span>
+          <input
+            type="checkbox"
+            v-model="showVariations"
+            class="checkbox checkbox-xs"
+          />
+        </label>
       </div>
     </div>
 
@@ -118,28 +130,63 @@
         <!-- Compact view (optimized for long games) -->
         <div v-if="viewMode === 'compact'" class="space-y-2">
           <div
-            v-for="(chunk, index) in moveChunks"
+            v-for="(group, index) in moveGroups"
             :key="index"
-            class="flex flex-wrap gap-1"
+            class="space-y-1"
           >
-            <button
-              v-for="moveData in chunk"
-              :key="moveData.nodeId.idx"
-              @click="handleMoveSelect(moveData.nodeId)"
-              class="px-2 py-1 rounded text-sm font-mono transition-colors cursor-pointer"
-              :class="{
-                'bg-primary text-primary-content': isCurrentMove(
-                  moveData.nodeId
-                ),
-                'hover:bg-base-300': !isCurrentMove(moveData.nodeId),
-                'opacity-60': moveData.isVariation,
-              }"
+            <!-- Main line moves -->
+            <div class="flex flex-wrap gap-1">
+              <button
+                v-for="moveData in group.mainMoves"
+                :key="moveData.nodeId.idx"
+                @click="handleMoveSelect(moveData.move?.id)"
+                class="px-2 py-1 rounded text-sm font-mono transition-colors cursor-pointer"
+                :class="{
+                  'bg-primary text-primary-content': isCurrentMove(
+                    moveData.nodeId
+                  ),
+                  'hover:bg-base-300': !isCurrentMove(moveData.nodeId),
+                }"
+              >
+                <span v-if="moveData.showNumber" class="font-bold">
+                  {{ moveData.moveNumber }}.
+                </span>
+                {{ moveData.san }}
+              </button>
+            </div>
+
+            <!-- Variations -->
+            <div
+              v-if="showVariations && group.variations.length > 0"
+              class="ml-4 space-y-1"
             >
-              <span v-if="moveData.showNumber" class="font-bold">
-                {{ moveData.moveNumber }}.
-              </span>
-              {{ moveData.san }}
-            </button>
+              <div
+                v-for="(variation, varIndex) in group.variations"
+                :key="varIndex"
+                class="flex flex-wrap gap-1 items-center"
+              >
+                <PhGitBranch size="12" class="text-base-content/60" />
+                <span class="text-xs text-base-content/60">(</span>
+                <button
+                  v-for="moveData in variation"
+                  :key="moveData.nodeId.idx"
+                  @click="handleMoveSelect(moveData.move?.id)"
+                  class="px-1.5 py-0.5 rounded text-xs font-mono transition-colors cursor-pointer border border-base-300"
+                  :class="{
+                    'bg-secondary text-secondary-content border-secondary':
+                      isCurrentMove(moveData.nodeId),
+                    'hover:bg-base-300': !isCurrentMove(moveData.nodeId),
+                    'bg-base-100': !isCurrentMove(moveData.nodeId),
+                  }"
+                >
+                  <span v-if="moveData.showNumber" class="font-bold">
+                    {{ moveData.moveNumber }}.
+                  </span>
+                  {{ moveData.san }}
+                </button>
+                <span class="text-xs text-base-content/60">)</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -147,39 +194,74 @@
         <div v-if="viewMode === 'tabular'" class="overflow-x-auto">
           <table class="table table-xs">
             <tbody>
-              <tr v-for="(row, index) in moveRows" :key="index">
-                <td class="font-bold text-right">{{ row.number }}.</td>
-                <td>
-                  <button
-                    v-if="row.white"
-                    @click="handleMoveSelect(row.white.nodeId)"
-                    class="px-2 py-1 rounded text-sm font-mono transition-colors cursor-pointer w-full text-left"
-                    :class="{
-                      'bg-primary text-primary-content': isCurrentMove(
-                        row.white.nodeId
-                      ),
-                      'hover:bg-base-300': !isCurrentMove(row.white.nodeId),
-                    }"
-                  >
-                    {{ row.white.san }}
-                  </button>
-                </td>
-                <td>
-                  <button
-                    v-if="row.black"
-                    @click="handleMoveSelect(row.black.nodeId)"
-                    class="px-2 py-1 rounded text-sm font-mono transition-colors cursor-pointer w-full text-left"
-                    :class="{
-                      'bg-primary text-primary-content': isCurrentMove(
-                        row.black.nodeId
-                      ),
-                      'hover:bg-base-300': !isCurrentMove(row.black.nodeId),
-                    }"
-                  >
-                    {{ row.black.san }}
-                  </button>
-                </td>
-              </tr>
+              <template v-for="(row, index) in tableRows" :key="index">
+                <!-- Main move row -->
+                <tr v-if="row.type === 'move'">
+                  <td class="font-bold text-right">{{ row.number }}.</td>
+                  <td>
+                    <button
+                      v-if="row.white"
+                      @click="handleMoveSelect(row.white.move?.id)"
+                      class="px-2 py-1 rounded text-sm font-mono transition-colors cursor-pointer w-full text-left"
+                      :class="{
+                        'bg-primary text-primary-content': isCurrentMove(
+                          row.white.nodeId
+                        ),
+                        'hover:bg-base-300': !isCurrentMove(row.white.nodeId),
+                      }"
+                    >
+                      {{ row.white.san }}
+                    </button>
+                  </td>
+                  <td>
+                    <button
+                      v-if="row.black"
+                      @click="handleMoveSelect(row.black.move?.id)"
+                      class="px-2 py-1 rounded text-sm font-mono transition-colors cursor-pointer w-full text-left"
+                      :class="{
+                        'bg-primary text-primary-content': isCurrentMove(
+                          row.black.nodeId
+                        ),
+                        'hover:bg-base-300': !isCurrentMove(row.black.nodeId),
+                      }"
+                    >
+                      {{ row.black.san }}
+                    </button>
+                  </td>
+                </tr>
+
+                <!-- Variation row -->
+                <tr
+                  v-else-if="row.type === 'variation' && showVariations"
+                  class=""
+                >
+                  <td></td>
+                  <td colspan="2" class="pl-2">
+                    <div class="flex items-center gap-1 flex-wrap">
+                      <PhGitBranch :size="12" class="text-base-content/60" />
+                      <span class="text-xs text-base-content/60">(</span>
+                      <button
+                        v-for="moveData in row.moves"
+                        :key="moveData.nodeId.idx"
+                        @click="handleMoveSelect(moveData.move?.id)"
+                        class="px-1.5 py-0.5 rounded text-xs font-mono transition-colors cursor-pointer border border-base-300"
+                        :class="{
+                          'bg-secondary text-secondary-content border-secondary':
+                            isCurrentMove(moveData.nodeId),
+                          'hover:bg-base-300': !isCurrentMove(moveData.nodeId),
+                          'bg-base-100': !isCurrentMove(moveData.nodeId),
+                        }"
+                      >
+                        <span v-if="moveData.showNumber" class="font-bold">
+                          {{ moveData.moveNumber }}.
+                        </span>
+                        {{ moveData.san }}
+                      </button>
+                      <span class="text-xs text-base-content/60">)</span>
+                    </div>
+                  </td>
+                </tr>
+              </template>
             </tbody>
           </table>
         </div>
@@ -191,7 +273,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import {
 	PhCaretLeft,
 	PhCaretLineLeft,
@@ -200,81 +282,140 @@ import {
 	PhChartLine,
 	PhChatText,
 	PhClock,
+	PhGitBranch,
 } from "@phosphor-icons/vue";
 import { computed, nextTick, ref, watch } from "vue";
+import type {
+	ChessAnnotation,
+	ChessEvaluation,
+	ChessMove,
+	ChessMoveTree,
+	ChessPosition,
+	ChessTreeNode,
+} from "../../shared/bindings";
 
-const props = defineProps({
-	moveTree: {
-		type: Object,
-		required: true,
-	},
-});
+// Types
+interface MoveData {
+	nodeId: { idx: number; version: number };
+	node: ChessTreeNode;
+	move?: ChessMove;
+	san: string;
+	plyNumber: number;
+	moveNumber: number;
+	showNumber: boolean;
+	isWhite: boolean;
+	isMainLine: boolean;
+	isVariation: boolean;
+	depth: number;
+	parentMoveNumber: number | null;
+}
 
-const emit = defineEmits([
-	"select-move",
-	"navigate-start",
-	"navigate-end",
-	"navigate-previous",
-	"navigate-next",
-]);
+interface MoveGroup {
+	mainMoves: MoveData[];
+	variations: MoveData[][];
+}
+
+interface TableMoveRow {
+	type: "move";
+	number: number;
+	white?: MoveData;
+	black?: MoveData;
+}
+
+interface TableVariationRow {
+	type: "variation";
+	moves: MoveData[];
+}
+
+type TableRow = TableMoveRow | TableVariationRow;
+
+const props = defineProps<{
+	moveTree: ChessMoveTree;
+}>();
+
+const emit = defineEmits<{
+	"select-move": [move_id: number];
+	"navigate-start": [];
+	"navigate-end": [];
+	"navigate-previous": [];
+	"navigate-next": [variation_idx: number];
+}>();
 
 // State
-const viewMode = ref("compact"); // 'compact', 'tabular'
-const moveContainer = ref(null);
+// TODO: Track this in the UI store so it persists when the component is destroyed
+const viewMode = ref<"compact" | "tabular">("tabular");
+const showVariations = ref(true);
+const moveContainer = ref<HTMLElement | null>(null);
 
 // Computed properties
-const rootNode = computed(() => {
+const rootNode = computed((): ChessTreeNode | null => {
 	if (!props.moveTree.root_id) return null;
-	return props.moveTree.nodes[props.moveTree.root_id.idx]?.value;
+	return props.moveTree.nodes[props.moveTree.root_id.idx]?.value || null;
 });
 
 const currentNodeId = computed(() => props.moveTree.current_node_id);
 
-const currentNode = computed(() => {
+const currentNode = computed((): ChessTreeNode | null => {
 	if (!currentNodeId.value) return null;
-	return props.moveTree.nodes[currentNodeId.value.idx]?.value;
+	return props.moveTree.nodes[currentNodeId.value.idx]?.value || null;
 });
 
-const currentMove = computed(() => currentNode.value?.game_move);
+const currentMove = computed(
+	(): ChessMove | null | undefined => currentNode.value?.game_move,
+);
 
-const currentPosition = computed(() => currentNode.value?.position);
+const currentPosition = computed(
+	(): ChessPosition | undefined => currentNode.value?.position,
+);
 
-const currentEvaluation = computed(() => {
+const currentEvaluation = computed((): ChessEvaluation | null => {
 	if (!currentPosition.value?.evaluations?.length) return null;
-	return currentPosition.value.evaluations.reduce((best, evaluation) => {
-		if (!best || (evaluation.depth && evaluation.depth > (best.depth || 0)))
-			return evaluation;
-		return best;
-	}, null);
+	return currentPosition.value.evaluations.reduce(
+		(
+			best: ChessEvaluation | null,
+			evaluation: ChessEvaluation,
+		): ChessEvaluation => {
+			if (!best || (evaluation.depth && evaluation.depth > (best.depth || 0)))
+				return evaluation;
+			return best;
+		},
+		null,
+	);
 });
 
-const currentAnnotations = computed(() => {
+const currentAnnotations = computed((): ChessAnnotation[] => {
 	if (!currentMove.value?.annotations) return [];
-	return currentMove.value.annotations.filter((a) => a.comment);
+	return currentMove.value.annotations.filter(
+		(a: ChessAnnotation) => a.comment,
+	);
 });
 
-const canNavigateBack = computed(() => {
+const canNavigateBack = computed((): boolean => {
 	return currentNode.value?.parent_id != null;
 });
 
-const canNavigateForward = computed(() => {
-	return currentNode.value?.children_ids?.length > 0;
+const canNavigateForward = computed((): boolean => {
+	return (currentNode.value?.children_ids?.length || 0) > 0;
 });
 
-const hasMainLine = computed(() => {
+const hasMainLine = computed((): boolean => {
 	return props.moveTree.nodes.some((n) => n.value?.game_move);
 });
 
-// Flatten move tree for compact/tabular views
-const flattenedMoves = computed(() => {
+// Enhanced move tree flattening that preserves variation structure
+const structuredMoves = computed((): MoveData[] => {
 	if (!rootNode.value) return [];
 
-	const moves = [];
-	const visited = new Set();
+	const visited = new Set<string>();
 
-	function traverse(node, isMainLine = true, depth = 0) {
+	function traverse(
+		node: ChessTreeNode,
+		isMainLine = true,
+		depth = 0,
+		parentMoveNumber: number | null = null,
+	): MoveData[] {
 		const nodeWrapper = props.moveTree.nodes.find((n) => n.value === node);
-		if (!nodeWrapper) return;
+		if (!nodeWrapper) return [];
 
 		const nodeId = {
 			idx: props.moveTree.nodes.indexOf(nodeWrapper),
@@ -283,11 +424,13 @@ const flattenedMoves = computed(() => {
 
 		// Avoid cycles
 		const nodeKey = `${nodeId.idx}-${nodeId.version}`;
-		if (visited.has(nodeKey)) return;
+		if (visited.has(nodeKey)) return [];
 		visited.add(nodeKey);
 
+		const moves: MoveData[] = [];
+
 		if (node.game_move) {
-			moves.push({
+			const moveData: MoveData = {
 				nodeId,
 				node,
 				move: node.game_move,
@@ -299,54 +442,176 @@ const flattenedMoves = computed(() => {
 				isMainLine,
 				isVariation: !isMainLine,
 				depth,
-			});
+				parentMoveNumber,
+			};
+			moves.push(moveData);
 		}
 
 		// Process children
-		const children = node.children_ids
+		const children = (node.children_ids || [])
 			.map((childId) => props.moveTree.nodes[childId.idx]?.value)
 			.filter(Boolean);
 
-		// First child continues main line
 		if (children.length > 0) {
-			traverse(children[0], isMainLine, depth);
+			// First child continues main line or current variation
+			const firstChild = children[0];
+			if (firstChild) {
+				const mainChild = traverse(
+					firstChild,
+					isMainLine,
+					depth,
+					node.game_move
+						? Math.ceil(node.game_move.ply_number / 2)
+						: parentMoveNumber,
+				);
+				moves.push(...mainChild);
+			}
 
 			// Other children are variations
 			for (let i = 1; i < children.length; i++) {
-				traverse(children[i], false, depth + 1);
+				const child = children[i];
+				if (child) {
+					const variation = traverse(
+						child,
+						false,
+						depth + 1,
+						node.game_move
+							? Math.ceil(node.game_move.ply_number / 2)
+							: parentMoveNumber,
+					);
+					moves.push(...variation);
+				}
 			}
+		}
+
+		return moves;
+	}
+
+	return traverse(rootNode.value);
+});
+
+// Group moves for compact view with variations
+const moveGroups = computed((): MoveGroup[] => {
+	const mainLineMoves = structuredMoves.value.filter((m) => m.isMainLine);
+	const variations = structuredMoves.value.filter((m) => m.isVariation);
+
+	const groups: MoveGroup[] = [];
+	const movesPerGroup = 6; // Reduced to leave space for variations
+
+	for (let i = 0; i < mainLineMoves.length; i += movesPerGroup) {
+		const mainMoves = mainLineMoves.slice(i, i + movesPerGroup);
+		const lastMoveNumber = mainMoves[mainMoves.length - 1]?.moveNumber;
+
+		// Find variations that branch from moves in this group
+		const groupVariations: MoveData[][] = [];
+		if (lastMoveNumber) {
+			const variationsByParent: Record<number, MoveData[]> = {};
+			for (const v of variations) {
+				if (
+					v.parentMoveNumber &&
+					v.parentMoveNumber <= lastMoveNumber &&
+					v.parentMoveNumber >= (mainMoves[0]?.moveNumber || 1)
+				) {
+					if (!variationsByParent[v.parentMoveNumber]) {
+						variationsByParent[v.parentMoveNumber] = [];
+					}
+					variationsByParent[v.parentMoveNumber].push(v);
+				}
+			}
+
+			// Group consecutive variation moves
+			for (const parentVars of Object.values(variationsByParent)) {
+				const variationChains: MoveData[][] = [];
+				let currentChain: MoveData[] = [];
+
+				for (const v of parentVars) {
+					if (
+						currentChain.length === 0 ||
+						v.plyNumber === currentChain[currentChain.length - 1].plyNumber + 1
+					) {
+						currentChain.push(v);
+					} else {
+						if (currentChain.length > 0)
+							variationChains.push([...currentChain]);
+						currentChain = [v];
+					}
+				}
+
+				if (currentChain.length > 0) variationChains.push(currentChain);
+				groupVariations.push(...variationChains);
+			}
+		}
+
+		groups.push({
+			mainMoves,
+			variations: groupVariations,
+		});
+	}
+
+	return groups;
+});
+
+// Enhanced table rows that include variations
+const tableRows = computed((): TableRow[] => {
+	const mainLineMoves = structuredMoves.value.filter((m) => m.isMainLine);
+	const variations = structuredMoves.value.filter((m) => m.isVariation);
+	const rows: TableRow[] = [];
+
+	// Group main moves by move number
+	const movesByNumber: Record<
+		number,
+		{ white: MoveData | null; black: MoveData | null }
+	> = {};
+	for (const move of mainLineMoves) {
+		if (!movesByNumber[move.moveNumber]) {
+			movesByNumber[move.moveNumber] = { white: null, black: null };
+		}
+		if (move.isWhite) {
+			movesByNumber[move.moveNumber].white = move;
+		} else {
+			movesByNumber[move.moveNumber].black = move;
 		}
 	}
 
-	traverse(rootNode.value);
-	return moves;
-});
+	// Create table rows
+	for (const [number, moves] of Object.entries(movesByNumber)) {
+		rows.push({
+			type: "move",
+			number: Number.parseInt(number),
+			white: moves.white || undefined,
+			black: moves.black || undefined,
+		});
 
-// Chunk moves for compact view (10 moves per line)
-const moveChunks = computed(() => {
-	const mainLineMoves = flattenedMoves.value.filter((m) => m.isMainLine);
-	const chunks = [];
-	const movesPerChunk = 10;
+		// Add variations that branch from this move
+		const moveVariations = variations.filter(
+			(v) => v.parentMoveNumber === Number.parseInt(number),
+		);
 
-	for (let i = 0; i < mainLineMoves.length; i += movesPerChunk) {
-		chunks.push(mainLineMoves.slice(i, i + movesPerChunk));
-	}
+		if (moveVariations.length > 0) {
+			// Group variations into chains
+			const variationChains: MoveData[][] = [];
+			let currentChain: MoveData[] = [];
 
-	return chunks;
-});
+			for (const v of moveVariations) {
+				if (
+					currentChain.length === 0 ||
+					v.plyNumber === currentChain[currentChain.length - 1].plyNumber + 1
+				) {
+					currentChain.push(v);
+				} else {
+					if (currentChain.length > 0) variationChains.push([...currentChain]);
+					currentChain = [v];
+				}
+			}
 
-// Group moves by pairs for tabular view
-const moveRows = computed(() => {
-	const mainLineMoves = flattenedMoves.value.filter((m) => m.isMainLine);
-	const rows = [];
-	let currentRow = null;
+			if (currentChain.length > 0) variationChains.push(currentChain);
 
-	for (const move of mainLineMoves) {
-		if (move.isWhite) {
-			currentRow = { number: move.moveNumber, white: move, black: null };
-			rows.push(currentRow);
-		} else if (currentRow) {
-			currentRow.black = move;
+			for (const chain of variationChains) {
+				rows.push({
+					type: "variation",
+					moves: chain,
+				});
+			}
 		}
 	}
 
@@ -354,19 +619,25 @@ const moveRows = computed(() => {
 });
 
 // Methods
-const handleMoveSelect = (nodeId) => {
-	emit("select-move", nodeId);
+const handleMoveSelect = (moveId: number | undefined): void => {
+	if (!moveId) {
+		console.warn("Move has no id");
+		// FIXME: I think this can happen when the move hasn't been saved to the database yet
+		// we should handle this case better
+		return;
+	}
+	emit("select-move", moveId);
 };
 
-const isCurrentMove = (nodeId) => {
+const isCurrentMove = (nodeId: { idx: number; version: number }): boolean => {
 	return (
-		currentNodeId.value &&
+		currentNodeId.value !== undefined &&
 		currentNodeId.value.idx === nodeId.idx &&
 		currentNodeId.value.version === nodeId.version
 	);
 };
 
-const formatEvaluation = (evaluation) => {
+const formatEvaluation = (evaluation: ChessEvaluation): string => {
 	if (!evaluation || evaluation.score == null) return "?";
 	const score = evaluation.score / 100;
 	if (evaluation.eval_type === "mate") {
@@ -375,7 +646,7 @@ const formatEvaluation = (evaluation) => {
 	return `${score > 0 ? "+" : ""}${score.toFixed(2)}`;
 };
 
-const formatTime = (ms) => {
+const formatTime = (ms: number | null | undefined): string => {
 	if (!ms) return "0:00";
 	const seconds = Math.floor(ms / 1000);
 	const minutes = Math.floor(seconds / 60);
@@ -387,7 +658,9 @@ const formatTime = (ms) => {
 watch(currentNodeId, async () => {
 	await nextTick();
 	if (moveContainer.value) {
-		const currentButton = moveContainer.value.querySelector(".bg-primary");
+		const currentButton = moveContainer.value.querySelector(
+			".bg-primary, .bg-secondary",
+		);
 		if (currentButton) {
 			currentButton.scrollIntoView({ behavior: "smooth", block: "center" });
 		}

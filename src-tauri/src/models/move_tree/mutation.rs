@@ -1,3 +1,4 @@
+use shakmaty::{san::San, Chess};
 use slotmap::DefaultKey;
 
 use crate::models::ChessMove;
@@ -40,23 +41,28 @@ impl ChessMoveTree {
         let current_node = self.nodes[self.current_node_id.unwrap()].clone();
 
         // Make the move on the current node's position
-        let new_position = current_node.position.make_uci_move(uci_move_notation);
+        let move_result = current_node.position.make_uci_move(uci_move_notation);
 
-        if let Err(e) = new_position {
+        if let Err(e) = move_result {
             println!("Error making move: {}", e);
             return;
         }
+
+        let (new_position, chess_move) = move_result.unwrap();
 
         // Create the ChessMove object
         let mut new_move = ChessMove::from_uci(uci_move_notation).unwrap();
         // Update the new move's properties based on where it's being added
         // position
-        new_move.position = Some(new_position.unwrap());
+        new_move.position = Some(new_position);
         // ply_number
         match current_node.game_move {
             Some(ref game_move) => new_move.ply_number = game_move.ply_number + 1,
             None => new_move.ply_number = 1, // Root node - first move of the game
         }
+        // san
+        new_move.san =
+            San::from_move(&Chess::from(current_node.position.clone()), &chess_move).to_string();
 
         // Add the move to the move tree
         let new_node_id = self.add_move(new_move);

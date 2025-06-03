@@ -114,6 +114,14 @@ export const useUIStore = defineStore("ui", {
 
 		// Modal states
 		settingsModalOpen: false,
+
+		// Alerts
+		alerts: [] as {
+			key: string;
+			type: "success" | "error" | "info";
+			message: string;
+			timeout?: number;
+		}[],
 	}),
 
 	getters: {
@@ -477,6 +485,38 @@ export const useUIStore = defineStore("ui", {
 					collapsedSections: [],
 				}
 			);
+		},
+
+		// Alerts
+
+		/**
+		 * Adds an alert to the UI
+		 * @param alert - The alert to add
+		 * @returns the key of the alert
+		 */
+		addAlert(alert: {
+			type: "success" | "error" | "info";
+			message: string;
+			timeout?: number;
+		}) {
+			// generate a unique key for the alert
+			const key = Math.random().toString(36).substring(2, 15);
+
+			this.alerts.push({ ...alert, key });
+			if (alert.timeout) {
+				setTimeout(() => {
+					this.removeAlert(key);
+				}, alert.timeout);
+			}
+			return key;
+		},
+
+		/**
+		 * Removes an alert from the UI
+		 * @param key - The key of the alert to remove
+		 */
+		removeAlert(key: string) {
+			this.alerts = this.alerts.filter((a) => a.key !== key);
 		},
 	},
 });

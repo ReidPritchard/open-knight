@@ -73,6 +73,7 @@
   </template>
 </template>
 
+<!-- TODO: Convert to TypeScript -->
 <script setup>
 import { computed, ref } from "vue";
 

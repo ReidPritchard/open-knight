@@ -500,7 +500,7 @@ const setSort = (sortType: string) => {
 };
 
 // Handle context menu item clicks
-const handleContextMenuClick = (itemId: string) => {
+const handleContextMenuClick = async (itemId: string) => {
 	const gameId = contextMenu.value.gameId;
 
 	switch (itemId) {
@@ -520,8 +520,21 @@ const handleContextMenuClick = (itemId: string) => {
 			console.log("Export game:", gameId);
 			break;
 		case "delete":
-			// TODO: Implement delete game
-			console.log("Delete game:", gameId);
+			if (await gamesStore.deleteGame(gameId)) {
+				uiStore.addAlert({
+					type: "success",
+					message: "Game deleted successfully",
+					timeout: 3000,
+				});
+			} else {
+				uiStore.addAlert({
+					type: "error",
+					message: "Failed to delete game",
+					timeout: 3000,
+				});
+			}
+			// refresh the game list
+			globalStore.fetchExplorerGames();
 			break;
 	}
 };

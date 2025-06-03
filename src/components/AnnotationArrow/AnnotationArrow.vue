@@ -39,27 +39,27 @@
 import { computed, toRefs } from "vue";
 
 const props = defineProps<{
-  to: {
-    x: number;
-    y: number;
-  };
-  from: {
-    x: number;
-    y: number;
-  };
-  options: {
-    color?: string;
-    size?: number;
-  };
+	to: {
+		x: number;
+		y: number;
+	};
+	from: {
+		x: number;
+		y: number;
+	};
+	options: {
+		color?: string;
+		size?: number;
+	};
 }>();
 
 const { color, size } = toRefs(props.options);
 
 const computedSize = computed(() => {
-  return size?.value ?? 10;
+	return size?.value ?? 10;
 });
 
 const computedColor = computed(() => {
-  return color?.value ?? "currentColor";
+	return color?.value ?? "currentColor";
 });
 </script>

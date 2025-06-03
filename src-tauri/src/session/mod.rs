@@ -82,11 +82,11 @@ impl GameSessionManager {
         session.previous_move()
     }
 
-    pub fn reset_to_position(&mut self, board_id: i32, move_number: usize) -> Result<(), AppError> {
+    pub fn reset_to_position(&mut self, board_id: i32, move_db_id: i32) -> Result<(), AppError> {
         let session = self
             .get_session_mut(board_id)
             .ok_or(AppError::SessionError("Game session not found".to_string()))?;
-        session.reset_to_position(move_number)
+        session.reset_to_position(move_db_id)
     }
 
     pub async fn save_session(

@@ -75,12 +75,9 @@ impl GameSession {
         Ok(())
     }
 
-    pub fn reset_to_position(&mut self, _move_number: usize) -> Result<(), AppError> {
-        // TODO: Implement reset_to_position in ChessGame
-        // For now, return an error indicating it's not implemented
-        Err(AppError::ChessError(
-            "Reset to position not yet implemented".to_string(),
-        ))
+    pub fn reset_to_position(&mut self, move_db_id: i32) -> Result<(), AppError> {
+        self.game.move_tree.move_to_move(move_db_id);
+        Ok(())
     }
 
     pub fn get_move_history(&self) -> Vec<String> {
@@ -103,8 +100,11 @@ impl GameSession {
         // TODO: Implement proper save/update logic in ChessGame
         let _ = overwrite; // Suppress unused variable warning
 
+        // FIXME: Check if we can update an existing game instead of creating a new one
+
         // Create a vector with just this game for the save_from_pgn method
         let pgn = self.game.to_pgn();
+        println!("Saving game to database: \n\n{}\n\n", pgn);
         match ChessGame::save_from_pgn(db, &pgn).await {
             Ok(mut games) => {
                 if let Some(saved_game) = games.pop() {

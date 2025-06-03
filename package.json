@@ -10,7 +10,7 @@
 		"tauri": "tauri",
 		"reset-db": "rm -f src-tauri/chess.db",
 		"prepare": "npm run prepare:client && npm run prepare:server",
-		"prepare:client": "ts-patch install && typia patch",
+		"prepare:client": "typia patch",
 		"prepare:server": "cd src-tauri && cargo test export_bindings",
 		"lint": "biome check --fix . --config-path ./",
 		"format": "biome check --write ."
@@ -20,13 +20,7 @@
 		"@tauri-apps/api": ">=2.0.0",
 		"@tauri-apps/plugin-shell": ">=2.2.1",
 		"@tauri-apps/plugin-sql": "^2.2.0",
-		"@vueuse/components": "^11.1.0",
-		"@vueuse/core": "^11.1.0",
-		"chess.js": "^1.0.0-beta.8",
-		"chessground": "^9.1.1",
 		"pinia": "^2.2.6",
-		"primeicons": "^7.0.0",
-		"primevue": "^4.1.1",
 		"typia": "^8.0.0",
 		"vue": "^3.3.4"
 	},
@@ -39,7 +33,6 @@
 		"daisyui": "^5.0.37",
 		"postcss": "^8.4.49",
 		"tailwindcss": "^4.1.7",
-		"ts-patch": "^3.2.1",
 		"typescript": "^5.6.3",
 		"vite": "^6.3.5",
 		"vue-tsc": "^2.0.22"

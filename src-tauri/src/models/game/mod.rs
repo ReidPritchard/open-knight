@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::entities::*;
-use crate::models::{ChessMove, ChessMoveTree, ChessPosition};
+use crate::models::{ChessMoveTree, ChessPosition};
 use crate::parse::pgn::PgnToken;
 use crate::ts_export;
 use crate::utils::AppError;
@@ -526,21 +526,23 @@ impl ChessGame {
                 .map_err(|e| AppError::DatabaseError(format!("Failed to save game: {}", e)))?;
             game.id = result.last_insert_id;
 
-            // Update game_id for all moves and save them
-            let moves = game
-                .move_tree
-                .depth_first_move_traversal()
-                .map(|mut m| {
-                    m.game_id = game.id;
-                    m
-                })
-                .collect::<Vec<_>>();
+            // Update game_id for all moves and save them using tree structure
+            // This preserves variations correctly by maintaining parent-child relationships
+            let mut updated_tree = game.move_tree.clone();
+            updated_tree.game_id = game.id;
 
-            if !moves.is_empty() {
-                ChessMove::save_moves(&txn, &moves)
-                    .await
-                    .map_err(|e| AppError::DatabaseError(format!("Failed to save moves: {}", e)))?;
+            // Update game_id for all moves in the tree
+            for (_, node) in updated_tree.nodes.iter_mut() {
+                if let Some(ref mut chess_move) = node.game_move {
+                    chess_move.game_id = game.id;
+                }
             }
+
+            // Save moves using the tree structure to preserve variations
+            updated_tree
+                .save_moves_to_db(&txn)
+                .await
+                .map_err(|e| AppError::DatabaseError(format!("Failed to save moves: {}", e)))?;
 
             Ok::<_, AppError>(game)
         }
@@ -632,20 +634,7 @@ impl ChessGame {
         pgn.push('\n');
 
         // Add moves
-        let mut move_number = 1;
-        let mut is_white = true;
-        for chess_move in self.move_tree.depth_first_move_traversal() {
-            if is_white {
-                pgn.push_str(&format!("{}. ", move_number));
-            }
-            pgn.push_str(&format!("{} ", chess_move.san));
-
-            if !is_white {
-                move_number += 1;
-            }
-            is_white = !is_white;
-        }
-
+        pgn.push_str(&self.move_tree.to_pgn_moves());
         pgn.push_str(&format!("{}", self.result));
         pgn
     }
@@ -667,6 +656,60 @@ impl ChessGame {
         self.move_tree.make_uci_move(uci_move_notation);
 
         // No need to update the game as the move tree handles it
+        Ok(())
+    }
+
+    /// Deletes a game from the database
+    ///
+    /// # Arguments
+    /// * `db` - Database connection
+    /// * `game_id` - The ID of the game to delete
+    ///
+    /// # Returns
+    /// * `Result<(), AppError>` - Success or an error
+    pub async fn delete(db: &DatabaseConnection, game_id: i32) -> Result<(), AppError> {
+        // Directly impacted tables:
+        // Move, GameTag
+        // Indirectly impacted tables:
+        // Move -> (Annotation, MoveTimeTracking, MoveTag)
+
+        // // Create a transaction to ensure data consistency
+        // let txn = db
+        //     .begin()
+        //     .await
+        //     .map_err(|e| AppError::DatabaseError(format!("Failed to start transaction: {}", e)))?;
+
+        // // Delete all moves for the game
+        // r#move::Entity::delete_many()
+        //     .filter(r#move::Column::GameId.eq(game_id))
+        //     .exec(&txn)
+        //     .await
+        //     .map_err(|e| AppError::DatabaseError(format!("Failed to delete moves: {}", e)))?;
+
+        // // Delete all game tags for the game
+        // game_tag::Entity::delete_many()
+        //     .filter(game_tag::Column::GameId.eq(game_id))
+        //     .exec(&txn)
+        //     .await
+        //     .map_err(|e| AppError::DatabaseError(format!("Failed to delete game tags: {}", e)))?;
+
+        // // Delete the game
+        // game::Entity::delete_by_id(game_id)
+        //     .exec(&txn)
+        //     .await
+        //     .map_err(|e| AppError::DatabaseError(format!("Failed to delete game: {}", e)))?;
+
+        // // Commit the transaction
+        // txn.commit()
+        //     .await
+        //     .map_err(|e| AppError::DatabaseError(format!("Failed to commit transaction: {}", e)))?;
+
+        // cascade constraints have been added, so we can just delete the game
+        game::Entity::delete_by_id(game_id)
+            .exec(db)
+            .await
+            .map_err(|e| AppError::DatabaseError(format!("Failed to delete game: {}", e)))?;
+
         Ok(())
     }
 }

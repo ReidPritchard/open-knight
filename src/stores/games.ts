@@ -135,6 +135,7 @@ export const useGamesStore = defineStore("games", {
 				// Create new session
 				const game = await api.sessions.POST.create(boardId, type);
 				console.log("New game session:", game);
+				console.log("Game Move Tree:", game.move_tree);
 
 				const newGameState: ActiveGameState = {
 					id: game.id,
@@ -181,6 +182,7 @@ export const useGamesStore = defineStore("games", {
 				// Load game into session
 				const game = await api.sessions.POST.load(gameId, boardId);
 				console.log("Opened game session:", game);
+				console.log("Game Move Tree:", game.move_tree);
 
 				const newGameState: ActiveGameState = {
 					id: gameId,
@@ -230,6 +232,24 @@ export const useGamesStore = defineStore("games", {
 		async makeMove(boardId: number, moveNotation: string): Promise<boolean> {
 			const gameState = this.activeGameMap.get(boardId);
 			if (!gameState) return false;
+
+			// Check if the move is new or already in the move tree
+			// as a 'next move'. If it already exists, we can just go to the next move.
+			// If it's new, add it and set the game as 'dirty'
+			const moveTree = gameState.game.move_tree;
+			const currentNode = moveTree.nodes[moveTree.current_node_id?.idx ?? 0];
+			const childrenNodes = currentNode?.value?.children_ids.map(
+				(childId) => moveTree.nodes[childId.idx],
+			);
+			const childNode = childrenNodes?.find((child) => {
+				return child.value?.game_move?.uci === moveNotation;
+			});
+			if (childNode) {
+				console.log("Move already exists, going to next move");
+				return this.nextMove(boardId);
+			}
+
+			console.log("Move is new, adding to move tree");
 
 			try {
 				gameState.isLoading = true;
@@ -315,7 +335,7 @@ export const useGamesStore = defineStore("games", {
 		/**
 		 * Jumps to a specific move number
 		 */
-		async jumpToMove(boardId: number, moveNumber: number): Promise<boolean> {
+		async jumpToMove(boardId: number, moveId: number): Promise<boolean> {
 			const gameState = this.activeGameMap.get(boardId);
 			if (!gameState) return false;
 
@@ -323,13 +343,16 @@ export const useGamesStore = defineStore("games", {
 				gameState.isLoading = true;
 				gameState.error = null;
 
-				const updatedGame = await api.sessions.POST.resetToPosition(
-					boardId,
-					moveNumber,
-				);
+				// TODO: Update api to return partial game state updates
+				// so we don't need to fetch the entire game state
+
+				await api.sessions.POST.jumpToMove(boardId, moveId);
+
+				// get the updated game state
+				const updatedGame = await api.sessions.GET.get(boardId);
 				gameState.game = updatedGame;
 
-				console.log("Jumped to move:", moveNumber, updatedGame);
+				console.log("Jumped to move:", moveId, updatedGame);
 				return true;
 			} catch (error) {
 				console.error("Failed to jump to move:", error);
@@ -360,7 +383,7 @@ export const useGamesStore = defineStore("games", {
 				// This is a temporary solution until the backend supports direct node navigation
 
 				// First, go to the start
-				await api.sessions.POST.resetToPosition(boardId, 0);
+				await api.sessions.POST.jumpToMove(boardId, 0);
 
 				// Then navigate forward by the node index (approximation)
 				// This won't work perfectly for variations, but it's better than nothing
@@ -440,6 +463,20 @@ export const useGamesStore = defineStore("games", {
 				return null;
 			} finally {
 				gameState.isLoading = false;
+			}
+		},
+
+		/**
+		 * Deletes a game from the database
+		 */
+		async deleteGame(gameId: number): Promise<boolean> {
+			try {
+				await api.games.POST.delete(gameId);
+				this.activeGameMap.delete(gameId);
+				return true;
+			} catch (error) {
+				console.error("Failed to delete game:", error);
+				return false;
 			}
 		},
 

@@ -33,6 +33,7 @@ pub fn run() {
             api::commands::database::query_entities,
             api::commands::database::get_entity_by_id,
             api::commands::database::get_game_by_id,
+            api::commands::database::delete_game,
             // Session lifecycle commands
             api::commands::game::create_session,
             api::commands::game::load_game_into_session,
@@ -51,10 +52,6 @@ pub fn run() {
             // Session persistence commands
             api::commands::game::save_session,
             api::commands::game::save_all_sessions,
-            // Legacy game session commands (for backward compatibility)
-            api::commands::game::new_game,
-            api::commands::game::open_game,
-            api::commands::game::close_game,
             // Chess commands
             api::commands::chess::get_legal_moves,
             // Engine commands

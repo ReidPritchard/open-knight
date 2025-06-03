@@ -111,3 +111,15 @@ pub async fn get_game_by_id(
         .unwrap();
     Ok(serde_json::to_string(&game).unwrap())
 }
+
+/// Deletes a game from the database
+///
+/// Parameters:
+/// - `game_id`: The ID of the game to delete
+#[tauri::command]
+pub async fn delete_game(game_id: i32, state: State<'_, AppState>) -> Result<(), AppError> {
+    // TODO: Implement a 'soft' delete (by setting a deleted flag or timestamp)
+    // to allow for temporary recovery of deleted games
+    models::ChessGame::delete(&state.db, game_id).await?;
+    Ok(())
+}

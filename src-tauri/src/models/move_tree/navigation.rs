@@ -40,6 +40,116 @@ impl ChessMoveTree {
         self.current_node_id = self.root_id;
     }
 
+    /// Move to a specific move by its database ID
+    pub fn move_to_move(&mut self, move_db_id: i32) {
+        let target_move = self.find_move(move_db_id);
+        // Ignore the move node, we only need it's key to change the current node
+        if let Some((key, _)) = target_move {
+            self.current_node_id = Some(key);
+        }
+    }
+
+    /// Generates the PGN move notation with proper variation handling
+    pub fn to_pgn_moves(&self) -> String {
+        if let Some(root_id) = self.root_id {
+            let mut pgn = String::new();
+            let mut move_number = 1;
+            let mut is_white = true;
+            self.write_pgn_moves_recursive(root_id, &mut pgn, &mut move_number, &mut is_white);
+            pgn
+        } else {
+            String::new()
+        }
+    }
+
+    fn write_pgn_moves_recursive(
+        &self,
+        node_id: DefaultKey,
+        pgn: &mut String,
+        move_number: &mut i32,
+        is_white: &mut bool,
+    ) {
+        let node = &self.nodes[node_id];
+
+        // Add the move if this isn't the root node
+        if let Some(ref game_move) = node.game_move {
+            if *is_white {
+                pgn.push_str(&format!("{}. ", move_number));
+            }
+            pgn.push_str(&format!("{} ", game_move.san));
+
+            if !*is_white {
+                *move_number += 1;
+            }
+            *is_white = !*is_white;
+        }
+
+        // Process children
+        if !node.children_ids.is_empty() {
+            // Additional children are variations
+            for &variation_id in node.children_ids.iter().skip(1) {
+                pgn.push_str("(");
+
+                // For variations, we need to indicate whose turn it is at the start
+                let variation_node = &self.nodes[variation_id];
+                if let Some(ref game_move) = variation_node.game_move {
+                    // Determine whose turn it is for this variation based on ply number
+                    // Odd ply numbers (1, 3, 5...) are white moves, even (2, 4, 6...) are black moves
+                    let var_is_white = game_move.ply_number % 2 == 1;
+                    let var_move_number = (game_move.ply_number + 1) / 2;
+
+                    if var_is_white {
+                        pgn.push_str(&format!("{}. ", var_move_number));
+                    } else {
+                        pgn.push_str(&format!("{}... ", var_move_number));
+                    }
+                    pgn.push_str(&format!("{} ", game_move.san));
+
+                    // Continue with the variation
+                    let mut var_move_num = if var_is_white {
+                        var_move_number
+                    } else {
+                        var_move_number + 1
+                    };
+                    let mut var_is_white_turn = !var_is_white;
+
+                    // Process variation's children
+                    if !variation_node.children_ids.is_empty() {
+                        if let Some(&child_id) = variation_node.children_ids.first() {
+                            self.write_pgn_moves_recursive(
+                                child_id,
+                                pgn,
+                                &mut var_move_num,
+                                &mut var_is_white_turn,
+                            );
+                        }
+
+                        // Handle sub-variations
+                        for &sub_var_id in variation_node.children_ids.iter().skip(1) {
+                            pgn.push_str("(");
+                            let mut sub_var_move_num = var_move_num;
+                            let mut sub_var_is_white = var_is_white_turn;
+                            self.write_pgn_moves_recursive(
+                                sub_var_id,
+                                pgn,
+                                &mut sub_var_move_num,
+                                &mut sub_var_is_white,
+                            );
+                            pgn.push_str(") ");
+                        }
+                    }
+                }
+
+                pgn.push_str(") ");
+            }
+
+            // First child is the main line
+            if let Some(&main_line_id) = node.children_ids.first() {
+                self.write_pgn_moves_recursive(main_line_id, pgn, move_number, is_white);
+            }
+        }
+    }
+
     pub fn depth_first_move_traversal(&self) -> impl Iterator<Item = ChessMove> + '_ {
         // Using a collectible approach for simplicity
         let mut moves = Vec::new();
@@ -78,10 +188,19 @@ impl ChessMoveTree {
     }
 
     /// Find a move by its ID
-    pub fn find_move(&self, id: i32) -> Option<&ChessTreeNode> {
+    ///
+    /// ## Arguments
+    ///
+    /// * `id` - The database ID of the move to find
+    ///
+    /// ## Returns
+    ///
+    /// * `(node, key)` - The node and the key of the node if found, otherwise None
+    ///
+    pub fn find_move(&self, id: i32) -> Option<(DefaultKey, &ChessTreeNode)> {
         self.nodes
             .iter()
             .find(|(_, node)| node.game_move.as_ref().map_or(false, |m| m.id == id))
-            .map(|(_, node)| node)
+            .map(|(key, node)| (key, node))
     }
 }

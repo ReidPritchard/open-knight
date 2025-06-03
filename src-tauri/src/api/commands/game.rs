@@ -224,11 +224,11 @@ pub async fn previous_move(board_id: i32, state: State<'_, AppState>) -> Result<
 #[tauri::command]
 pub async fn reset_to_position(
     board_id: i32,
-    move_number: usize,
+    move_db_id: i32,
     state: State<'_, AppState>,
 ) -> Result<String, AppError> {
     let mut game_session_manager = state.game_session_manager.lock().await;
-    match game_session_manager.reset_to_position(board_id, move_number) {
+    match game_session_manager.reset_to_position(board_id, move_db_id) {
         Ok(_) => {
             let session = game_session_manager.get_session(board_id).unwrap();
             Ok(serde_json::to_string(&session.game).unwrap())
@@ -307,52 +307,4 @@ pub async fn save_all_sessions(
         Ok(game_ids) => Ok(serde_json::to_string(&game_ids).unwrap()),
         Err(e) => Err(AppError::DatabaseError(e.to_string())),
     }
-}
-
-// =============================================================================
-// LEGACY COMPATIBILITY (deprecated - use session-based commands above)
-// =============================================================================
-
-/// Creates a new chess game (legacy - use create_session instead)
-///
-/// Returns a JSON string containing the new game.
-#[tauri::command]
-pub async fn new_game(variant: &str, state: State<'_, AppState>) -> Result<String, AppError> {
-    let game = models::ChessGame::new(variant, &state.db).await?;
-    Ok(serde_json::to_string(&game).unwrap())
-}
-
-/// Creates/opens a game session (legacy - use load_game_into_session instead)
-///
-/// Parameters:
-/// - `game_id`: The ID of the game to open
-/// - `board_id`: The ID of the board to open the game on
-#[tauri::command]
-pub async fn open_game(
-    game_id: i32,
-    board_id: i32,
-    state: State<'_, AppState>,
-) -> Result<(), AppError> {
-    let game =
-        crate::api::database::get_full_game(game_id, QueryParams::default(), &state.db).await;
-
-    match game {
-        Ok(Some(game)) => {
-            let mut game_session_manager = state.game_session_manager.lock().await;
-            game_session_manager.add_game(game, board_id);
-            Ok(())
-        }
-        _ => Err(AppError::DatabaseError("Failed to open game".to_string())),
-    }
-}
-
-/// Closes a game session (legacy - use close_session instead)
-///
-/// Parameters:
-/// - `board_id`: The ID of the board to close the game on
-#[tauri::command]
-pub async fn close_game(board_id: i32, state: State<'_, AppState>) -> Result<(), AppError> {
-    let mut game_session_manager = state.game_session_manager.lock().await;
-    game_session_manager.close_session(board_id);
-    Ok(())
 }
