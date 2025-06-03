@@ -6,6 +6,7 @@ import type {
 	ChessTreeNode,
 	LegalMove,
 } from "../shared/bindings";
+import { useUIStore } from "./ui";
 
 interface ActiveGameState {
 	id: number;
@@ -310,6 +311,27 @@ export const useGamesStore = defineStore("games", {
 			const gameState = this.activeGameMap.get(boardId);
 			if (!gameState) return false;
 
+			// Check if the current node has multiple children
+			const moveTree = gameState.game.move_tree;
+			const currentNode = moveTree.nodes[moveTree.current_node_id?.idx ?? 0];
+
+			if (
+				currentNode?.value?.children_ids?.length &&
+				currentNode.value.children_ids.length > 1
+			) {
+				console.warn(
+					"Multiple children found, but the UI does not support picking a variation",
+					currentNode.value.children_ids,
+				);
+				// create an alert to the user
+				useUIStore().addAlert({
+					key: "missing-variation-selection-ui",
+					message: "Variation selection UI is not yet implemented",
+					title: "Variations found",
+					type: "error",
+				});
+			}
+
 			try {
 				gameState.isLoading = true;
 				gameState.error = null;
@@ -365,59 +387,21 @@ export const useGamesStore = defineStore("games", {
 		},
 
 		/**
-		 * Navigate to a specific node in the move tree
-		 */
-		async navigateToNode(
-			boardId: number,
-			nodeId: { idx: number; version: number },
-		): Promise<boolean> {
-			const gameState = this.activeGameMap.get(boardId);
-			if (!gameState) return false;
-
-			try {
-				gameState.isLoading = true;
-				gameState.error = null;
-
-				// For now, we'll use a simple approach:
-				// Navigate to the start and then use the node index as a rough approximation
-				// This is a temporary solution until the backend supports direct node navigation
-
-				// First, go to the start
-				await api.sessions.POST.jumpToMove(boardId, 0);
-
-				// Then navigate forward by the node index (approximation)
-				// This won't work perfectly for variations, but it's better than nothing
-				for (let i = 0; i < nodeId.idx && i < 50; i++) {
-					// Limit to prevent infinite loops
-					try {
-						await api.sessions.POST.nextMove(boardId, 0); // Use main line (variation 0)
-					} catch (error) {
-						// If we can't go further, break
-						break;
-					}
-				}
-
-				// Refresh the game state
-				const updatedGame = await api.sessions.GET.get(boardId);
-				gameState.game = updatedGame;
-
-				console.log("Navigated to node (approximation):", nodeId, updatedGame);
-				return true;
-			} catch (error) {
-				console.error("Failed to navigate to node:", error);
-				gameState.error =
-					error instanceof Error ? error.message : "Failed to navigate to node";
-				return false;
-			} finally {
-				gameState.isLoading = false;
-			}
-		},
-
-		/**
 		 * Navigate to the start of the game
 		 */
 		async navigateToStart(boardId: number): Promise<boolean> {
-			return this.jumpToMove(boardId, 0);
+			const gameState = this.activeGameMap.get(boardId);
+			if (!gameState) return false;
+
+			// TODO: Update api to return partial game state updates
+			await api.sessions.POST.navigateToStart(boardId);
+
+			// get the updated game state
+			const updatedGame = await api.sessions.GET.get(boardId);
+			gameState.game = updatedGame;
+
+			console.log("Navigated to start:", updatedGame);
+			return true;
 		},
 
 		/**
@@ -431,9 +415,15 @@ export const useGamesStore = defineStore("games", {
 			const moveTree = gameState.game.move_tree;
 			if (!moveTree.nodes || moveTree.nodes.length === 0) return false;
 
-			// Navigate to the last node
-			const lastNodeIndex = moveTree.nodes.length - 1;
-			return this.navigateToNode(boardId, { idx: lastNodeIndex, version: 0 });
+			// TODO: Update api to return partial game state updates
+			await api.sessions.POST.navigateToEnd(boardId);
+
+			// get the updated game state
+			const updatedGame = await api.sessions.GET.get(boardId);
+			gameState.game = updatedGame;
+
+			console.log("Navigated to end:", updatedGame);
+			return true;
 		},
 
 		/**

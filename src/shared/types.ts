@@ -9,6 +9,14 @@ import type { ChessGame, LegalMove } from "./bindings";
 // generally types/constants could use some better organization
 // but that's a 'todo' for another day
 
+export interface AlertToast {
+	key: string;
+	type: "success" | "error" | "info" | "warning";
+	message: string;
+	title?: string;
+	timeout?: number;
+}
+
 ////////////////////////////////////////////////////////////
 // Application Interfaces
 // Api interfaces are mostly sub-sets of backend models (bindings)

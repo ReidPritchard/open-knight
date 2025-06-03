@@ -9,6 +9,7 @@ import {
 	darkUIThemes,
 	lightUIThemes,
 } from "../shared/themes";
+import type { AlertToast } from "../shared/types";
 
 // Layout configuration interface
 interface LayoutConfig {
@@ -116,12 +117,7 @@ export const useUIStore = defineStore("ui", {
 		settingsModalOpen: false,
 
 		// Alerts
-		alerts: [] as {
-			key: string;
-			type: "success" | "error" | "info";
-			message: string;
-			timeout?: number;
-		}[],
+		alerts: [] as AlertToast[],
 	}),
 
 	getters: {
@@ -491,16 +487,18 @@ export const useUIStore = defineStore("ui", {
 
 		/**
 		 * Adds an alert to the UI
-		 * @param alert - The alert to add
+		 * @param alert - The alert to add, can optionally include a key (if not provided, a random key will be generated)
 		 * @returns the key of the alert
 		 */
-		addAlert(alert: {
-			type: "success" | "error" | "info";
-			message: string;
-			timeout?: number;
-		}) {
+		addAlert(alert: AlertToast & { key?: string }) {
 			// generate a unique key for the alert
-			const key = Math.random().toString(36).substring(2, 15);
+			const key = alert.key ?? Math.random().toString(36).substring(2, 15);
+			// Check if a key was provided and if it's already in use
+			if (alert.key && this.alerts.some((a) => a.key === alert.key)) {
+				// If so, replace the alert with the new one
+				// this avoids duplicate alerts
+				this.removeAlert(alert.key);
+			}
 
 			this.alerts.push({ ...alert, key });
 			if (alert.timeout) {

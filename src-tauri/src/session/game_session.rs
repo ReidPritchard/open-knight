@@ -80,6 +80,16 @@ impl GameSession {
         Ok(())
     }
 
+    pub fn move_to_root(&mut self) -> Result<(), AppError> {
+        self.game.move_tree.move_to_root();
+        Ok(())
+    }
+
+    pub fn move_to_end(&mut self) -> Result<(), AppError> {
+        self.game.move_tree.move_to_end();
+        Ok(())
+    }
+
     pub fn get_move_history(&self) -> Vec<String> {
         // TODO: Implement get_move_history in ChessGame
         // For now, return an empty vector

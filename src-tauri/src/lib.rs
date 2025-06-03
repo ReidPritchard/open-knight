@@ -47,6 +47,8 @@ pub fn run() {
             api::commands::game::redo_move,
             api::commands::game::next_move,
             api::commands::game::previous_move,
+            api::commands::game::navigate_to_end,
+            api::commands::game::navigate_to_start,
             api::commands::game::reset_to_position,
             api::commands::game::get_session_moves,
             // Session persistence commands

@@ -237,6 +237,48 @@ pub async fn reset_to_position(
     }
 }
 
+/// Navigate to the start (root) of the game
+///
+/// Parameters:
+/// - `board_id`: The ID of the board/session
+///
+/// Returns a JSON string containing the updated game state.
+#[tauri::command]
+pub async fn navigate_to_start(
+    board_id: i32,
+    state: State<'_, AppState>,
+) -> Result<String, AppError> {
+    let mut game_session_manager = state.game_session_manager.lock().await;
+    match game_session_manager.navigate_to_start(board_id) {
+        Ok(_) => {
+            let session = game_session_manager.get_session(board_id).unwrap();
+            Ok(serde_json::to_string(&session.game).unwrap())
+        }
+        Err(e) => Err(AppError::SessionError(e.to_string())),
+    }
+}
+
+/// Navigate to the end of the current main line
+///
+/// Parameters:
+/// - `board_id`: The ID of the board/session
+///
+/// Returns a JSON string containing the updated game state.
+#[tauri::command]
+pub async fn navigate_to_end(
+    board_id: i32,
+    state: State<'_, AppState>,
+) -> Result<String, AppError> {
+    let mut game_session_manager = state.game_session_manager.lock().await;
+    match game_session_manager.navigate_to_end(board_id) {
+        Ok(_) => {
+            let session = game_session_manager.get_session(board_id).unwrap();
+            Ok(serde_json::to_string(&session.game).unwrap())
+        }
+        Err(e) => Err(AppError::SessionError(e.to_string())),
+    }
+}
+
 /// Gets the move history for a game session
 ///
 /// Parameters:

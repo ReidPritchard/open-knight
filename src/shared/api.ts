@@ -317,6 +317,27 @@ export default {
 			},
 
 			/**
+			 * Navigate to the start of the game
+			 * @param boardId The ID of the board/session
+			 * @returns Promise<ChessGame> The updated game state
+			 */
+			navigateToStart: async (boardId: number): Promise<ChessGame> => {
+				const response = await invoke<string>("navigate_to_start", { boardId });
+				return JSON.parse(response);
+			},
+
+			/**
+			 * Navigate to the end of the main line (in relation to the current node)
+			 *
+			 * @param boardId The ID of the board/session
+			 * @returns Promise<ChessGame> The updated game state
+			 */
+			navigateToEnd: async (boardId: number): Promise<ChessGame> => {
+				const response = await invoke<string>("navigate_to_end", { boardId });
+				return JSON.parse(response);
+			},
+
+			/**
 			 * Save a game session to the database
 			 * @param boardId The ID of the board/session to save
 			 * @param overwrite Whether to overwrite existing game or create new one

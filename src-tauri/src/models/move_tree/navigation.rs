@@ -49,6 +49,20 @@ impl ChessMoveTree {
         }
     }
 
+    /// Move to the end of the current line
+    ///
+    /// If there are multiple children, the first child is always used
+    /// as it's considered the "main line"
+    pub fn move_to_end(&mut self) {
+        if let Some(current_id) = self.current_node_id {
+            let mut current_node = &self.nodes[current_id];
+            while !current_node.children_ids.is_empty() {
+                self.current_node_id = Some(current_node.children_ids[0]);
+                current_node = &self.nodes[self.current_node_id.unwrap()];
+            }
+        }
+    }
+
     /// Generates the PGN move notation with proper variation handling
     pub fn to_pgn_moves(&self) -> String {
         if let Some(root_id) = self.root_id {

@@ -89,6 +89,20 @@ impl GameSessionManager {
         session.reset_to_position(move_db_id)
     }
 
+    pub fn navigate_to_start(&mut self, board_id: i32) -> Result<(), AppError> {
+        let session = self
+            .get_session_mut(board_id)
+            .ok_or(AppError::SessionError("Game session not found".to_string()))?;
+        session.move_to_root()
+    }
+
+    pub fn navigate_to_end(&mut self, board_id: i32) -> Result<(), AppError> {
+        let session = self
+            .get_session_mut(board_id)
+            .ok_or(AppError::SessionError("Game session not found".to_string()))?;
+        session.move_to_end()
+    }
+
     pub async fn save_session(
         &mut self,
         board_id: i32,
