@@ -1,40 +1,41 @@
 {
-	"name": "open-knight",
-	"private": true,
-	"version": "0.1.0",
-	"type": "module",
-	"scripts": {
-		"dev": "vite",
-		"build": "vue-tsc --noEmit && vite build",
-		"preview": "vite preview",
-		"tauri": "tauri",
-		"reset-db": "rm -f src-tauri/chess.db",
-		"prepare": "npm run prepare:client && npm run prepare:server",
-		"prepare:client": "typia patch",
-		"prepare:server": "cd src-tauri && cargo test export_bindings",
-		"lint": "biome check --fix . --config-path ./",
-		"format": "biome check --write ."
-	},
-	"dependencies": {
-		"@phosphor-icons/vue": "^2.2.1",
-		"@tauri-apps/api": ">=2.0.0",
-		"@tauri-apps/plugin-shell": ">=2.2.1",
-		"@tauri-apps/plugin-sql": "^2.2.0",
-		"pinia": "^2.2.6",
-		"typia": "^8.0.0",
-		"vue": "^3.3.4"
-	},
-	"devDependencies": {
-		"@biomejs/biome": "1.9.4",
-		"@ryoppippi/unplugin-typia": "^2.1.4",
-		"@tailwindcss/postcss": "^4.1.7",
-		"@tauri-apps/cli": ">=2.0.0",
-		"@vitejs/plugin-vue": "^5.2.4",
-		"daisyui": "^5.0.37",
-		"postcss": "^8.4.49",
-		"tailwindcss": "^4.1.7",
-		"typescript": "^5.6.3",
-		"vite": "^6.3.5",
-		"vue-tsc": "^2.0.22"
-	}
+  "name": "open-knight",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "reset-db": "rm -f src-tauri/chess.db",
+    "prepare": "npm run prepare:client && npm run prepare:server",
+    "prepare:client": "typia patch",
+    "prepare:server": "cd src-tauri && cargo test export_bindings && cd .. && npm run fix-bindings",
+    "fix-bindings": "node scripts/fix-binding-imports.js",
+    "lint": "biome check --fix . --config-path ./",
+    "format": "biome check --write ."
+  },
+  "dependencies": {
+    "@phosphor-icons/vue": "^2.2.1",
+    "@tauri-apps/api": ">=2.0.0",
+    "@tauri-apps/plugin-shell": ">=2.2.1",
+    "@tauri-apps/plugin-sql": "^2.2.0",
+    "pinia": "^2.2.6",
+    "typia": "^8.0.0",
+    "vue": "^3.3.4"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "@ryoppippi/unplugin-typia": "^2.1.4",
+    "@tailwindcss/postcss": "^4.1.7",
+    "@tauri-apps/cli": ">=2.0.0",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "daisyui": "^5.0.37",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^4.1.7",
+    "typescript": "^5.6.3",
+    "vite": "^6.3.5",
+    "vue-tsc": "^2.0.22"
+  }
 }

@@ -19,15 +19,15 @@
 		"noFallthroughCasesInSwitch": true,
 		"plugins": [
 			{
-				"transform": "typia/lib/transform"
-			}
+				"transform": "typia/lib/transform",
+			},
 		],
-		"strictNullChecks": true
+		"strictNullChecks": true,
 	},
 	"include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
 	"references": [
 		{
-			"path": "./tsconfig.node.json"
-		}
-	]
+			"path": "./tsconfig.node.json",
+		},
+	],
 }
