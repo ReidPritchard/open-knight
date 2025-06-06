@@ -4,9 +4,9 @@ import "./style.css";
 
 import { createApp } from "vue";
 import App from "./App.vue";
+import { ErrorHandler, ErrorSeverity } from "./services/ErrorService";
 import { useGlobalStore } from "./stores";
 import { useSettingsStore } from "./stores/settings";
-import { ErrorHandler, ErrorSeverity } from "./services/ErrorService";
 
 const app = createApp(App);
 const pinia = createPinia();

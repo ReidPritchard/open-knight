@@ -200,9 +200,9 @@ import {
 	PhX,
 } from "@phosphor-icons/vue";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { useError } from "../../composables/useError";
 import api from "../../shared/api";
 import { useGlobalStore } from "../../stores/";
-import { useError } from "../../composables/useError";
 import AnnotationArrow from "../AnnotationArrow/AnnotationArrow.vue";
 import ChessBoardSquare from "./ChessBoardSquare.vue";
 import {

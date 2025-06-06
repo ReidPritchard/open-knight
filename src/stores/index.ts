@@ -1,11 +1,13 @@
 import { defineStore } from "pinia";
+import { useError } from "../composables/useError";
+import * as EngineService from "../services/EngineService";
+import * as ImportExportService from "../services/ImportExportService";
 import api from "../shared/api";
 import type { ExplorerGame } from "../shared/types";
 import { useEngineAnalysisStore } from "./engineAnalysis";
 import { useGamesStore } from "./games";
 import { useSettingsStore } from "./settings";
 import { useUIStore } from "./ui";
-import { useError } from "../composables/useError";
 
 export const useGlobalStore = defineStore("global", {
 	state: () => ({
@@ -35,21 +37,34 @@ export const useGlobalStore = defineStore("global", {
 	},
 	actions: {
 		async fetchExplorerGames() {
-			const games = await api.games.GET.explorer();
-			this.explorer.games = games;
-			return games;
+			const result = await ImportExportService.fetchExplorerGames();
+			if (result.success && result.data) {
+				this.explorer.games = result.data;
+				return result.data;
+			}
+			return [];
 		},
 		async updateGameProperty(gameId: number, property: string, value: string) {
-			await api.games.POST.updateProperty(gameId, property, value);
-			await this.fetchExplorerGames();
+			const result = await ImportExportService.updateGameProperty(
+				gameId,
+				property,
+				value,
+			);
+			if (result.success) {
+				await this.fetchExplorerGames();
+			}
 		},
 		async importPGNGames(pgn: string) {
-			await api.games.POST.importPGNGames(pgn);
-			await this.fetchExplorerGames();
+			const result = await ImportExportService.importPGNGames(pgn);
+			if (result.success) {
+				await this.fetchExplorerGames();
+			}
 		},
 		async resetDatabase() {
-			await api.emptyDatabase();
-			await this.fetchExplorerGames();
+			const result = await ImportExportService.resetDatabase();
+			if (result.success) {
+				await this.fetchExplorerGames();
+			}
 		},
 		async analyzeCurrentPosition(engineName: string, boardId: number) {
 			const { handleGeneralError } = useError();
@@ -67,7 +82,7 @@ export const useGlobalStore = defineStore("global", {
 				});
 				return;
 			}
-			await api.engines.POST.analyzePosition(
+			await EngineService.analyzePosition(
 				engineName,
 				currentPosition.fen,
 				10,

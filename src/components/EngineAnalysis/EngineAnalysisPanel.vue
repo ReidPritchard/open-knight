@@ -8,7 +8,7 @@
 			class="flex justify-between items-center p-3 border-b border-base-300 flex-shrink-0"
 		>
 
-			<div class="flex gap-2 items-center">
+			<div class="flex gap-2 items-center flex-wrap">
 
 				<select
 					v-model="selectedEngine"
@@ -32,7 +32,7 @@
 					class="btn btn-sm btn-primary"
 					@click="loadEngine()"
 				>
-					 Load Engine
+					 Load
 				</button>
 
 				<button
@@ -40,8 +40,17 @@
 					class="btn btn-sm btn-primary"
 					@click="unloadEngine()"
 				>
-					 Unload Engine
+					 Unload
 				</button>
+
+				<!-- Depth input -->
+
+				<input
+					v-if="selectedEngine !== 'New Engine'"
+					type="number"
+					v-model="depth"
+					class="input input-sm"
+				/>
 
 				<button
 					v-if="selectedEngine !== 'New Engine'"
@@ -268,6 +277,7 @@ const selectedEngine = ref<string>("New Engine");
 const availableEngines = ref<string[]>(["New Engine"]);
 const newEngineName = ref<string>("");
 const newEnginePath = ref<string>("");
+const depth = ref<number>(20);
 const gameAnalysisProgress = ref({ current: 0, total: 0 });
 
 const engineAnalysisStore = useEngineAnalysisStore();
@@ -411,6 +421,7 @@ async function startAnalysis() {
 		await engineAnalysisStore.analyzePosition(
 			selectedEngine.value,
 			currentPosition.value.fen,
+			depth.value,
 		);
 	} catch (error) {
 		console.error("Analysis error:", error);

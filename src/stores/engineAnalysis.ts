@@ -1,23 +1,13 @@
-import { invoke } from "@tauri-apps/api/core";
 import { defineStore } from "pinia";
 import { engineAnalysisEventService } from "../services/AnalysisService";
-import api from "../shared/api";
+import * as EngineService from "../services/EngineService";
+import type { EngineState } from "../services/EngineService";
 import type {
 	AnalysisUpdate,
-	BestMove,
 	BestMovePayload,
 	EngineSettings,
 	Score,
 } from "../shared/types";
-import { useError } from "../composables/useError";
-
-interface EngineState {
-	name: string;
-	isAnalyzing: boolean;
-	analysisUpdates: (AnalysisUpdate & { timestamp: number })[];
-	bestMoves: (BestMove & { timestamp: number })[];
-	engineSettings: EngineSettings;
-}
 
 export const useEngineAnalysisStore = defineStore("engineAnalysis", {
 	state: () => ({
@@ -31,44 +21,16 @@ export const useEngineAnalysisStore = defineStore("engineAnalysis", {
 			state.engines.get(engineName)?.engineSettings ?? {},
 		getLatestAnalysisUpdate: (state) => (engineName: string) => {
 			const engine = state.engines.get(engineName);
-			if (engine) {
-				const analysisUpdates = engine.analysisUpdates;
-				if (analysisUpdates.length > 0) {
-					return analysisUpdates[analysisUpdates.length - 1];
-				}
-			}
-			return undefined;
+			if (!engine) return undefined;
+			return EngineService.getLatestAnalysisUpdate(engine);
 		},
 		getLatestBestMove: (state) => (engineName: string) => {
 			const engine = state.engines.get(engineName);
-			if (engine) {
-				const bestMoves = engine.bestMoves;
-				if (bestMoves.length > 0) {
-					return bestMoves[bestMoves.length - 1];
-				}
-			}
-			return undefined;
+			if (!engine) return undefined;
+			return EngineService.getLatestBestMove(engine);
 		},
 		boardEvaluation: (state): Score => {
-			// FIXME: Provide a way to set which engine to use for evaluation
-			// for now just use the first engine
-			const engine = state.engines.values().next().value;
-			if (engine) {
-				const analysisUpdates = engine.analysisUpdates;
-				if (analysisUpdates.length > 0) {
-					const lastUpdate = analysisUpdates[analysisUpdates.length - 1];
-
-					const evaluation = {
-						value: lastUpdate.score?.value,
-						type: lastUpdate.score?.type ?? "centipawns",
-					};
-					if (evaluation.value !== undefined) {
-						console.log("Evaluation", evaluation);
-						return evaluation as Score;
-					}
-				}
-			}
-			return { value: 0, type: "centipawns" };
+			return EngineService.calculateBoardEvaluation(state.engines);
 		},
 	},
 	actions: {
@@ -87,13 +49,7 @@ export const useEngineAnalysisStore = defineStore("engineAnalysis", {
 			}
 
 			console.log("Initializing engine", engineName);
-			this.engines.set(engineName, {
-				name: engineName,
-				isAnalyzing: false,
-				analysisUpdates: [],
-				bestMoves: [],
-				engineSettings: {},
-			});
+			this.engines.set(engineName, EngineService.createEngineState(engineName));
 		},
 		removeEngine(engineName: string) {
 			this.engines.delete(engineName);
@@ -108,23 +64,18 @@ export const useEngineAnalysisStore = defineStore("engineAnalysis", {
 		addAnalysisUpdate(engineName: string, update: AnalysisUpdate) {
 			const engine = this.engines.get(engineName);
 			if (engine) {
-				console.log("Analysis update", update);
-				engine.analysisUpdates.push({
-					...update,
-					timestamp: Date.now(),
-				});
+				EngineService.addAnalysisUpdate(engine, update);
+				// Setting an analysis update indicates the engine is still analyzing the current position
+				this.setEngineAnalyzing(engineName, true);
+				// It also means any "best move" is no longer valid
 			}
 		},
 		addBestMove(engineName: string, bestMove: BestMovePayload) {
 			const engine = this.engines.get(engineName);
 			if (engine) {
-				const bestMoveMove = bestMove[0];
-				const bestMovePonder = bestMove[1];
-				engine.bestMoves.push({
-					move: bestMoveMove,
-					ponder: bestMovePonder,
-					timestamp: Date.now(),
-				});
+				EngineService.addBestMove(engine, bestMove);
+				// Setting a best move indicates the engine is done analyzing the current position
+				this.setEngineAnalyzing(engineName, false);
 			}
 		},
 		addAnalysisListener(
@@ -145,11 +96,7 @@ export const useEngineAnalysisStore = defineStore("engineAnalysis", {
 		setEngineSettings(engineName: string, settings: EngineSettings) {
 			const engine = this.engines.get(engineName);
 			if (engine) {
-				// Apply all default option values
-				for (const [key, option] of Object.entries(settings)) {
-					settings[key] = { ...option, value: option.default };
-				}
-				engine.engineSettings = settings;
+				EngineService.updateEngineSettings(engine, settings);
 			} else {
 				console.warn("Engine not found", engineName);
 				this.initEngine(engineName);
@@ -167,26 +114,19 @@ export const useEngineAnalysisStore = defineStore("engineAnalysis", {
 		async loadEngine(name: string, path: string) {
 			if (this.engines.has(name)) return;
 			this.initEngine(name);
-			try {
-				await api.engines.POST.loadEngine(name, path);
-			} catch (error) {
-				const { handleEngineError } = useError();
-				handleEngineError(
-					"ENGINE_LOAD_ERROR",
-					`Failed to load engine ${name} from ${path}`,
-					{
-						metadata: { engineName: name, enginePath: path },
-					},
-				);
+			const result = await EngineService.loadEngine(name, path);
+			if (!result.success) {
 				this.removeEngine(name);
 			}
 		},
 		async unloadEngine(name: string) {
-			await api.engines.POST.unloadEngine(name);
-			this.removeEngine(name);
+			const result = await EngineService.unloadEngine(name);
+			if (result.success) {
+				this.removeEngine(name);
+			}
 		},
 		async setEngineOption(engineName: string, option: string, value: string) {
-			await invoke("set_engine_option", { engineName, option, value });
+			await EngineService.setEngineOption(engineName, option, value);
 		},
 		async updateEngineSettings(
 			engineName: string,
@@ -207,22 +147,26 @@ export const useEngineAnalysisStore = defineStore("engineAnalysis", {
 		) {
 			if (!this.engines.has(engineName))
 				throw new Error(`Engine ${engineName} not loaded`);
-			await api.engines.POST.analyzePosition(
+			const result = await EngineService.analyzePosition(
 				engineName,
 				fen,
 				depth ?? 20,
 				timeMs ?? 10000,
 			);
-			this.setEngineAnalyzing(engineName, true);
+			if (result.success) {
+				this.setEngineAnalyzing(engineName, true);
+			}
 		},
 		async stopAnalysis(engineName: string) {
 			if (!this.engines.has(engineName))
 				throw new Error(`Engine ${engineName} not loaded`);
-			await api.engines.POST.stopAnalysis(engineName);
-			this.setEngineAnalyzing(engineName, false);
+			const result = await EngineService.stopAnalysis(engineName);
+			if (result.success) {
+				this.setEngineAnalyzing(engineName, false);
+			}
 		},
 		async analyzeGame(engineName: string, gameId: number) {
-			await invoke("analyze_game", { engineName, gameId });
+			await EngineService.analyzeGame(engineName, gameId);
 		},
 	},
 });

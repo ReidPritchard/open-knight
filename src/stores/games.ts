@@ -1,13 +1,25 @@
 import { defineStore } from "pinia";
-import api from "../shared/api";
-import type {
-	ChessGame,
-	ChessPosition,
-	ChessTreeNode,
-	LegalMove,
-} from "../shared/bindings";
-import { useUIStore } from "./ui";
 import { useError } from "../composables/useError";
+import {
+	closeGameSession,
+	createGameSession,
+	deleteGame as deleteGameService,
+	getCurrentMove,
+	getCurrentPosition,
+	getTurnFromFen,
+	getValidMoves,
+	hasMultipleVariations,
+	jumpToMove,
+	loadGameSession,
+	makeMove,
+	navigateToEnd,
+	navigateToNextMove,
+	navigateToPreviousMove,
+	navigateToStart,
+	refreshGameState,
+	saveGameSession,
+} from "../services/GameService";
+import type { ChessGame } from "../shared/bindings";
 
 interface ActiveGameState {
 	id: number;
@@ -22,38 +34,6 @@ interface ActiveGameState {
 	isLoading: boolean;
 	error: string | null;
 }
-
-// Helper functions
-const getValidMoves = async (
-	position?: string,
-): Promise<LegalMove[] | null> => {
-	if (!position) return null;
-	try {
-		return await api.moves.GET.validMoves(position);
-	} catch (error) {
-		const { handleAPIError } = useError();
-		handleAPIError(error, "fetch valid moves", { position });
-		return null;
-	}
-};
-
-const getTurnFromFen = (fen: string): "white" | "black" | null => {
-	const turn = fen.split(" ")[1];
-	if (!turn) return null;
-	return turn === "w" ? "white" : "black";
-};
-
-const getCurrentPosition = (game: ChessGame): ChessPosition | null => {
-	const currentNodeId = game.move_tree.current_node_id?.idx ?? 0;
-	const currentNode = game.move_tree.nodes[currentNodeId];
-	return currentNode?.value?.position || null;
-};
-
-const getCurrentMove = (game: ChessGame): ChessTreeNode | null => {
-	const currentNodeId = game.move_tree.current_node_id?.idx ?? 0;
-	const currentNode = game.move_tree.nodes[currentNodeId];
-	return currentNode?.value || null;
-};
 
 /**
  * A store for managing the states of ALL open games using session-focused API
@@ -103,24 +83,17 @@ export const useGamesStore = defineStore("games", {
 			const gameState = this.activeGameMap.get(boardId);
 			if (!gameState) return;
 
-			try {
-				gameState.isLoading = true;
-				gameState.error = null;
+			gameState.isLoading = true;
+			gameState.error = null;
 
-				const updatedGame = await api.sessions.GET.get(boardId);
-				gameState.game = updatedGame;
-
-				console.log("Refreshed game state:", updatedGame);
-			} catch (error) {
-				const { handleAPIError } = useError();
-				handleAPIError(error, "refresh game state", { boardId });
-				gameState.error =
-					error instanceof Error
-						? error.message
-						: "Failed to refresh game state";
-			} finally {
-				gameState.isLoading = false;
+			const result = await refreshGameState(boardId);
+			if (result.success && result.data) {
+				gameState.game = result.data;
+			} else {
+				gameState.error = result.error || "Failed to refresh game state";
 			}
+
+			gameState.isLoading = false;
 		},
 
 		/**
@@ -130,20 +103,16 @@ export const useGamesStore = defineStore("games", {
 			boardId: number,
 			type: "standard" | "puzzle" | "960" = "standard",
 		): Promise<ActiveGameState | null> {
-			try {
-				// Close existing game if any
-				if (this.activeGameMap.has(boardId)) {
-					await this.closeGame(boardId);
-				}
+			// Close existing game if any
+			if (this.activeGameMap.has(boardId)) {
+				await this.closeGame(boardId);
+			}
 
-				// Create new session
-				const game = await api.sessions.POST.create(boardId, type);
-				console.log("New game session:", game);
-				console.log("Game Move Tree:", game.move_tree);
-
+			const result = await createGameSession(boardId, type);
+			if (result.success && result.data) {
 				const newGameState: ActiveGameState = {
-					id: game.id,
-					game: game,
+					id: result.data.id,
+					game: result.data.game,
 					hideEvaluationBar: false,
 					hideBestMove: false,
 					hideThreats: false,
@@ -153,22 +122,16 @@ export const useGamesStore = defineStore("games", {
 
 				this.activeGameMap.set(boardId, newGameState);
 				return newGameState;
-			} catch (error) {
-				const { handleAPIError } = useError();
-				handleAPIError(error, "create new game", { boardId, type });
-
-				// Set error state if board exists
-				const gameState = this.activeGameMap.get(boardId);
-				if (gameState) {
-					gameState.error =
-						error instanceof Error
-							? error.message
-							: "Failed to create new game";
-					gameState.isLoading = false;
-				}
-
-				return null;
 			}
+
+			// Set error state if board exists
+			const gameState = this.activeGameMap.get(boardId);
+			if (gameState) {
+				gameState.error = result.error || "Failed to create new game";
+				gameState.isLoading = false;
+			}
+
+			return null;
 		},
 
 		/**
@@ -178,20 +141,16 @@ export const useGamesStore = defineStore("games", {
 			gameId: number,
 			boardId: number,
 		): Promise<ActiveGameState | null> {
-			try {
-				// Close existing game if any
-				if (this.activeGameMap.has(boardId)) {
-					await this.closeGame(boardId);
-				}
+			// Close existing game if any
+			if (this.activeGameMap.has(boardId)) {
+				await this.closeGame(boardId);
+			}
 
-				// Load game into session
-				const game = await api.sessions.POST.load(gameId, boardId);
-				console.log("Opened game session:", game);
-				console.log("Game Move Tree:", game.move_tree);
-
+			const result = await loadGameSession(gameId, boardId);
+			if (result.success && result.data) {
 				const newGameState: ActiveGameState = {
-					id: gameId,
-					game: game,
+					id: result.data.id,
+					game: result.data.game,
 					hideEvaluationBar: false,
 					hideBestMove: false,
 					hideThreats: false,
@@ -201,36 +160,25 @@ export const useGamesStore = defineStore("games", {
 
 				this.activeGameMap.set(boardId, newGameState);
 				return newGameState;
-			} catch (error) {
-				const { handleAPIError } = useError();
-				handleAPIError(error, "open game", { gameId, boardId });
-
-				// Set error state if board exists
-				const gameState = this.activeGameMap.get(boardId);
-				if (gameState) {
-					gameState.error =
-						error instanceof Error ? error.message : "Failed to open game";
-					gameState.isLoading = false;
-				}
-
-				return null;
 			}
+
+			// Set error state if board exists
+			const gameState = this.activeGameMap.get(boardId);
+			if (gameState) {
+				gameState.error = result.error || "Failed to open game";
+				gameState.isLoading = false;
+			}
+
+			return null;
 		},
 
 		/**
 		 * Closes a game session
 		 */
 		async closeGame(boardId: number): Promise<void> {
-			try {
-				await api.sessions.POST.close(boardId);
-				this.activeGameMap.delete(boardId);
-				console.log("Closed game session:", boardId);
-			} catch (error) {
-				const { handleAPIError } = useError();
-				handleAPIError(error, "close game session", { boardId });
-				// Still remove from local state even if backend call fails
-				this.activeGameMap.delete(boardId);
-			}
+			await closeGameSession(boardId);
+			// Always remove from local state regardless of backend result
+			this.activeGameMap.delete(boardId);
 		},
 
 		/**
@@ -240,47 +188,19 @@ export const useGamesStore = defineStore("games", {
 			const gameState = this.activeGameMap.get(boardId);
 			if (!gameState) return false;
 
-			// Check if the move is new or already in the move tree
-			// as a 'next move'. If it already exists, we can just go to the next move.
-			// If it's new, add it and set the game as 'dirty'
-			const moveTree = gameState.game.move_tree;
-			const currentNode = moveTree.nodes[moveTree.current_node_id?.idx ?? 0];
-			const childrenNodes = currentNode?.value?.children_ids.map(
-				(childId) => moveTree.nodes[childId.idx],
-			);
-			const childNode = childrenNodes?.find((child) => {
-				return child.value?.game_move?.uci === moveNotation;
-			});
-			if (childNode) {
-				console.log("Move already exists, going to next move");
-				return this.nextMove(boardId);
-			}
+			gameState.isLoading = true;
+			gameState.error = null;
 
-			console.log("Move is new, adding to move tree");
-
-			try {
-				gameState.isLoading = true;
-				gameState.error = null;
-
-				console.log("Making move:", moveNotation);
-
-				const updatedGame = await api.sessions.POST.makeMove(
-					boardId,
-					moveNotation,
-				);
-				gameState.game = updatedGame;
-
-				console.log("Move made successfully:", updatedGame);
-				return true;
-			} catch (error) {
-				const { handleAPIError } = useError();
-				handleAPIError(error, "make move", { boardId, moveNotation });
-				gameState.error =
-					error instanceof Error ? error.message : "Failed to make move";
-				return false;
-			} finally {
+			const result = await makeMove(boardId, moveNotation, gameState.game);
+			if (result.success && result.data) {
+				gameState.game = result.data;
 				gameState.isLoading = false;
+				return true;
 			}
+
+			gameState.error = result.error || "Failed to make move";
+			gameState.isLoading = false;
+			return false;
 		},
 
 		/**
@@ -290,26 +210,19 @@ export const useGamesStore = defineStore("games", {
 			const gameState = this.activeGameMap.get(boardId);
 			if (!gameState) return false;
 
-			try {
-				gameState.isLoading = true;
-				gameState.error = null;
+			gameState.isLoading = true;
+			gameState.error = null;
 
-				const updatedGame = await api.sessions.POST.previousMove(boardId);
-				gameState.game = updatedGame;
-
-				console.log("Moved to previous position:", updatedGame);
-				return true;
-			} catch (error) {
-				const { handleAPIError } = useError();
-				handleAPIError(error, "go to previous move", { boardId });
-				gameState.error =
-					error instanceof Error
-						? error.message
-						: "Failed to go to previous move";
-				return false;
-			} finally {
+			const result = await navigateToPreviousMove(boardId);
+			if (result.success && result.data) {
+				gameState.game = result.data;
 				gameState.isLoading = false;
+				return true;
 			}
+
+			gameState.error = result.error || "Failed to go to previous move";
+			gameState.isLoading = false;
+			return false;
 		},
 
 		/**
@@ -320,13 +233,7 @@ export const useGamesStore = defineStore("games", {
 			if (!gameState) return false;
 
 			// Check if the current node has multiple children
-			const moveTree = gameState.game.move_tree;
-			const currentNode = moveTree.nodes[moveTree.current_node_id?.idx ?? 0];
-
-			if (
-				currentNode?.value?.children_ids?.length &&
-				currentNode.value.children_ids.length > 1
-			) {
+			if (hasMultipleVariations(gameState.game)) {
 				// create an alert to the user
 				const { handleGeneralError } = useError();
 				handleGeneralError(
@@ -338,27 +245,22 @@ export const useGamesStore = defineStore("games", {
 				);
 			}
 
-			try {
-				gameState.isLoading = true;
-				gameState.error = null;
+			gameState.isLoading = true;
+			gameState.error = null;
 
-				// TODO: Handle variations
-				// probably should be a UI component that prompts the user to select a variation
-				// or a dropdown menu that shows the variations
-				const updatedGame = await api.sessions.POST.nextMove(boardId);
-				gameState.game = updatedGame;
-
-				console.log("Moved to next position:", updatedGame);
-				return true;
-			} catch (error) {
-				const { handleAPIError } = useError();
-				handleAPIError(error, "go to next move", { boardId });
-				gameState.error =
-					error instanceof Error ? error.message : "Failed to go to next move";
-				return false;
-			} finally {
+			const result = await navigateToNextMove(boardId);
+			if (result.success && result.data) {
+				gameState.game = result.data;
 				gameState.isLoading = false;
+				return true;
 			}
+
+			const { handleAPIError } = useError();
+			handleAPIError(result.error, "go to next move", { boardId });
+			gameState.isLoading = false;
+			gameState.error = result.error || "Failed to go to next move";
+
+			return false;
 		},
 
 		/**
@@ -368,30 +270,20 @@ export const useGamesStore = defineStore("games", {
 			const gameState = this.activeGameMap.get(boardId);
 			if (!gameState) return false;
 
-			try {
-				gameState.isLoading = true;
-				gameState.error = null;
-
-				// TODO: Update api to return partial game state updates
-				// so we don't need to fetch the entire game state
-
-				await api.sessions.POST.jumpToMove(boardId, moveId);
-
-				// get the updated game state
-				const updatedGame = await api.sessions.GET.get(boardId);
-				gameState.game = updatedGame;
-
-				console.log("Jumped to move:", moveId, updatedGame);
-				return true;
-			} catch (error) {
-				const { handleAPIError } = useError();
-				handleAPIError(error, "jump to move", { boardId, moveId });
-				gameState.error =
-					error instanceof Error ? error.message : "Failed to jump to move";
-				return false;
-			} finally {
+			// TODO: Update api to return partial game state updates
+			// so we don't need to fetch the entire game state
+			const result = await jumpToMove(boardId, moveId);
+			if (result.success && result.data) {
+				gameState.game = result.data;
 				gameState.isLoading = false;
+				return true;
 			}
+
+			const { handleAPIError } = useError();
+			handleAPIError(result.error, "jump to move", { boardId, moveId });
+			gameState.isLoading = false;
+			gameState.error = result.error || "Failed to jump to move";
+			return false;
 		},
 
 		/**
@@ -401,15 +293,19 @@ export const useGamesStore = defineStore("games", {
 			const gameState = this.activeGameMap.get(boardId);
 			if (!gameState) return false;
 
-			// TODO: Update api to return partial game state updates
-			await api.sessions.POST.navigateToStart(boardId);
+			const result = await navigateToStart(boardId);
+			if (result.success && result.data) {
+				gameState.game = result.data;
+				gameState.isLoading = false;
+				return true;
+			}
 
-			// get the updated game state
-			const updatedGame = await api.sessions.GET.get(boardId);
-			gameState.game = updatedGame;
+			const { handleAPIError } = useError();
+			handleAPIError(result.error, "navigate to start", { boardId });
+			gameState.error = result.error || "Failed to navigate to start";
+			gameState.isLoading = false;
 
-			console.log("Navigated to start:", updatedGame);
-			return true;
+			return false;
 		},
 
 		/**
@@ -419,19 +315,18 @@ export const useGamesStore = defineStore("games", {
 			const gameState = this.activeGameMap.get(boardId);
 			if (!gameState) return false;
 
-			// Find the last move in the main line
-			const moveTree = gameState.game.move_tree;
-			if (!moveTree.nodes || moveTree.nodes.length === 0) return false;
+			const result = await navigateToEnd(boardId);
+			if (result.success && result.data) {
+				gameState.game = result.data;
+				gameState.isLoading = false;
+				return true;
+			}
 
-			// TODO: Update api to return partial game state updates
-			await api.sessions.POST.navigateToEnd(boardId);
-
-			// get the updated game state
-			const updatedGame = await api.sessions.GET.get(boardId);
-			gameState.game = updatedGame;
-
-			console.log("Navigated to end:", updatedGame);
-			return true;
+			const { handleAPIError } = useError();
+			handleAPIError(result.error, "navigate to end", { boardId });
+			gameState.error = result.error || "Failed to navigate to end";
+			gameState.isLoading = false;
+			return false;
 		},
 
 		/**
@@ -441,43 +336,39 @@ export const useGamesStore = defineStore("games", {
 			const gameState = this.activeGameMap.get(boardId);
 			if (!gameState) return null;
 
-			try {
-				gameState.isLoading = true;
-				gameState.error = null;
+			gameState.isLoading = true;
+			gameState.error = null;
 
-				const savedGameId = await api.sessions.POST.save(boardId, overwrite);
-
+			const result = await saveGameSession(boardId, overwrite);
+			if (result.success && result.data) {
 				// Update the game ID if it was a new save
 				if (!overwrite) {
-					gameState.id = savedGameId;
+					gameState.id = result.data;
 				}
-
-				console.log("Game saved with ID:", savedGameId);
-				return savedGameId;
-			} catch (error) {
-				const { handleAPIError } = useError();
-				handleAPIError(error, "save game", { boardId, overwrite });
-				gameState.error =
-					error instanceof Error ? error.message : "Failed to save game";
-				return null;
-			} finally {
 				gameState.isLoading = false;
+				return result.data;
 			}
+
+			gameState.error = result.error || "Failed to save game";
+			gameState.isLoading = false;
+			return null;
 		},
 
 		/**
 		 * Deletes a game from the database
 		 */
 		async deleteGame(gameId: number): Promise<boolean> {
-			try {
-				await api.games.POST.delete(gameId);
-				this.activeGameMap.delete(gameId);
+			const result = await deleteGameService(gameId);
+			if (result.success) {
+				// Remove any active sessions using this game
+				for (const [boardId, gameState] of this.activeGameMap.entries()) {
+					if (gameState.id === gameId) {
+						this.activeGameMap.delete(boardId);
+					}
+				}
 				return true;
-			} catch (error) {
-				const { handleAPIError } = useError();
-				handleAPIError(error, "delete game", { gameId });
-				return false;
 			}
+			return false;
 		},
 
 		/**

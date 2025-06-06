@@ -487,10 +487,10 @@ import {
 	PhTrash,
 } from "@phosphor-icons/vue";
 import { computed, ref, watch } from "vue";
+import { useError } from "../../composables/useError";
 import { ExplorerGame } from "../../shared/types";
 import { useGlobalStore } from "../../stores";
 import { ContextMenu, type MenuItem } from "../Layout/ContextMenu";
-import { useError } from "../../composables/useError";
 
 const globalStore = useGlobalStore();
 const uiStore = globalStore.uiStore;

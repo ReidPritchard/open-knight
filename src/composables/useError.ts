@@ -1,9 +1,9 @@
 import {
+	type ApplicationError,
+	ErrorCategory,
 	ErrorFactory,
 	ErrorHandler,
-	ErrorCategory,
 	ErrorSeverity,
-	type ApplicationError,
 } from "../services/ErrorService";
 
 /**
