@@ -1,0 +1,16 @@
+# Ignore Tauri backend
+src-tauri/
+
+# Ignore TypeScript environment declarations
+vite-env.d.ts
+
+# Ignore generated bindings (shouldn't be formatted)
+src/shared/bindings/
+
+# Standard ignores
+node_modules/
+dist/
+.git/
+
+# Build outputs
+*.tsbuildinfo 

@@ -391,6 +391,9 @@ impl ChessGame {
             return Err(AppError::ParseError("PGN string is empty".to_string()));
         }
 
+        // FIXME: There is a bug where a PGN with variations will only save up to the end of the first variation
+        // it finds. Need to check if it's the PGN parsing or the move tree saving that is the issue.
+
         println!("Parsing PGN games...");
         let chess_games = Self::from_pgn_games(pgn)
             .map_err(|e| AppError::ParseError(format!("Failed to parse PGN: {}", e)))?;

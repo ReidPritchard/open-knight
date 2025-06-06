@@ -1,45 +1,56 @@
 <template>
-  <div
-    class="flex items-center justify-center relative"
-    :class="{
-      'cursor-grab': canMove,
-    }"
-    :style="squareStyle"
-    @drop="$emit('drop')"
-    @dragover.prevent
-  >
-    <!-- Chess Piece -->
-    <img
-      v-if="piece"
-      :src="pieceImage"
-      class="select-none z-10"
-      :class="{ 'ring-2 ring-primary': isSelected }"
-      :style="`width: ${squareSize * 0.75}px; height: ${squareSize * 0.75}px;`"
-      :draggable="canMove"
-      @dragstart="$emit('dragStart')"
-      alt="Chess piece"
-    />
 
-    <!-- Valid Move Indicator -->
-    <div
-      v-if="isValidMove"
-      class="absolute bg-success/80 rounded-full z-20"
-      :style="`width: ${squareSize * 0.2}px; height: ${
-        squareSize * 0.2
-      }px; margin: auto;`"
-    ></div>
+	<div
+		class="flex items-center justify-center relative"
+		:class="{
+			'cursor-grab': canMove,
+		}"
+		:style="squareStyle"
+		@drop="$emit('drop')"
+		@dragover.prevent
+	>
 
-    <!-- Current Move Highlight -->
-    <div v-if="isHighlighted" class="absolute inset-0 bg-info/50 z-0"></div>
+		<!-- Chess Piece -->
 
-    <!-- Coordinates -->
-    <div
-      v-if="shouldDisplayCoordinate"
-      class="absolute bottom-0 left-1 text-xs text-base-content/80 font-bold z-0"
-    >
-      {{ coordinateText }}
-    </div>
-  </div>
+		<img
+			v-if="piece"
+			:src="pieceImage"
+			class="select-none z-10"
+			:class="{ 'ring-2 ring-primary': isSelected }"
+			:style="`width: ${squareSize * 0.75}px; height: ${squareSize * 0.75}px;`"
+			:draggable="canMove"
+			@dragstart="$emit('dragStart')"
+			alt="Chess piece"
+		/>
+
+		<!-- Valid Move Indicator -->
+
+		<div
+			v-if="isValidMove"
+			class="absolute bg-success/80 rounded-full z-20"
+			:style="`width: ${squareSize * 0.2}px; height: ${
+				squareSize * 0.2
+			}px; margin: auto;`"
+		></div>
+
+		<!-- Current Move Highlight -->
+
+		<div
+			v-if="isHighlighted"
+			class="absolute inset-0 bg-info/50 z-0"
+		></div>
+
+		<!-- Coordinates -->
+
+		<div
+			v-if="shouldDisplayCoordinate"
+			class="absolute bottom-0 left-1 text-xs text-base-content/80 font-bold z-0"
+		>
+			 {{ coordinateText }}
+		</div>
+
+	</div>
+
 </template>
 
 <script setup lang="ts">
@@ -107,3 +118,4 @@ const squareStyle = computed(() => ({
 	height: `${props.squareSize}px`,
 }));
 </script>
+

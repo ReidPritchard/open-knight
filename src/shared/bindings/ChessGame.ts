@@ -4,17 +4,4 @@ import type { ChessOpening } from "./ChessOpening";
 import type { ChessPlayer } from "./ChessPlayer";
 import type { ChessTournament } from "./ChessTournament";
 
-export type ChessGame = {
-	id: number;
-	white_player: ChessPlayer;
-	black_player: ChessPlayer;
-	tournament: ChessTournament | null;
-	opening: ChessOpening | null;
-	result: string;
-	round: number | null;
-	date: string;
-	move_tree: ChessMoveTree;
-	tags: Array<string>;
-	fen: string | null;
-	pgn: string | null;
-};
+export type ChessGame = { id: number, white_player: ChessPlayer, black_player: ChessPlayer, tournament: ChessTournament | null, opening: ChessOpening | null, result: string, round: number | null, date: string, move_tree: ChessMoveTree, tags: Array<string>, fen: string | null, pgn: string | null, };

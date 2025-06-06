@@ -9,7 +9,7 @@ import {
 	darkUIThemes,
 	lightUIThemes,
 } from "../shared/themes";
-import type { AlertToast } from "../shared/types";
+import type { AlertToast, BoardMetadata } from "../shared/types";
 
 // Layout configuration interface
 interface LayoutConfig {
@@ -78,10 +78,7 @@ export const useUIStore = defineStore("ui", {
 		// Multi-board support
 		activeBoardIds: [0] as number[],
 		activeBoardId: 0,
-		activeBoardMetadata: {} as Record<
-			number,
-			{ name?: string; hasUnsavedChanges?: boolean }
-		>,
+		activeBoardMetadata: {} as Record<number, BoardMetadata>,
 		nextBoardId: 1,
 
 		// Stacked panel states
@@ -251,6 +248,7 @@ export const useUIStore = defineStore("ui", {
 			} else {
 				this.activeBoardMetadata[boardId] = {
 					name: newName,
+					hasUnsavedChanges: false,
 				};
 			}
 			this.saveLayoutPreferences();
@@ -278,6 +276,20 @@ export const useUIStore = defineStore("ui", {
 				this.activeBoardIds.push(0);
 				this.activeBoardId = 0;
 			}
+		},
+
+		updateBoardMetadata(boardId: number, metadata: Partial<BoardMetadata>) {
+			if (!this.activeBoardMetadata[boardId]) {
+				this.activeBoardMetadata[boardId] = {
+					name: "",
+					hasUnsavedChanges: false,
+				};
+			}
+
+			this.activeBoardMetadata[boardId] = {
+				...this.activeBoardMetadata[boardId],
+				...metadata,
+			};
 		},
 
 		// Panel visibility

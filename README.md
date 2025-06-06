@@ -38,6 +38,7 @@
 <br />
 
 <!-- Table of Contents -->
+
 # Table of Contents
 
 <!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
@@ -64,9 +65,11 @@
 <!-- /code_chunk_output -->
 
 <!-- About the Project -->
+
 ## About the Project
 
 <!-- Screenshots -->
+
 ### Screenshots
 
 <div align="center">
@@ -74,6 +77,7 @@
 </div>
 
 <!-- TechStack -->
+
 ### Tech Stack
 
 <details>
@@ -102,6 +106,7 @@
 </details>
 
 <!-- Features -->
+
 ### Features
 
 - Import PGN files
@@ -117,14 +122,17 @@
 </small>
 
 <!-- Env Variables -->
+
 ### Environment Variables
 
 Currently no environment variables are used.
 
 <!-- Getting Started -->
+
 ## Getting Started
 
 <!-- Prerequisites -->
+
 ### Prerequisites
 
 This project uses `npm` as package manager.
@@ -132,6 +140,7 @@ This project uses `npm` as package manager.
 Tauri uses `rust` and `cargo` to build the application. Instructions for installing `rust` can be found [here](https://www.rust-lang.org/tools/install).
 
 <!-- Installation -->
+
 ### Run the project locally
 
 Clone the project
@@ -171,11 +180,13 @@ Run only the frontend
 ```
 
 <!-- Usage -->
+
 ## Usage
 
 The project is under active development and new features are being added frequently. Currently it's not recommended to use the application in a production environment or with data without backing up first.
 
 <!-- Roadmap (in no particular order) -->
+
 ## Roadmap
 
 Listed in no particular order and likely to change (also the checked items are not stable, I keep breaking things):
@@ -195,6 +206,7 @@ Listed in no particular order and likely to change (also the checked items are n
 - [ ] Openings support
 
 <!-- Contributing -->
+
 ## Contributing
 
 Contributions are always welcome!
@@ -202,11 +214,13 @@ Contributions are always welcome!
 See `contributing.md` for ways to get started.
 
 <!-- Code of Conduct -->
+
 ### Code of Conduct
 
 Please read the [Code of Conduct](https://github.com/reidpritchard/open-knight/blob/main/docs/CODE_OF_CONDUCT.md)
 
 <!-- FAQ -->
+
 ## FAQ
 
 - Does this project support X feature?
@@ -218,6 +232,7 @@ Please read the [Code of Conduct](https://github.com/reidpritchard/open-knight/b
   - Any contributions are welcome! See the [Contributing](https://github.com/reidpritchard/open-knight/blob/main/CONTRIBUTING.md) section for more information.
 
 <!-- License -->
+
 ## License
 
 The project uses the [PolyForm Noncommercial 1.0.0 License](https://github.com/reidpritchard/open-knight/blob/main/docs/LICENSE.md). See the license file for more information.
@@ -228,6 +243,7 @@ I chose this license because I want to keep the project open source, but also wa
 </details>
 
 <!-- Contact -->
+
 ## Contact
 
 Reid Pritchard - [@reidpritchard](https://github.com/reidpritchard) - <reidprichard99@gmail.com>
@@ -235,6 +251,7 @@ Reid Pritchard - [@reidpritchard](https://github.com/reidpritchard) - <reidprich
 Project Link: [https://github.com/reidpritchard/open-knight](https://github.com/reidpritchard/open-knight)
 
 <!-- Acknowledgments -->
+
 ## Acknowledgements
 
 - [Shields.io](https://shields.io/)

@@ -1,53 +1,61 @@
 <template>
-  <div
-    :class="[
-      'relative overflow-hidden bg-base-100',
-      direction === 'horizontal' ? 'w-full h-8' : 'h-full w-8',
-      'border-2 border-base-300 rounded-sm',
-    ]"
-  >
-    <!-- White advantage bar (fills from left/bottom) -->
-    <div
-      :class="[
-        'absolute',
-        direction === 'horizontal' ? 'h-full left-1/2' : 'w-full bottom-1/2',
-		orientation === 'white' ? 'bg-white' : 'bg-black',
-      ]"
-      :style="whiteBarStyle"
-    ></div>
 
-    <!-- Black advantage bar (fills from right/top) -->
-    <div
-      :class="[
-        'absolute',
-        direction === 'horizontal' ? 'h-full right-1/2' : 'w-full top-1/2',
-		orientation === 'white' ? 'bg-black' : 'bg-white',
-      ]"
-      :style="blackBarStyle"
-    ></div>
+	<div
+		:class="[
+			'relative overflow-hidden bg-base-100',
+			direction === 'horizontal' ? 'w-full h-8' : 'h-full w-8',
+			'border-2 border-base-300 rounded-sm',
+		]"
+	>
 
-    <!-- Center line -->
-    <div
-      :class="[
-        'absolute bg-base-300',
-        direction === 'horizontal'
-          ? 'h-full w-px left-1/2 -translate-x-1/2'
-          : 'w-full h-px top-1/2 -translate-y-1/2',
-      ]"
-    ></div>
+		<!-- White advantage bar (fills from left/bottom) -->
 
-    <!-- Evaluation text -->
-    <div
-      :class="[
-        'absolute text-xs font-bold text-base-content flex items-center justify-center bg-base-100',
-        direction === 'horizontal'
-          ? 'h-full px-1 left-1/2 -translate-x-1/2'
-          : 'w-full py-1 top-1/2 -translate-y-1/2',
-      ]"
-    >
-      {{ barText }}
-    </div>
-  </div>
+		<div
+			:class="[
+				'absolute',
+				direction === 'horizontal' ? 'h-full left-1/2' : 'w-full bottom-1/2',
+				orientation === 'white' ? 'bg-white' : 'bg-black',
+			]"
+			:style="whiteBarStyle"
+		></div>
+
+		<!-- Black advantage bar (fills from right/top) -->
+
+		<div
+			:class="[
+				'absolute',
+				direction === 'horizontal' ? 'h-full right-1/2' : 'w-full top-1/2',
+				orientation === 'white' ? 'bg-black' : 'bg-white',
+			]"
+			:style="blackBarStyle"
+		></div>
+
+		<!-- Center line -->
+
+		<div
+			:class="[
+				'absolute bg-base-300',
+				direction === 'horizontal'
+					? 'h-full w-px left-1/2 -translate-x-1/2'
+					: 'w-full h-px top-1/2 -translate-y-1/2',
+			]"
+		></div>
+
+		<!-- Evaluation text -->
+
+		<div
+			:class="[
+				'absolute text-xs font-bold text-base-content flex items-center justify-center bg-base-100',
+				direction === 'horizontal'
+					? 'h-full px-1 left-1/2 -translate-x-1/2'
+					: 'w-full py-1 top-1/2 -translate-y-1/2',
+			]"
+		>
+			 {{ barText }}
+		</div>
+
+	</div>
+
 </template>
 
 <script setup lang="ts">
@@ -151,3 +159,4 @@ const blackBarStyle = computed(() => {
 	return { height: size };
 });
 </script>
+

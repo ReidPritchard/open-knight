@@ -1,123 +1,173 @@
 <template>
-  <div
-    class="relative"
-    :style="`width: ${squareSizePixels * 8}px; height: ${
-      squareSizePixels * 8
-    }px;`"
-  >
-    <!-- Chess Board Grid -->
-    <div
-      class="grid grid-rows-8 grid-flow-col transition-all duration-100 w-full h-full"
-      :class="{ 'rotate-180': isBoardFlipped }"
-    >
-      <div v-for="row in 8" :key="row - 1" class="flex">
-        <ChessBoardSquare
-          v-for="col in 8"
-          :key="col - 1"
-          :row="row - 1"
-          :col="col - 1"
-          :square-size="squareSizePixels"
-          :piece="getPieceAtCoords(row - 1, col - 1)"
-          :piece-image="
-            getPieceImagePath(getPieceAtCoords(row - 1, col - 1) ?? '')
-          "
-          :can-move="canMovePiece(row - 1, col - 1)"
-          :is-selected="isSquareSelected(row - 1, col - 1)"
-          :is-valid-move="isValidMoveTarget(row - 1, col - 1)"
-          :is-highlighted="isPartOfCurrentMove(row - 1, col - 1)"
-          :is-board-flipped="isBoardFlipped"
-          :board-theme="boardTheme"
-          :class="{ 'rotate-180': isBoardFlipped, 'rotate-0': !isBoardFlipped }"
-          @drop="handleDrop(row - 1, col - 1)"
-          @click="handleSquareClick($event, row - 1, col - 1)"
-          @contextmenu.prevent="
-            handleSquareContextMenu($event, row - 1, col - 1)
-          "
-          @drag-start="handleDragStart(row - 1, col - 1)"
-        />
-      </div>
-    </div>
 
-    <!-- Annotation Arrow -->
-    <div
-      v-if="arrowCoordinates"
-      class="absolute inset-0 pointer-events-none"
-      @contextmenu.prevent
-    >
-      <AnnotationArrow
-        :from="arrowCoordinates.from"
-        :to="arrowCoordinates.to"
-        :options="{ color: 'yellow', size: 5 }"
-      />
-    </div>
+	<div
+		class="relative"
+		:style="`width: ${squareSizePixels * 8}px; height: ${
+			squareSizePixels * 8
+		}px;`"
+	>
 
-    <!-- Temporary Annotation Arrows (user-created, not saved) -->
-    <div
-      v-if="temporaryAnnotations.length > 0"
-      v-for="(annotation, index) in temporaryAnnotations"
-      class="absolute inset-0 pointer-events-none"
-      @contextmenu.prevent
-    >
-      <AnnotationArrow
-        :key="`temp-${index}`"
-        :from="annotation.coordinates.from"
-        :to="annotation.coordinates.to"
-        :options="annotation.options"
-      />
-    </div>
+		<!-- Chess Board Grid -->
 
-    <!-- Active Arrow Being Drawn (real-time feedback during drag) -->
-    <div v-if="activeArrow" class="absolute inset-0" @contextmenu.prevent>
-      <AnnotationArrow
-        :from="activeArrow.from"
-        :to="activeArrow.to"
-        :options="activeArrow.options"
-      />
-    </div>
-  </div>
+		<div
+			class="grid grid-rows-8 grid-flow-col transition-all duration-100 w-full h-full"
+			:class="{ 'rotate-180': isBoardFlipped }"
+		>
 
-  <!-- Move Navigation -->
-  <div class="flex flex-row items-center justify-center mt-4">
-    <div class="join">
-      <button
-        class="join-item btn"
-        :disabled="!currentMove"
-        @click="handlePreviousMove"
-      >
-        <PhArrowLeft />
-      </button>
-      <span class="label join-item px-8 w-40">
-        {{ formatCurrentMove }}
-      </span>
-      <button
-        class="join-item btn"
-        :disabled="!hasNextMove"
-        @click="handleNextMove"
-      >
-        <PhArrowRight />
-      </button>
-    </div>
+			<div
+				v-for="row in 8"
+				:key="row - 1"
+				class="flex"
+			>
 
-    <!-- Rotate Board -->
-    <button class="btn btn-sm ml-4" @click="rotateBoard">
-      <PhArrowsClockwise size="16" />
-    </button>
+				<ChessBoardSquare
+					v-for="col in 8"
+					:key="col - 1"
+					:row="row - 1"
+					:col="col - 1"
+					:square-size="squareSizePixels"
+					:piece="getPieceAtCoords(row - 1, col - 1)"
+					:piece-image="
+						getPieceImagePath(getPieceAtCoords(row - 1, col - 1) ?? '')
+					"
+					:can-move="canMovePiece(row - 1, col - 1)"
+					:is-selected="isSquareSelected(row - 1, col - 1)"
+					:is-valid-move="isValidMoveTarget(row - 1, col - 1)"
+					:is-highlighted="isPartOfCurrentMove(row - 1, col - 1)"
+					:is-board-flipped="isBoardFlipped"
+					:board-theme="boardTheme"
+					:class="{ 'rotate-180': isBoardFlipped, 'rotate-0': !isBoardFlipped }"
+					@drop="handleDrop(row - 1, col - 1)"
+					@click="handleSquareClick($event, row - 1, col - 1)"
+					@contextmenu.prevent="
+						handleSquareContextMenu($event, row - 1, col - 1)
+					"
+					@drag-start="handleDragStart(row - 1, col - 1)"
+				/>
 
-    <!-- Resize Board (drag to resize) -->
-    <div class="ml-4 cursor-ew-resize" @mousedown="startResize">
-      <PhArrowsOutLineHorizontal size="16" />
-    </div>
+			</div>
 
-    <!-- Clear Annotations -->
-    <button
-      v-if="temporaryAnnotations.length > 0"
-      class="btn btn-sm ml-4"
-      @click="clearAnnotations"
-      title="Clear annotations (Escape)"
-    >
-      <PhX size="16" />
-    </button>
-  </div>
+		</div>
+
+		<!-- Annotation Arrow -->
+
+		<div
+			v-if="arrowCoordinates"
+			class="absolute inset-0 pointer-events-none"
+			@contextmenu.prevent
+		>
+
+			<AnnotationArrow
+				:from="arrowCoordinates.from"
+				:to="arrowCoordinates.to"
+				:options="{ color: 'yellow', size: 5 }"
+			/>
+
+		</div>
+
+		<!-- Temporary Annotation Arrows (user-created, not saved) -->
+
+		<div
+			v-if="temporaryAnnotations.length > 0"
+			v-for="(annotation, index) in temporaryAnnotations"
+			class="absolute inset-0 pointer-events-none"
+			@contextmenu.prevent
+		>
+
+			<AnnotationArrow
+				:key="`temp-${index}`"
+				:from="annotation.coordinates.from"
+				:to="annotation.coordinates.to"
+				:options="annotation.options"
+			/>
+
+		</div>
+
+		<!-- Active Arrow Being Drawn (real-time feedback during drag) -->
+
+		<div
+			v-if="activeArrow"
+			class="absolute inset-0"
+			@contextmenu.prevent
+		>
+
+			<AnnotationArrow
+				:from="activeArrow.from"
+				:to="activeArrow.to"
+				:options="activeArrow.options"
+			/>
+
+		</div>
+
+	</div>
+
+	<!-- Move Navigation -->
+
+	<div class="flex flex-row items-center justify-center mt-4">
+
+		<div class="join">
+
+			<button
+				class="join-item btn"
+				:disabled="!currentMove"
+				@click="handlePreviousMove"
+			>
+
+				<PhArrowLeft />
+
+			</button>
+
+			<span class="label join-item px-8 w-40"> {{ formatCurrentMove }} </span>
+
+			<button
+				class="join-item btn"
+				:disabled="!hasNextMove"
+				@click="handleNextMove"
+			>
+
+				<PhArrowRight />
+
+			</button>
+
+		</div>
+
+		<!-- Rotate Board -->
+
+		<button
+			class="btn btn-sm ml-4"
+			@click="rotateBoard"
+		>
+
+			<PhArrowsClockwise size="16" />
+
+		</button>
+
+		<!-- Resize Board (drag to resize) -->
+
+		<div
+			class="ml-4 cursor-ew-resize"
+			@mousedown="startResize"
+		>
+
+			<PhArrowsOutLineHorizontal size="16" />
+
+		</div>
+
+		<!-- Clear Annotations -->
+
+		<button
+			v-if="temporaryAnnotations.length > 0"
+			class="btn btn-sm ml-4"
+			@click="clearAnnotations"
+			title="Clear annotations (Escape)"
+		>
+
+			<PhX size="16" />
+
+		</button>
+
+	</div>
+
 </template>
 
 <script setup lang="ts">
@@ -152,6 +202,7 @@ import {
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import api from "../../shared/api";
 import { useGlobalStore } from "../../stores/";
+import { useError } from "../../composables/useError";
 import AnnotationArrow from "../AnnotationArrow/AnnotationArrow.vue";
 import ChessBoardSquare from "./ChessBoardSquare.vue";
 import {
@@ -207,7 +258,8 @@ watch(
 			try {
 				validMoves.value = await api.moves.GET.validMoves(newPosition.fen);
 			} catch (error) {
-				console.error("Failed to fetch valid moves:", error);
+				const { handleAPIError } = useError();
+				handleAPIError(error, "fetch valid moves", { fen: newPosition.fen });
 				validMoves.value = null;
 			}
 		} else {
@@ -514,11 +566,15 @@ async function handleDrop(row: number, col: number) {
 	try {
 		await gamesStore.makeMove(props.boardId, moveNotation);
 		gamesStore.nextMove(props.boardId);
-		globalStore.uiStore.activeBoardMetadata[props.boardId].hasUnsavedChanges =
-			true;
+		globalStore.uiStore.updateBoardMetadata(props.boardId, {
+			hasUnsavedChanges: true,
+		});
 	} catch (error) {
-		console.error("Error making move:", error);
-		emit("error", error instanceof Error ? error : new Error(String(error)));
+		const { handleAPIError } = useError();
+		handleAPIError(error, "make move", {
+			boardId: props.boardId,
+			moveNotation,
+		});
 	} finally {
 		// Reset selection regardless of success/failure
 		selectedPiece.value = null;
@@ -789,3 +845,4 @@ http://commons.wikimedia.org/wiki/Template:SVG_chess_pieces
 CC BY-SA 3.0
 Link: https://commons.wikimedia.org/w/index.php?curid=35634436
 -->
+

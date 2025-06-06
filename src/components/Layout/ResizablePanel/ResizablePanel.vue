@@ -1,35 +1,51 @@
 <template>
-  <div
-    class="relative flex overflow-hidden"
-    :class="[direction === 'horizontal' ? 'flex-row' : 'flex-col']"
-    :style="containerStyle"
-  >
-    <!-- Panel Content - Layout container manages overflow -->
-    <div class="flex-1 min-h-0 min-w-0 overflow-auto flex flex-col">
-      <slot />
-    </div>
 
-    <!-- Resize Handle -->
-    <div
-      v-if="!isCollapsed"
-      :class="handleClasses"
-      @mousedown="startResize"
-      @dblclick="toggleCollapse"
-    >
-      <div :class="handleBarClasses"></div>
-    </div>
+	<div
+		class="relative flex overflow-hidden"
+		:class="[direction === 'horizontal' ? 'flex-row' : 'flex-col']"
+		:style="containerStyle"
+	>
 
-    <!-- Collapse/Expand Button -->
-    <button
-      v-if="collapsible"
-      class="absolute z-10 btn btn-xs btn-ghost"
-      :class="collapseButtonClasses"
-      @click="toggleCollapse"
-      :title="isCollapsed ? 'Expand panel' : 'Collapse panel'"
-    >
-      <component :is="collapseIcon" class="w-3 h-3" />
-    </button>
-  </div>
+		<!-- Panel Content - Layout container manages overflow -->
+
+		<div class="flex-1 min-h-0 min-w-0 overflow-auto flex flex-col">
+
+			<slot />
+
+		</div>
+
+		<!-- Resize Handle -->
+
+		<div
+			v-if="!isCollapsed"
+			:class="handleClasses"
+			@mousedown="startResize"
+			@dblclick="toggleCollapse"
+		>
+
+			<div :class="handleBarClasses"></div>
+
+		</div>
+
+		<!-- Collapse/Expand Button -->
+
+		<button
+			v-if="collapsible"
+			class="absolute z-10 btn btn-xs btn-ghost"
+			:class="collapseButtonClasses"
+			@click="toggleCollapse"
+			:title="isCollapsed ? 'Expand panel' : 'Collapse panel'"
+		>
+
+			<component
+				:is="collapseIcon"
+				class="w-3 h-3"
+			/>
+
+		</button>
+
+	</div>
+
 </template>
 
 <script setup lang="ts">
@@ -224,3 +240,4 @@ onUnmounted(() => {
   opacity: 0.5;
 }
 </style>
+

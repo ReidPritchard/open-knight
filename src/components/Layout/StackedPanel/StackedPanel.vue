@@ -1,49 +1,82 @@
 <template>
-  <div class="flex flex-col h-full overflow-hidden bg-base-300">
-    <!-- Tab Mode -->
-    <div v-if="mode === 'tabs'" class="flex flex-col flex-1 min-h-0">
-      <!-- DaisyUI Tabs -->
-      <div class="tabs tabs-bordered overflow-hidden flex-1">
-        <template v-for="section in sections" :key="section.id">
-          <input
-            type="radio"
-            :name="`${props.name}-tab`"
-            class="tab"
-            :aria-label="section.title"
-            @keydown="handleKeyDown"
-            @change="setActiveTab(section.id)"
-            :checked="activeTabId === section.id"
-            :class="{
-              'tab-active': activeTabId === section.id,
-              'tab-disabled': section.disabled,
-            }"
-          />
-          <div
-            class="tab-content border-base-300 bg-base-100 min-h-0 overflow-auto hidden"
-            :class="{
-              // Display flex if the section is active
-              'flex flex-col': activeTabId === section.id,
-            }"
-          >
-            <slot :name="section.id" :section="section" />
-          </div>
-        </template>
-      </div>
-    </div>
 
-    <!-- Accordion Mode -->
-    <div
-      v-else-if="mode === 'accordion'"
-      class="flex-1 min-h-0 flex flex-col overflow-auto"
-    >
-      <slot />
-    </div>
+	<div class="flex flex-col h-full overflow-hidden bg-base-300">
 
-    <!-- Vertical Mode -->
-    <div v-else class="flex-1 min-h-0 flex flex-col overflow-auto">
-      <slot />
-    </div>
-  </div>
+		<!-- Tab Mode -->
+
+		<div
+			v-if="mode === 'tabs'"
+			class="flex flex-col flex-1 min-h-0"
+		>
+
+			<!-- DaisyUI Tabs -->
+
+			<div class="tabs tabs-bordered overflow-hidden flex-1">
+
+				<template
+					v-for="section in sections"
+					:key="section.id"
+				>
+
+					<input
+						type="radio"
+						:name="`${props.name}-tab`"
+						class="tab"
+						:aria-label="section.title"
+						@keydown="handleKeyDown"
+						@change="setActiveTab(section.id)"
+						:checked="activeTabId === section.id"
+						:class="{
+							'tab-active': activeTabId === section.id,
+							'tab-disabled': section.disabled,
+						}"
+					/>
+
+					<div
+						class="tab-content border-base-300 bg-base-100 min-h-0 overflow-auto hidden"
+						:class="{
+							// Display flex if the section is active
+							'flex flex-col': activeTabId === section.id,
+						}"
+					>
+
+						<slot
+							:name="section.id"
+							:section="section"
+						/>
+
+					</div>
+
+				</template>
+
+			</div>
+
+		</div>
+
+		<!-- Accordion Mode -->
+
+		<div
+			v-else-if="mode === 'accordion'"
+			class="flex-1 min-h-0 flex flex-col overflow-auto"
+		>
+
+			<slot />
+
+		</div>
+
+		<!-- Vertical Mode -->
+
+		<div
+			v-else
+			class="flex-1 min-h-0 flex flex-col overflow-auto"
+		>
+
+			<slot />
+
+		</div>
+
+	</div>
+
 </template>
 
 <script setup lang="ts">
@@ -209,3 +242,4 @@ defineExpose({
 	loadState,
 });
 </script>
+

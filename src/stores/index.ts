@@ -5,6 +5,7 @@ import { useEngineAnalysisStore } from "./engineAnalysis";
 import { useGamesStore } from "./games";
 import { useSettingsStore } from "./settings";
 import { useUIStore } from "./ui";
+import { useError } from "../composables/useError";
 
 export const useGlobalStore = defineStore("global", {
 	state: () => ({
@@ -51,14 +52,19 @@ export const useGlobalStore = defineStore("global", {
 			await this.fetchExplorerGames();
 		},
 		async analyzeCurrentPosition(engineName: string, boardId: number) {
+			const { handleGeneralError } = useError();
 			const boardGame = this.gamesStore.activeGameMap.get(boardId);
 			if (!boardGame) {
-				console.error("No board game found");
+				handleGeneralError("UNEXPECTED", "No board game found", {
+					metadata: { boardId },
+				});
 				return;
 			}
 			const currentPosition = this.gamesStore.getCurrentPosition(boardId);
 			if (!currentPosition) {
-				console.error("No FEN found for current position");
+				handleGeneralError("UNEXPECTED", "No FEN found for current position", {
+					metadata: { boardId },
+				});
 				return;
 			}
 			await api.engines.POST.analyzePosition(

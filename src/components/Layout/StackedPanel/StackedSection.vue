@@ -1,81 +1,117 @@
 <template>
-  <div
-    class="border-b border-base-200 last:border-b-0"
-    :class="sectionSizeClasses"
-  >
-    <!-- Section Header -->
-    <div
-      class="flex items-center justify-between p-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors"
-      :class="[
-        headerVariantClasses,
-        headerSizeClasses,
-        collapsible ? 'cursor-pointer hover:bg-base-100' : '',
-        headerClass,
-      ]"
-      @click="toggleCollapse"
-      :tabindex="collapsible ? 0 : -1"
-      @keydown.enter="toggleCollapse"
-      @keydown.space.prevent="toggleCollapse"
-    >
-      <div class="flex items-center gap-2 flex-1 min-w-0">
-        <!-- Icon -->
-        <component
-          v-if="icon"
-          :is="icon"
-          class="w-4 h-4 flex-shrink-0"
-          :class="iconClasses"
-        />
 
-        <!-- Title -->
-        <h3 class="font-medium truncate" :class="titleClasses">
-          {{ title }}
-        </h3>
+	<div
+		class="border-b border-base-200 last:border-b-0"
+		:class="sectionSizeClasses"
+	>
 
-        <!-- Badge -->
-        <div v-if="badge" class="badge badge-xs" :class="badgeClasses">
-          {{ badge }}
-        </div>
-      </div>
+		<!-- Section Header -->
 
-      <!-- Header Actions -->
-      <div class="flex items-center gap-1">
-        <slot name="header-actions" />
+		<div
+			class="flex items-center justify-between p-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors"
+			:class="[
+				headerVariantClasses,
+				headerSizeClasses,
+				collapsible ? 'cursor-pointer hover:bg-base-100' : '',
+				headerClass,
+			]"
+			@click="toggleCollapse"
+			:tabindex="collapsible ? 0 : -1"
+			@keydown.enter="toggleCollapse"
+			@keydown.space.prevent="toggleCollapse"
+		>
 
-        <!-- Collapse Toggle -->
-        <button
-          v-if="collapsible"
-          class="btn btn-ghost btn-xs p-1"
-          @click.stop="toggleCollapse"
-          :title="isCollapsed ? 'Expand section' : 'Collapse section'"
-        >
-          <component
-            :is="collapseIcon"
-            class="w-3 h-3 transition-transform duration-200"
-            :class="{ 'rotate-180': isCollapsed }"
-          />
-        </button>
-      </div>
-    </div>
+			<div class="flex items-center gap-2 flex-1 min-w-0">
 
-    <!-- Section Content -->
-    <Transition
-      name="section-collapse"
-      @enter="onEnter"
-      @after-enter="onAfterEnter"
-      @leave="onLeave"
-      @after-leave="onAfterLeave"
-    >
-      <div v-show="!isCollapsed" class="overflow-hidden" :class="contentClass">
-        <div
-          class="flex-1 min-h-0"
-          :class="[textSizeClasses]"
-          :style="contentStyle"
-        >
-          <slot />
-        </div>
-      </div>
-    </Transition>
-  </div>
+				<!-- Icon -->
+
+				<component
+					v-if="icon"
+					:is="icon"
+					class="w-4 h-4 flex-shrink-0"
+					:class="iconClasses"
+				/>
+
+				<!-- Title -->
+
+				<h3
+					class="font-medium truncate"
+					:class="titleClasses"
+				>
+					 {{ title }}
+				</h3>
+
+				<!-- Badge -->
+
+				<div
+					v-if="badge"
+					class="badge badge-xs"
+					:class="badgeClasses"
+				>
+					 {{ badge }}
+				</div>
+
+			</div>
+
+			<!-- Header Actions -->
+
+			<div class="flex items-center gap-1">
+
+				<slot name="header-actions" />
+
+				<!-- Collapse Toggle -->
+
+				<button
+					v-if="collapsible"
+					class="btn btn-ghost btn-xs p-1"
+					@click.stop="toggleCollapse"
+					:title="isCollapsed ? 'Expand section' : 'Collapse section'"
+				>
+
+					<component
+						:is="collapseIcon"
+						class="w-3 h-3 transition-transform duration-200"
+						:class="{ 'rotate-180': isCollapsed }"
+					/>
+
+				</button>
+
+			</div>
+
+		</div>
+
+		<!-- Section Content -->
+
+		<Transition
+			name="section-collapse"
+			@enter="onEnter"
+			@after-enter="onAfterEnter"
+			@leave="onLeave"
+			@after-leave="onAfterLeave"
+		>
+
+			<div
+				v-show="!isCollapsed"
+				class="overflow-hidden"
+				:class="contentClass"
+			>
+
+				<div
+					class="flex-1 min-h-0"
+					:class="[textSizeClasses]"
+					:style="contentStyle"
+				>
+
+					<slot />
+
+				</div>
+
+			</div>
+
+		</Transition>
+
+	</div>
+
 </template>
 
 <script setup lang="ts">
@@ -228,3 +264,4 @@ defineExpose({
   height: 0;
 }
 </style>
+

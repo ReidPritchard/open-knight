@@ -1,4 +1,3 @@
-
 # Contributing
 
 We love pull requests from everyone. By participating in this project, you
@@ -26,7 +25,7 @@ At this point you're waiting on us. I like to at least comment on pull requests 
 
 Some things that will speed up the process:
 
-* Create an issue before starting work on a new feature!!
-* Keep your PR focused on a single issue. Small PRs move much faster.
-* Write tests for your changes. Once we get to a release candidate, I'll likely require tests for all changes.
-* Link to any relevant issues in your PR description.
+- Create an issue before starting work on a new feature!!
+- Keep your PR focused on a single issue. Small PRs move much faster.
+- Write tests for your changes. Once we get to a release candidate, I'll likely require tests for all changes.
+- Link to any relevant issues in your PR description.

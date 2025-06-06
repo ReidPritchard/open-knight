@@ -10,9 +10,7 @@
 		"ignore": ["src-tauri", "vite-env.d.ts"]
 	},
 	"formatter": {
-		"enabled": true,
-		"indentStyle": "tab",
-		"attributePosition": "multiline"
+		"enabled": false
 	},
 	"organizeImports": {
 		"enabled": true
@@ -23,21 +21,11 @@
 			"recommended": true
 		}
 	},
-	"javascript": {
-		"formatter": {
-			"quoteStyle": "double",
-			"trailingCommas": "all",
-			"attributePosition": "multiline",
-			"quoteProperties": "preserve"
-		}
-	},
+	"javascript": {},
 	"json": {
 		"parser": {
 			"allowComments": true,
 			"allowTrailingCommas": true
-		},
-		"formatter": {
-			"trailingCommas": "all"
 		}
 	},
 	"overrides": [
@@ -47,17 +35,6 @@
 				"parser": {
 					"allowComments": false,
 					"allowTrailingCommas": false
-				},
-				"formatter": {
-					"trailingCommas": "none"
-				}
-			}
-		},
-		{
-			"include": ["src/shared/bindings/**/*"],
-			"javascript": {
-				"formatter": {
-					"enabled": false
 				}
 			}
 		},

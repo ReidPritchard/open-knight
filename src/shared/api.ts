@@ -111,16 +111,11 @@ export default {
 				boardId: number,
 				variant: "standard" | "puzzle" | "960" = "standard",
 			): Promise<ChessGame> => {
-				try {
-					const response = await invoke<string>("create_session", {
-						boardId,
-						variant,
-					});
-					return JSON.parse(response);
-				} catch (error) {
-					console.error("Error creating new game:", error);
-					throw error;
-				}
+				const response = await invoke<string>("create_session", {
+					boardId,
+					variant,
+				});
+				return JSON.parse(response);
 			},
 
 			/**

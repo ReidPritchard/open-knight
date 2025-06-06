@@ -1,129 +1,175 @@
 <template>
-  <div
-    class="h-screen w-screen max-h-screen max-w-screen flex flex-col select-none"
-  >
-    <Navbar
-      v-model:importModalOpen="importModalOpen"
-      @newGame="newGameClick"
-      @refreshGames="refreshGamesClick"
-      @resetDatabase="resetDatabaseClick"
-    />
 
-    <!-- Main Layout with Resizable Split Panes -->
-    <main class="flex-1 min-h-0 min-w-0 overflow-auto flex flex-row">
-      <!-- Left Panel (Game Library) -->
-      <ResizablePanel
-        v-if="displayLeftPanel"
-        :initial-size="layout.leftPanelWidth"
-        :min-size="200"
-        :max-size="600"
-        direction="horizontal"
-        @resize="updateLeftPanelWidth"
-        class="border-r border-base-300"
-      >
-        <StackedPanel
-          name="leftPanel"
-          mode="accordion"
-          @section-toggle="handleLeftPanelSectionToggle"
-        >
-          <StackedSection
-            title="Game Library"
-            :icon="PhBooks"
-            :collapsed="isLeftPanelSectionCollapsed('gameLibrary')"
-            @toggle="toggleLeftPanelSection('gameLibrary', $event)"
-            :min-height="400"
-          >
-            <GameLibrary />
-          </StackedSection>
-        </StackedPanel>
-      </ResizablePanel>
+	<div
+		class="h-screen w-screen max-h-screen max-w-screen flex flex-col select-none"
+	>
 
-      <!-- Center Content Area -->
-      <div class="flex-1 flex flex-col">
-        <!-- Board Tabs (Multi-board support) -->
-        <BoardTabs
-          :boards="activeBoardIds"
-          :active-board="activeBoardId"
-          :board-metadata="uiStore.getActiveBoardMetadata"
-          @create-board="createNewBoard"
-          @switch-board="setActiveBoardId"
-          @close-board="closeBoardTab"
-          @rename-board="renameBoard"
-          @save-board="saveBoard"
-          class="border-b border-base-300"
-        />
+		<Navbar
+			v-model:importModalOpen="importModalOpen"
+			@newGame="newGameClick"
+			@refreshGames="refreshGamesClick"
+			@resetDatabase="resetDatabaseClick"
+		/>
 
-        <!-- Board and Engine Split -->
-        <div class="flex-1 flex">
-          <div class="flex-1 flex flex-col items-center justify-center">
-            <div class="flex flex-row">
-              <EvaluationBar
-                class="min-h-full max-w-10"
-                :evaluation="engineAnalysisStore.boardEvaluation"
-                :orientation="uiStore.whiteOnSide === 'top' ? 'black' : 'white'"
-                direction="vertical"
-              />
-              <div class="flex flex-col">
-                <ChessBoard :board-id="activeBoardId" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+		<!-- Main Layout with Resizable Split Panes -->
 
-      <!-- Right Panel (Move Tree / Analysis) -->
-      <ResizablePanel
-        v-if="displayRightPanel"
-        :initial-size="layout.rightPanelWidth"
-        :min-size="200"
-        :max-size="500"
-        direction="horizontal"
-        position="right"
-        @resize="updateRightPanelWidth"
-        class="border-l border-base-300"
-      >
-        <StackedPanel
-          name="rightPanel"
-          mode="tabs"
-          :sections="rightPanelSections"
-          :active-tab="rightPanelActiveTab"
-          @tab-change="handleRightPanelTabChange"
-          persist-state
-          storage-key="right-panel-tabs"
-        >
-          <template #moveTree>
-            <MoveTree
-              v-if="globalStore?.activeGame !== null"
-              :moveTree="globalStore.activeGame.move_tree"
-              @select-move="handleMoveSelect"
-              @navigate-start="navigateToStart"
-              @navigate-end="navigateToEnd"
-              @navigate-previous="navigateToPrevious"
-              @navigate-next="navigateToNext"
-            />
-            <div
-              v-else
-              class="flex flex-col items-center justify-center h-full"
-            >
-              <p class="text-base-content/60">No game selected</p>
-            </div>
-          </template>
+		<main class="flex-1 min-h-0 min-w-0 overflow-auto flex flex-row">
 
-          <template #engine>
-            <EngineAnalysisPanel :board-id="activeBoardId" />
-          </template>
-        </StackedPanel>
-      </ResizablePanel>
-    </main>
-  </div>
+			<!-- Left Panel (Game Library) -->
 
-  <!-- Modals -->
-  <SettingsModal
-    :is-open="settingsModalOpen"
-    @close="uiStore.updateSettingsModalOpen(false)"
-  />
-  <ImportModal :is-open="importModalOpen" @close="importModalOpen = false" />
-  <Toasts />
+			<ResizablePanel
+				v-if="displayLeftPanel"
+				:initial-size="layout.leftPanelWidth"
+				:min-size="200"
+				:max-size="600"
+				direction="horizontal"
+				@resize="updateLeftPanelWidth"
+				class="border-r border-base-300"
+			>
+
+				<StackedPanel
+					name="leftPanel"
+					mode="accordion"
+					@section-toggle="handleLeftPanelSectionToggle"
+				>
+
+					<StackedSection
+						title="Game Library"
+						:icon="PhBooks"
+						:collapsed="isLeftPanelSectionCollapsed('gameLibrary')"
+						@toggle="toggleLeftPanelSection('gameLibrary', $event)"
+						:min-height="400"
+					>
+
+						<GameLibrary />
+
+					</StackedSection>
+
+				</StackedPanel>
+
+			</ResizablePanel>
+
+			<!-- Center Content Area -->
+
+			<div class="flex-1 flex flex-col">
+
+				<!-- Board Tabs (Multi-board support) -->
+
+				<BoardTabs
+					:boards="activeBoardIds"
+					:active-board="activeBoardId"
+					:board-metadata="uiStore.getActiveBoardMetadata"
+					@create-board="createNewBoard"
+					@switch-board="setActiveBoardId"
+					@close-board="closeBoardTab"
+					@rename-board="renameBoard"
+					@save-board="saveBoard"
+					class="border-b border-base-300"
+				/>
+
+				<!-- Board and Engine Split -->
+
+				<div class="flex-1 flex">
+
+					<div class="flex-1 flex flex-col items-center justify-center">
+
+						<div class="flex flex-row">
+
+							<EvaluationBar
+								class="min-h-full max-w-10"
+								:evaluation="engineAnalysisStore.boardEvaluation"
+								:orientation="uiStore.whiteOnSide === 'top' ? 'black' : 'white'"
+								direction="vertical"
+							/>
+
+							<div class="flex flex-col">
+
+								<ChessBoard :board-id="activeBoardId" />
+
+							</div>
+
+						</div>
+
+					</div>
+
+				</div>
+
+			</div>
+
+			<!-- Right Panel (Move Tree / Analysis) -->
+
+			<ResizablePanel
+				v-if="displayRightPanel"
+				:initial-size="layout.rightPanelWidth"
+				:min-size="200"
+				:max-size="500"
+				direction="horizontal"
+				position="right"
+				@resize="updateRightPanelWidth"
+				class="border-l border-base-300"
+			>
+
+				<StackedPanel
+					name="rightPanel"
+					mode="tabs"
+					:sections="rightPanelSections"
+					:active-tab="rightPanelActiveTab"
+					@tab-change="handleRightPanelTabChange"
+					persist-state
+					storage-key="right-panel-tabs"
+				>
+
+					<template #moveTree>
+
+						<MoveTree
+							v-if="globalStore?.activeGame !== null"
+							:moveTree="globalStore.activeGame.move_tree"
+							@select-move="handleMoveSelect"
+							@navigate-start="navigateToStart"
+							@navigate-end="navigateToEnd"
+							@navigate-previous="navigateToPrevious"
+							@navigate-next="navigateToNext"
+						/>
+
+						<div
+							v-else
+							class="flex flex-col items-center justify-center h-full"
+						>
+
+							<p class="text-base-content/60">No game selected</p>
+
+						</div>
+
+					</template>
+
+					<template #engine>
+
+						<EngineAnalysisPanel :board-id="activeBoardId" />
+
+					</template>
+
+				</StackedPanel>
+
+			</ResizablePanel>
+
+		</main>
+
+	</div>
+
+	<!-- Modals -->
+
+	<SettingsModal
+		:is-open="settingsModalOpen"
+		@close="uiStore.updateSettingsModalOpen(false)"
+	/>
+
+	<ImportModal
+		:is-open="importModalOpen"
+		@close="importModalOpen = false"
+	/>
+
+	<Toasts />
+
 </template>
 
 <script setup lang="ts">
@@ -206,7 +252,7 @@ const renameBoard = (boardId: number, newName: string) => {
 
 const saveBoard = (boardId: number) => {
 	globalStore.gamesStore.saveGame(boardId);
-	uiStore.activeBoardMetadata[boardId].hasUnsavedChanges = false;
+	uiStore.updateBoardMetadata(boardId, { hasUnsavedChanges: false });
 };
 
 // Existing handlers
@@ -314,3 +360,4 @@ body {
   overflow: hidden;
 }
 </style>
+

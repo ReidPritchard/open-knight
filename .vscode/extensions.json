@@ -2,6 +2,6 @@
 	"recommendations": [
 		"Vue.volar",
 		"tauri-apps.tauri-vscode",
-		"rust-lang.rust-analyzer",
-	],
+		"rust-lang.rust-analyzer"
+	]
 }

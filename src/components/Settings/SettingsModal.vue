@@ -88,157 +88,282 @@ const handleKeyPress = (e: KeyboardEvent) => {
 </script>
 
 <template>
-  <dialog :class="{ modal: true, 'modal-open': isOpen }">
-    <div class="modal-box">
-      <div role="tablist" class="tabs tabs-border">
-        <input
-          type="radio"
-          name="settings"
-          class="tab"
-          aria-label="UI"
-          checked
-        />
-        <div class="tab-content border-base-300 bg-base-100 p-10">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Light/Dark Mode</legend>
-            <div class="form-control">
-              <label class="label cursor-pointer">
-                <label class="flex cursor-pointer gap-2">
-                  <PhSun size="20" />
-                  <input
-                    type="checkbox"
-                    class="toggle theme-controller"
-                    v-model="isDarkMode"
-                    @change="uiStore.toggleTheme()"
-                  />
-                  <PhMoon size="20" />
-                </label>
-              </label>
-            </div>
 
-            <legend class="fieldset-legend">Current Theme</legend>
-            <div class="form-control">
-              <label class="label cursor-pointer">
-                <select class="select" v-model="selectedTheme">
-                  <option
-                    v-for="theme in availableThemes"
-                    :key="theme"
-                    :value="theme"
-                  >
-                    {{ theme }}
-                  </option>
-                </select>
-              </label>
-            </div>
+	<dialog :class="{ modal: true, 'modal-open': isOpen }">
 
-            <legend class="fieldset-legend">Default Light Theme</legend>
-            <div class="form-control">
-              <label class="label cursor-pointer">
-                <select class="select" v-model="defaultLightTheme">
-                  <option
-                    v-for="theme in lightUIThemes"
-                    :key="theme"
-                    :value="theme"
-                  >
-                    {{ theme }}
-                  </option>
-                </select>
-              </label>
-            </div>
-          </fieldset>
+		<div class="modal-box">
 
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Default Dark Theme</legend>
-            <div class="form-control">
-              <label class="label cursor-pointer">
-                <select class="select" v-model="defaultDarkTheme">
-                  <option
-                    v-for="theme in darkUIThemes"
-                    :key="theme"
-                    :value="theme"
-                  >
-                    {{ theme }}
-                  </option>
-                </select>
-              </label>
-            </div>
-          </fieldset>
-        </div>
+			<div
+				role="tablist"
+				class="tabs tabs-border"
+			>
 
-        <input
-          type="radio"
-          name="settings"
-          class="tab"
-          aria-label="Shortcuts"
-        />
-        <div class="tab-content border-base-300 bg-base-100 p-10">
-          <div class="overflow-x-auto">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Action</th>
-                  <th>Shortcut</th>
-                  <th>Edit</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="hotkey in settingsStore.hotkeys" :key="hotkey.id">
-                  <td>{{ hotkey.description }}</td>
-                  <td>
-                    <div class="flex gap-1 items-center">
-                      <template v-if="editingHotkey === hotkey.id">
-                        <span class="text-sm text-accent"
-                          >Press new key combination...</span
-                        >
-                      </template>
-                      <template v-else>
-                        <template v-if="hotkey.ctrl"
-                          ><kbd class="kbd kbd-sm">ctrl</kbd> +</template
-                        >
-                        <template v-if="hotkey.alt"
-                          ><kbd class="kbd kbd-sm">alt</kbd> +</template
-                        >
-                        <template v-if="hotkey.shift"
-                          ><kbd class="kbd kbd-sm">shift</kbd> +</template
-                        >
-                        <template v-if="hotkey.meta"
-                          ><kbd class="kbd kbd-sm">⌘</kbd> +</template
-                        >
-                        <kbd class="kbd kbd-sm">{{ hotkey.key }}</kbd>
-                      </template>
-                    </div>
-                  </td>
-                  <td>
-                    <button
-                      class="btn btn-ghost btn-sm"
-                      @click="
-                        editingHotkey === hotkey.id
-                          ? stopEditing()
-                          : startEditing(hotkey.id)
-                      "
-                    >
-                      <span class="material-symbols-outlined">
-                        {{ editingHotkey === hotkey.id ? "close" : "edit" }}
-                      </span>
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+				<input
+					type="radio"
+					name="settings"
+					class="tab"
+					aria-label="UI"
+					checked
+				/>
 
-      <!-- Modal footer actions -->
-      <div class="modal-action">
-        <button class="btn btn-ghost" @click="settingsStore.resetToDefaults()">
-          Reset to Defaults
-        </button>
-        <button class="btn" @click="emit('close')">Close</button>
-      </div>
-    </div>
-    <form method="dialog" class="modal-backdrop" @click="emit('close')">
-      <button>close</button>
-    </form>
-  </dialog>
+				<div class="tab-content border-base-300 bg-base-100 p-10">
+
+					<fieldset class="fieldset">
+
+						<legend class="fieldset-legend">Light/Dark Mode</legend>
+
+						<div class="form-control">
+
+							<label class="label cursor-pointer">
+
+								<label class="flex cursor-pointer gap-2">
+
+									<PhSun size="20" />
+
+									<input
+										type="checkbox"
+										class="toggle theme-controller"
+										v-model="isDarkMode"
+										@change="uiStore.toggleTheme()"
+									/>
+
+									<PhMoon size="20" />
+
+								</label>
+
+							</label>
+
+						</div>
+
+						<legend class="fieldset-legend">Current Theme</legend>
+
+						<div class="form-control">
+
+							<label class="label cursor-pointer">
+
+								<select
+									class="select"
+									v-model="selectedTheme"
+								>
+
+									<option
+										v-for="theme in availableThemes"
+										:key="theme"
+										:value="theme"
+									>
+										 {{ theme }}
+									</option>
+
+								</select>
+
+							</label>
+
+						</div>
+
+						<legend class="fieldset-legend">Default Light Theme</legend>
+
+						<div class="form-control">
+
+							<label class="label cursor-pointer">
+
+								<select
+									class="select"
+									v-model="defaultLightTheme"
+								>
+
+									<option
+										v-for="theme in lightUIThemes"
+										:key="theme"
+										:value="theme"
+									>
+										 {{ theme }}
+									</option>
+
+								</select>
+
+							</label>
+
+						</div>
+
+					</fieldset>
+
+					<fieldset class="fieldset">
+
+						<legend class="fieldset-legend">Default Dark Theme</legend>
+
+						<div class="form-control">
+
+							<label class="label cursor-pointer">
+
+								<select
+									class="select"
+									v-model="defaultDarkTheme"
+								>
+
+									<option
+										v-for="theme in darkUIThemes"
+										:key="theme"
+										:value="theme"
+									>
+										 {{ theme }}
+									</option>
+
+								</select>
+
+							</label>
+
+						</div>
+
+					</fieldset>
+
+				</div>
+
+				<input
+					type="radio"
+					name="settings"
+					class="tab"
+					aria-label="Shortcuts"
+				/>
+
+				<div class="tab-content border-base-300 bg-base-100 p-10">
+
+					<div class="overflow-x-auto">
+
+						<table class="table">
+
+							<thead>
+
+								<tr>
+
+									<th>Action</th>
+
+									<th>Shortcut</th>
+
+									<th>Edit</th>
+
+								</tr>
+
+							</thead>
+
+							<tbody>
+
+								<tr
+									v-for="hotkey in settingsStore.hotkeys"
+									:key="hotkey.id"
+								>
+
+									<td>{{ hotkey.description }}</td>
+
+									<td>
+
+										<div class="flex gap-1 items-center">
+
+											<template v-if="editingHotkey === hotkey.id">
+
+												<span class="text-sm text-accent">
+													 Press new key combination...
+												</span>
+
+											</template>
+
+											<template v-else>
+
+												<template v-if="hotkey.ctrl">
+
+													<kbd class="kbd kbd-sm">ctrl</kbd>
+													 +
+												</template>
+
+												<template v-if="hotkey.alt">
+
+													<kbd class="kbd kbd-sm">alt</kbd>
+													 +
+												</template>
+
+												<template v-if="hotkey.shift">
+
+													<kbd class="kbd kbd-sm">shift</kbd>
+													 +
+												</template>
+
+												<template v-if="hotkey.meta">
+
+													<kbd class="kbd kbd-sm">⌘</kbd>
+													 +
+												</template>
+
+												<kbd class="kbd kbd-sm">{{ hotkey.key }}</kbd>
+
+											</template>
+
+										</div>
+
+									</td>
+
+									<td>
+
+										<button
+											class="btn btn-ghost btn-sm"
+											@click="
+												editingHotkey === hotkey.id
+													? stopEditing()
+													: startEditing(hotkey.id)
+											"
+										>
+
+											<span class="material-symbols-outlined">
+												 {{ editingHotkey === hotkey.id ? "close" : "edit" }}
+											</span>
+
+										</button>
+
+									</td>
+
+								</tr>
+
+							</tbody>
+
+						</table>
+
+					</div>
+
+				</div>
+
+			</div>
+
+			<!-- Modal footer actions -->
+
+			<div class="modal-action">
+
+				<button
+					class="btn btn-ghost"
+					@click="settingsStore.resetToDefaults()"
+				>
+					 Reset to Defaults
+				</button>
+
+				<button
+					class="btn"
+					@click="emit('close')"
+				>
+					 Close
+				</button>
+
+			</div>
+
+		</div>
+
+		<form
+			method="dialog"
+			class="modal-backdrop"
+			@click="emit('close')"
+		>
+
+			<button>close</button>
+
+		</form>
+
+	</dialog>
+
 </template>
+

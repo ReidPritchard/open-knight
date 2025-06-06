@@ -1,322 +1,478 @@
 <template>
-  <div class="flex flex-col gap-4 bg-base-200">
-    <!-- Header/Toolbar (search, filter, sort, etc.) -->
-    <div class="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-      <!-- Filter dropdown -->
-      <div class="dropdown">
-        <label
-          tabindex="0"
-          class="btn btn-ghost btn-sm"
-          aria-label="Filter games"
-          aria-haspopup="true"
-          aria-expanded="false"
-        >
-          Filter
-          <span class="ml-1 text-xs opacity-70" v-if="currentFilter !== 'all'">
-            ({{ getFilterLabel(currentFilter) }})
-          </span>
-        </label>
-        <ul
-          tabindex="0"
-          class="dropdown-content z-10 menu p-2 shadow-sm bg-base-300 rounded-box w-52"
-          role="menu"
-        >
-          <li role="none">
-            <a @click="setFilter('all')" role="menuitem">All Games</a>
-          </li>
-          <li role="none">
-            <a @click="setFilter('my_games')" role="menuitem">My Games</a>
-          </li>
-          <li role="none">
-            <a @click="setFilter('wins')" role="menuitem">Wins</a>
-          </li>
-          <li role="none">
-            <a @click="setFilter('losses')" role="menuitem">Losses</a>
-          </li>
-          <li role="none">
-            <a @click="setFilter('draws')" role="menuitem">Draws</a>
-          </li>
-        </ul>
-      </div>
 
-      <!-- Search input -->
-      <div class="form-control w-full max-w-xs">
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="Search..."
-          class="input input-bordered w-full text-sm input-sm"
-          aria-label="Search games by player name"
-        />
-      </div>
-    </div>
+	<div class="flex flex-col gap-4 bg-base-200">
 
-    <!-- Loading state -->
-    <div v-if="isLoading" class="flex-1 flex justify-center items-center p-8">
-      <span class="loading loading-spinner loading-lg"></span>
-    </div>
+		<!-- Header/Toolbar (search, filter, sort, etc.) -->
 
-    <!-- Error state -->
-    <div v-else-if="error" class="flex-1 flex justify-center items-center p-8">
-      <div class="alert alert-error max-w-md">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="stroke-current shrink-0 h-6 w-6"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-        <span>{{ error }}</span>
-      </div>
-    </div>
+		<div class="flex flex-col sm:flex-row gap-4 justify-center pt-4">
 
-    <!-- Empty state -->
-    <div
-      v-else-if="gameList.length === 0"
-      class="flex-1 flex justify-center items-center p-8"
-    >
-      <div class="text-center">
-        <div class="text-6xl mb-4">♟️</div>
-        <h3 class="text-lg font-semibold mb-2">No games found</h3>
-        <p class="text-base-content/70">
-          {{
-            searchQuery || currentFilter !== "all"
-              ? "Try adjusting your search or filter criteria"
-              : "No games available yet"
-          }}
-        </p>
-      </div>
-    </div>
+			<!-- Filter dropdown -->
 
-    <!-- Games table -->
-    <div v-else class="flex-1 min-h-0">
-      <table class="table table-sm table-pin-rows table-pin-cols" role="table">
-        <!-- Table header -->
-        <thead>
-          <tr role="row">
-            <th
-              scope="col"
-              @click="setSort('date')"
-              class="cursor-pointer hover:bg-info/10 flex gap-1 justify-between items-center"
-              :class="{
-                'bg-info/50':
-                  currentSort === 'date_desc' || currentSort === 'date_asc',
-              }"
-            >
-              Date
-              <PhSortAscending v-if="currentSort === 'date_asc'" size="16" />
-              <PhSortDescending v-if="currentSort === 'date_desc'" size="16" />
-            </th>
-            <th
-              scope="col"
-              @click="setSort('white')"
-              class="cursor-pointer hover:bg-info/10"
-              :class="{
-                'bg-info/50': currentSort === 'white',
-              }"
-            >
-              White
-            </th>
-            <th
-              scope="col"
-              @click="setSort('black')"
-              class="cursor-pointer hover:bg-info/10"
-              :class="{
-                'bg-info/50': currentSort === 'black',
-              }"
-            >
-              Black
-            </th>
-            <th
-              scope="col"
-              @click="setSort('result')"
-              class="cursor-pointer hover:bg-info/10"
-              :class="{
-                'bg-info/50': currentSort === 'result',
-              }"
-            >
-              Result
-            </th>
-          </tr>
-        </thead>
+			<div class="dropdown">
 
-        <!-- Table body -->
-        <tbody>
-          <tr
-            v-for="(game, index) in paginatedGames"
-            :key="game.id"
-            class="hover:bg-primary/75 hover:text-primary-content cursor-pointer transition-colors duration-150"
-            :class="{
-              'bg-base-300/90': index % 2 === 0,
-              'bg-base-300/10': index % 2 === 1,
-            }"
-            @click="openGame(game.id)"
-            @contextmenu.prevent="showContextMenu($event, game.id)"
-            @keydown.enter="openGame(game.id)"
-            @keydown.space.prevent="openGame(game.id)"
-            tabindex="0"
-            role="row"
-            :aria-label="`Game between ${game.white_player.name} and ${game.black_player.name}, result ${game.result}`"
-          >
-            <td @dblclick="startEdit(game.id, 'date', game.date ?? '')">
-              <span
-                v-if="
-                  editingField?.gameId !== game.id ||
-                  editingField?.field !== 'date'
-                "
-              >
-                {{ formatDate(game.date) }}
-              </span>
-              <input
-                v-else
-                v-model="editingField.inputValue"
-                name="game-date"
-                class="input input-xs input-neutral w-full text-base-content"
-                autofocus
-                @blur="stopEdit"
-                @keydown.enter="stopEdit"
-                @keydown.esc="stopEdit"
-              />
-            </td>
-            <td
-              @dblclick="
-                startEdit(game.id, 'white_player_name', game.white_player.name)
-              "
-            >
-              <span
-                v-if="
-                  editingField?.gameId !== game.id ||
-                  editingField?.field !== 'white_player_name'
-                "
-              >
-                {{ game.white_player.name }}
-              </span>
-              <input
-                v-else
-                v-model="editingField.inputValue"
-                name="game-white-player-name"
-                class="input input-xs input-neutral w-full text-base-content"
-                @blur="stopEdit"
-                @keydown.enter="stopEdit"
-                @keydown.esc="stopEdit"
-              />
-            </td>
-            <td
-              @dblclick="
-                startEdit(game.id, 'black_player_name', game.black_player.name)
-              "
-            >
-              <span
-                v-if="
-                  editingField?.gameId !== game.id ||
-                  editingField?.field !== 'black_player_name'
-                "
-              >
-                {{ game.black_player.name }}
-              </span>
-              <input
-                v-else
-                v-model="editingField.inputValue"
-                name="game-black-player-name"
-                class="input input-xs input-neutral w-full text-base-content"
-                @blur="stopEdit"
-                @keydown.enter="stopEdit"
-                @keydown.esc="stopEdit"
-              />
-            </td>
-            <td @dblclick="startEdit(game.id, 'result', game.result)">
-              <span
-                v-if="
-                  editingField?.gameId !== game.id ||
-                  editingField?.field !== 'result'
-                "
-                class="badge badge-xs float-right break-keep"
-                :class="{
-                  'badge-success': game.result === '1-0',
-                  'badge-error': game.result === '0-1',
-                  'badge-warning': game.result === '1/2-1/2',
-                  'badge-neutral': game.result === '*',
-                }" 
-              >
-                {{ game.result }}
-              </span>
-              <select
-                v-else
-                v-model="editingField.inputValue"
-                name="game-result"
-                class="select select-xs select-neutral w-full text-base-content"
-                @blur="stopEdit"
-                @keydown.enter="stopEdit"
-                @keydown.esc="stopEdit"
-              >
-                <option value="*" :selected="game.result === '*'">*</option>
-                <option value="1-0" :selected="game.result === '1-0'">
-                  1-0
-                </option>
-                <option value="0-1" :selected="game.result === '0-1'">
-                  0-1
-                </option>
-                <option value="1/2-1/2" :selected="game.result === '1/2-1/2'">
-                  1/2-1/2
-                </option>
-              </select>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+				<label
+					tabindex="0"
+					class="btn btn-ghost btn-sm"
+					aria-label="Filter games"
+					aria-haspopup="true"
+					aria-expanded="false"
+				>
+					 Filter
+					<span
+						class="ml-1 text-xs opacity-70"
+						v-if="currentFilter !== 'all'"
+					>
+						 ({{ getFilterLabel(currentFilter) }})
+					</span>
 
-    <!-- Pagination -->
-    <div
-      v-if="gameList.length > 0"
-      class="flex flex-col sm:flex-row gap-4 p-4 bg-base-200 justify-between items-center"
-    >
-      <div class="text-sm text-base-content/70">
-        Showing {{ Math.min(pageOffset + 1, gameList.length) }}-{{
-          Math.min(pageOffset + pageSize, gameList.length)
-        }}
-        of {{ gameList.length }} games
-      </div>
+				</label>
 
-      <div class="join">
-        <button
-          class="join-item btn btn-sm"
-          :disabled="page === 1"
-          @click="pageDecrement"
-          aria-label="Previous page"
-        >
-          «
-        </button>
-        <button class="join-item btn btn-sm">
-          Page {{ page }}/{{ pageCount }}
-        </button>
-        <button
-          class="join-item btn btn-sm"
-          :disabled="page === pageCount"
-          @click="pageIncrement"
-          aria-label="Next page"
-        >
-          »
-        </button>
-      </div>
-    </div>
-  </div>
+				<ul
+					tabindex="0"
+					class="dropdown-content z-10 menu p-2 shadow-sm bg-base-300 rounded-box w-52"
+					role="menu"
+				>
 
-  <!-- Context Menu -->
-  <ContextMenu
-    :visible="contextMenu.visible"
-    :x="contextMenu.x"
-    :y="contextMenu.y"
-    :items="contextMenuItems"
-    @item-click="handleContextMenuClick"
-    @close="hideContextMenu"
-  />
+					<li role="none">
+
+						<a
+							@click="setFilter('all')"
+							role="menuitem"
+						>
+							 All Games
+						</a>
+
+					</li>
+
+					<li role="none">
+
+						<a
+							@click="setFilter('my_games')"
+							role="menuitem"
+						>
+							 My Games
+						</a>
+
+					</li>
+
+					<li role="none">
+
+						<a
+							@click="setFilter('wins')"
+							role="menuitem"
+						>
+							 Wins
+						</a>
+
+					</li>
+
+					<li role="none">
+
+						<a
+							@click="setFilter('losses')"
+							role="menuitem"
+						>
+							 Losses
+						</a>
+
+					</li>
+
+					<li role="none">
+
+						<a
+							@click="setFilter('draws')"
+							role="menuitem"
+						>
+							 Draws
+						</a>
+
+					</li>
+
+				</ul>
+
+			</div>
+
+			<!-- Search input -->
+
+			<div class="form-control w-full max-w-xs">
+
+				<input
+					v-model="searchQuery"
+					type="text"
+					placeholder="Search..."
+					class="input input-bordered w-full text-sm input-sm"
+					aria-label="Search games by player name"
+				/>
+
+			</div>
+
+		</div>
+
+		<!-- Loading state -->
+
+		<div
+			v-if="isLoading"
+			class="flex-1 flex justify-center items-center p-8"
+		>
+
+			<span class="loading loading-spinner loading-lg"></span>
+
+		</div>
+
+		<!-- Error state -->
+
+		<div
+			v-else-if="error"
+			class="flex-1 flex justify-center items-center p-8"
+		>
+
+			<div class="alert alert-error max-w-md">
+
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="stroke-current shrink-0 h-6 w-6"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+
+				</svg>
+
+				<span>{{ error }}</span>
+
+			</div>
+
+		</div>
+
+		<!-- Empty state -->
+
+		<div
+			v-else-if="gameList.length === 0"
+			class="flex-1 flex justify-center items-center p-8"
+		>
+
+			<div class="text-center">
+
+				<div class="text-6xl mb-4">♟️</div>
+
+				<h3 class="text-lg font-semibold mb-2">No games found</h3>
+
+				<p class="text-base-content/70">
+					 {{
+						searchQuery || currentFilter !== "all"
+							? "Try adjusting your search or filter criteria"
+							: "No games available yet"
+					}}
+				</p>
+
+			</div>
+
+		</div>
+
+		<!-- Games table -->
+
+		<div
+			v-else
+			class="flex-1 min-h-0"
+		>
+
+			<table
+				class="table table-sm table-pin-rows table-pin-cols"
+				role="table"
+			>
+
+				<!-- Table header -->
+
+				<thead>
+
+					<tr role="row">
+
+						<th
+							scope="col"
+							@click="setSort('date')"
+							class="cursor-pointer hover:bg-info/10 flex gap-1 justify-between items-center"
+							:class="{
+								'bg-info/50':
+									currentSort === 'date_desc' || currentSort === 'date_asc',
+							}"
+						>
+							 Date
+							<PhSortAscending
+								v-if="currentSort === 'date_asc'"
+								size="16"
+							/>
+
+							<PhSortDescending
+								v-if="currentSort === 'date_desc'"
+								size="16"
+							/>
+
+						</th>
+
+						<th
+							scope="col"
+							@click="setSort('white')"
+							class="cursor-pointer hover:bg-info/10"
+							:class="{
+								'bg-info/50': currentSort === 'white',
+							}"
+						>
+							 White
+						</th>
+
+						<th
+							scope="col"
+							@click="setSort('black')"
+							class="cursor-pointer hover:bg-info/10"
+							:class="{
+								'bg-info/50': currentSort === 'black',
+							}"
+						>
+							 Black
+						</th>
+
+						<th
+							scope="col"
+							@click="setSort('result')"
+							class="cursor-pointer hover:bg-info/10"
+							:class="{
+								'bg-info/50': currentSort === 'result',
+							}"
+						>
+							 Result
+						</th>
+
+					</tr>
+
+				</thead>
+
+				<!-- Table body -->
+
+				<tbody>
+
+					<tr
+						v-for="(game, index) in paginatedGames"
+						:key="game.id"
+						class="hover:bg-primary/75 hover:text-primary-content cursor-pointer transition-colors duration-150"
+						:class="{
+							'bg-base-300/90': index % 2 === 0,
+							'bg-base-300/10': index % 2 === 1,
+						}"
+						@click="openGame(game.id)"
+						@contextmenu.prevent="showContextMenu($event, game.id)"
+						@keydown.enter="openGame(game.id)"
+						@keydown.space.prevent="openGame(game.id)"
+						tabindex="0"
+						role="row"
+						:aria-label="`Game between ${game.white_player.name} and ${game.black_player.name}, result ${game.result}`"
+					>
+
+						<td @dblclick="startEdit(game.id, 'date', game.date ?? '')">
+
+							<span
+								v-if="
+									editingField?.gameId !== game.id ||
+									editingField?.field !== 'date'
+								"
+							>
+								 {{ formatDate(game.date) }}
+							</span>
+
+							<input
+								v-else
+								v-model="editingField.inputValue"
+								name="game-date"
+								class="input input-xs input-neutral w-full text-base-content"
+								autofocus
+								@blur="stopEdit"
+								@keydown.enter="stopEdit"
+								@keydown.esc="stopEdit"
+							/>
+
+						</td>
+
+						<td
+							@dblclick="
+								startEdit(game.id, 'white_player_name', game.white_player.name)
+							"
+						>
+
+							<span
+								v-if="
+									editingField?.gameId !== game.id ||
+									editingField?.field !== 'white_player_name'
+								"
+							>
+								 {{ game.white_player.name }}
+							</span>
+
+							<input
+								v-else
+								v-model="editingField.inputValue"
+								name="game-white-player-name"
+								class="input input-xs input-neutral w-full text-base-content"
+								@blur="stopEdit"
+								@keydown.enter="stopEdit"
+								@keydown.esc="stopEdit"
+							/>
+
+						</td>
+
+						<td
+							@dblclick="
+								startEdit(game.id, 'black_player_name', game.black_player.name)
+							"
+						>
+
+							<span
+								v-if="
+									editingField?.gameId !== game.id ||
+									editingField?.field !== 'black_player_name'
+								"
+							>
+								 {{ game.black_player.name }}
+							</span>
+
+							<input
+								v-else
+								v-model="editingField.inputValue"
+								name="game-black-player-name"
+								class="input input-xs input-neutral w-full text-base-content"
+								@blur="stopEdit"
+								@keydown.enter="stopEdit"
+								@keydown.esc="stopEdit"
+							/>
+
+						</td>
+
+						<td @dblclick="startEdit(game.id, 'result', game.result)">
+
+							<span
+								v-if="
+									editingField?.gameId !== game.id ||
+									editingField?.field !== 'result'
+								"
+								class="badge badge-xs float-right break-keep"
+								:class="{
+									'badge-success': game.result === '1-0',
+									'badge-error': game.result === '0-1',
+									'badge-warning': game.result === '1/2-1/2',
+									'badge-neutral': game.result === '*',
+								}"
+							>
+								 {{ game.result }}
+							</span>
+
+							<select
+								v-else
+								v-model="editingField.inputValue"
+								name="game-result"
+								class="select select-xs select-neutral w-full text-base-content"
+								@blur="stopEdit"
+								@keydown.enter="stopEdit"
+								@keydown.esc="stopEdit"
+							>
+
+								<option
+									value="*"
+									:selected="game.result === '*'"
+								>
+									 *
+								</option>
+
+								<option
+									value="1-0"
+									:selected="game.result === '1-0'"
+								>
+									 1-0
+								</option>
+
+								<option
+									value="0-1"
+									:selected="game.result === '0-1'"
+								>
+									 0-1
+								</option>
+
+								<option
+									value="1/2-1/2"
+									:selected="game.result === '1/2-1/2'"
+								>
+									 1/2-1/2
+								</option>
+
+							</select>
+
+						</td>
+
+					</tr>
+
+				</tbody>
+
+			</table>
+
+		</div>
+
+		<!-- Pagination -->
+
+		<div
+			v-if="gameList.length > 0"
+			class="flex flex-col sm:flex-row gap-4 p-4 bg-base-200 justify-between items-center"
+		>
+
+			<div class="text-sm text-base-content/70">
+				 Showing {{ Math.min(pageOffset + 1, gameList.length) }}-{{
+					Math.min(pageOffset + pageSize, gameList.length)
+				}} of {{ gameList.length }} games
+			</div>
+
+			<div class="join">
+
+				<button
+					class="join-item btn btn-sm"
+					:disabled="page === 1"
+					@click="pageDecrement"
+					aria-label="Previous page"
+				>
+					 «
+				</button>
+
+				<button class="join-item btn btn-sm">
+					 Page {{ page }}/{{ pageCount }}
+				</button>
+
+				<button
+					class="join-item btn btn-sm"
+					:disabled="page === pageCount"
+					@click="pageIncrement"
+					aria-label="Next page"
+				>
+					 »
+				</button>
+
+			</div>
+
+		</div>
+
+	</div>
+
+	<!-- Context Menu -->
+
+	<ContextMenu
+		:visible="contextMenu.visible"
+		:x="contextMenu.x"
+		:y="contextMenu.y"
+		:items="contextMenuItems"
+		@item-click="handleContextMenuClick"
+		@close="hideContextMenu"
+	/>
+
 </template>
 
 <script setup lang="ts">
@@ -334,6 +490,7 @@ import { computed, ref, watch } from "vue";
 import { ExplorerGame } from "../../shared/types";
 import { useGlobalStore } from "../../stores";
 import { ContextMenu, type MenuItem } from "../Layout/ContextMenu";
+import { useError } from "../../composables/useError";
 
 const globalStore = useGlobalStore();
 const uiStore = globalStore.uiStore;
@@ -632,12 +789,8 @@ const handleContextMenuClick = async (itemId: string) => {
 					timeout: 3000,
 				});
 			} else {
-				uiStore.addAlert({
-					type: "error",
-					title: "Error deleting game",
-					message: "Failed to delete game, see console for details",
-					timeout: 3000,
-				});
+				const { handleAPIError } = useError();
+				handleAPIError(error, "delete game", { gameId });
 			}
 			// refresh the game list
 			globalStore.fetchExplorerGames();
@@ -662,3 +815,4 @@ tr[tabindex]:focus {
   }
 }
 </style>
+

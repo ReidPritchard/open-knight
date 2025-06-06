@@ -1,38 +1,61 @@
 <template>
-  <Teleport to="body">
-    <div
-      v-if="visible"
-      ref="menuRef"
-      class="fixed z-50 menu bg-base-100 rounded-box shadow-lg border border-base-300 p-1 min-w-48"
-      :style="menuStyle"
-      @click.stop
-      @contextmenu.prevent
-    >
-      <template v-for="(item, index) in items" :key="item.id || index">
-        <!-- Divider -->
-        <li v-if="item.type === 'divider'" class="divider h-0.5 my-0.5"></li>
 
-        <!-- Menu Item -->
-        <li v-else>
-          <a
-            @click="handleItemClick(item)"
-            class="flex items-center gap-2"
-            :class="{
-              'text-error hover:bg-error hover:text-error-content':
-                item.type === 'destructive',
-              'opacity-50 cursor-not-allowed': item.disabled,
-            }"
-            :tabindex="item.disabled ? -1 : 0"
-            @keydown.enter="handleItemClick(item)"
-            @keydown.space.prevent="handleItemClick(item)"
-          >
-            <component v-if="item.icon" :is="item.icon" class="w-4 h-4" />
-            {{ item.label }}
-          </a>
-        </li>
-      </template>
-    </div>
-  </Teleport>
+	<Teleport to="body">
+
+		<div
+			v-if="visible"
+			ref="menuRef"
+			class="fixed z-50 menu bg-base-100 rounded-box shadow-lg border border-base-300 p-1 min-w-48"
+			:style="menuStyle"
+			@click.stop
+			@contextmenu.prevent
+		>
+
+			<template
+				v-for="(item, index) in items"
+				:key="item.id || index"
+			>
+
+				<!-- Divider -->
+
+				<li
+					v-if="item.type === 'divider'"
+					class="divider h-0.5 my-0.5"
+				></li>
+
+				<!-- Menu Item -->
+
+				<li v-else>
+
+					<a
+						@click="handleItemClick(item)"
+						class="flex items-center gap-2"
+						:class="{
+							'text-error hover:bg-error hover:text-error-content':
+								item.type === 'destructive',
+							'opacity-50 cursor-not-allowed': item.disabled,
+						}"
+						:tabindex="item.disabled ? -1 : 0"
+						@keydown.enter="handleItemClick(item)"
+						@keydown.space.prevent="handleItemClick(item)"
+					>
+
+						<component
+							v-if="item.icon"
+							:is="item.icon"
+							class="w-4 h-4"
+						/>
+						 {{ item.label }}
+					</a>
+
+				</li>
+
+			</template>
+
+		</div>
+
+	</Teleport>
+
 </template>
 
 <script setup lang="ts">
@@ -196,3 +219,4 @@ onUnmounted(() => {
   }
 }
 </style>
+

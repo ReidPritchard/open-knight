@@ -17,6 +17,11 @@ export interface AlertToast {
 	timeout?: number;
 }
 
+export interface BoardMetadata {
+	name: string;
+	hasUnsavedChanges: boolean;
+}
+
 ////////////////////////////////////////////////////////////
 // Application Interfaces
 // Api interfaces are mostly sub-sets of backend models (bindings)

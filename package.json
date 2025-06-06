@@ -14,7 +14,8 @@
 		"prepare:server": "cd src-tauri && cargo test export_bindings && cd .. && npm run fix-bindings",
 		"fix-bindings": "node scripts/fix-binding-imports.js",
 		"lint": "biome check --fix . --config-path ./",
-		"format": "biome check --write ."
+		"format": "prettier --write .",
+		"format:check": "prettier --check ."
 	},
 	"dependencies": {
 		"@phosphor-icons/vue": "^2.2.1",
@@ -33,6 +34,8 @@
 		"@vitejs/plugin-vue": "^5.2.4",
 		"daisyui": "^5.0.37",
 		"postcss": "^8.4.49",
+		"prettier": "^3.5.3",
+		"prettier-plugin-vue": "^1.1.6",
 		"tailwindcss": "^4.1.7",
 		"typescript": "^5.6.3",
 		"vite": "^6.3.5",

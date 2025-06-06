@@ -3,14 +3,4 @@ import type { ChessAnnotation } from "./ChessAnnotation";
 import type { ChessMoveTime } from "./ChessMoveTime";
 import type { ChessPosition } from "./ChessPosition";
 
-export type ChessMove = {
-	id: number;
-	game_id: number;
-	ply_number: number;
-	san: string;
-	uci: string;
-	position: ChessPosition | null;
-	annotations: Array<ChessAnnotation>;
-	time_info: ChessMoveTime | null;
-	parent_move_id: number | null;
-};
+export type ChessMove = { id: number, game_id: number, ply_number: number, san: string, uci: string, position: ChessPosition | null, annotations: Array<ChessAnnotation>, time_info: ChessMoveTime | null, parent_move_id: number | null, };

@@ -7,6 +7,7 @@ import type {
 	LegalMove,
 } from "../shared/bindings";
 import { useUIStore } from "./ui";
+import { useError } from "../composables/useError";
 
 interface ActiveGameState {
 	id: number;
@@ -30,7 +31,8 @@ const getValidMoves = async (
 	try {
 		return await api.moves.GET.validMoves(position);
 	} catch (error) {
-		console.error("Failed to fetch valid moves:", error);
+		const { handleAPIError } = useError();
+		handleAPIError(error, "fetch valid moves", { position });
 		return null;
 	}
 };
@@ -110,7 +112,8 @@ export const useGamesStore = defineStore("games", {
 
 				console.log("Refreshed game state:", updatedGame);
 			} catch (error) {
-				console.error("Failed to refresh game state:", error);
+				const { handleAPIError } = useError();
+				handleAPIError(error, "refresh game state", { boardId });
 				gameState.error =
 					error instanceof Error
 						? error.message
@@ -151,7 +154,8 @@ export const useGamesStore = defineStore("games", {
 				this.activeGameMap.set(boardId, newGameState);
 				return newGameState;
 			} catch (error) {
-				console.error("Failed to create new game:", error);
+				const { handleAPIError } = useError();
+				handleAPIError(error, "create new game", { boardId, type });
 
 				// Set error state if board exists
 				const gameState = this.activeGameMap.get(boardId);
@@ -198,7 +202,8 @@ export const useGamesStore = defineStore("games", {
 				this.activeGameMap.set(boardId, newGameState);
 				return newGameState;
 			} catch (error) {
-				console.error("Failed to open game:", error);
+				const { handleAPIError } = useError();
+				handleAPIError(error, "open game", { gameId, boardId });
 
 				// Set error state if board exists
 				const gameState = this.activeGameMap.get(boardId);
@@ -221,7 +226,8 @@ export const useGamesStore = defineStore("games", {
 				this.activeGameMap.delete(boardId);
 				console.log("Closed game session:", boardId);
 			} catch (error) {
-				console.error("Failed to close game session:", error);
+				const { handleAPIError } = useError();
+				handleAPIError(error, "close game session", { boardId });
 				// Still remove from local state even if backend call fails
 				this.activeGameMap.delete(boardId);
 			}
@@ -267,7 +273,8 @@ export const useGamesStore = defineStore("games", {
 				console.log("Move made successfully:", updatedGame);
 				return true;
 			} catch (error) {
-				console.error("Failed to make move:", error);
+				const { handleAPIError } = useError();
+				handleAPIError(error, "make move", { boardId, moveNotation });
 				gameState.error =
 					error instanceof Error ? error.message : "Failed to make move";
 				return false;
@@ -293,7 +300,8 @@ export const useGamesStore = defineStore("games", {
 				console.log("Moved to previous position:", updatedGame);
 				return true;
 			} catch (error) {
-				console.error("Failed to go to previous move:", error);
+				const { handleAPIError } = useError();
+				handleAPIError(error, "go to previous move", { boardId });
 				gameState.error =
 					error instanceof Error
 						? error.message
@@ -319,17 +327,15 @@ export const useGamesStore = defineStore("games", {
 				currentNode?.value?.children_ids?.length &&
 				currentNode.value.children_ids.length > 1
 			) {
-				console.warn(
-					"Multiple children found, but the UI does not support picking a variation",
-					currentNode.value.children_ids,
-				);
 				// create an alert to the user
-				useUIStore().addAlert({
-					key: "missing-variation-selection-ui",
-					message: "Variation selection UI is not yet implemented",
-					title: "Variations found",
-					type: "error",
-				});
+				const { handleGeneralError } = useError();
+				handleGeneralError(
+					"UNEXPECTED",
+					"Multiple children found, but the UI does not support picking a variation",
+					{
+						metadata: { boardId },
+					},
+				);
 			}
 
 			try {
@@ -345,7 +351,8 @@ export const useGamesStore = defineStore("games", {
 				console.log("Moved to next position:", updatedGame);
 				return true;
 			} catch (error) {
-				console.error("Failed to go to next move:", error);
+				const { handleAPIError } = useError();
+				handleAPIError(error, "go to next move", { boardId });
 				gameState.error =
 					error instanceof Error ? error.message : "Failed to go to next move";
 				return false;
@@ -377,7 +384,8 @@ export const useGamesStore = defineStore("games", {
 				console.log("Jumped to move:", moveId, updatedGame);
 				return true;
 			} catch (error) {
-				console.error("Failed to jump to move:", error);
+				const { handleAPIError } = useError();
+				handleAPIError(error, "jump to move", { boardId, moveId });
 				gameState.error =
 					error instanceof Error ? error.message : "Failed to jump to move";
 				return false;
@@ -447,7 +455,8 @@ export const useGamesStore = defineStore("games", {
 				console.log("Game saved with ID:", savedGameId);
 				return savedGameId;
 			} catch (error) {
-				console.error("Failed to save game:", error);
+				const { handleAPIError } = useError();
+				handleAPIError(error, "save game", { boardId, overwrite });
 				gameState.error =
 					error instanceof Error ? error.message : "Failed to save game";
 				return null;
@@ -465,7 +474,8 @@ export const useGamesStore = defineStore("games", {
 				this.activeGameMap.delete(gameId);
 				return true;
 			} catch (error) {
-				console.error("Failed to delete game:", error);
+				const { handleAPIError } = useError();
+				handleAPIError(error, "delete game", { gameId });
 				return false;
 			}
 		},

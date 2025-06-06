@@ -1,111 +1,181 @@
 <template>
-  <div class="flex items-center bg-base-200 border-b border-base-300 px-2 py-1">
-    <!-- Board Tabs -->
-    <div class="flex-1 flex items-center overflow-x-auto">
-      <div role="tablist" class="tabs tabs-box bg-transparent">
-        <button
-          v-for="boardId in boards"
-          :key="boardId"
-          role="tab"
-          class="select-none"
-          :class="tabClasses(boardId)"
-          @click="$emit('switchBoard', boardId)"
-          @contextmenu.prevent="showContextMenu($event, boardId)"
-          :title="getBoardTitle(boardId)"
-        >
-          <!-- Unsaved changes indicator -->
-          <div
-            v-if="hasUnsavedChanges(boardId)"
-            class="w-2 h-2 bg-warning rounded-full ml-1"
-            title="Unsaved changes"
-          />
 
-          <input
-            v-if="renamingBoardId === boardId"
-            ref="renameInput"
-            v-model="tempName"
-            class="input input-xs bg-transparent border-none outline-none focus:bg-base-100 focus:border-primary flex-1 text-sm px-1"
-            @keydown.enter="saveRename"
-            @keydown.escape="cancelRename"
-            @blur="saveRename"
-            @click.stop
-            autofocus
-          />
-          <span v-else class="flex-1 truncate text-sm">
-            {{ getBoardDisplayName(boardId) }}
-          </span>
+	<div class="flex items-center bg-base-200 border-b border-base-300 px-2 py-1">
 
-          <!-- Close button -->
-          <button
-            v-if="boards.length > 1"
-            @click.stop="$emit('closeBoard', boardId)"
-            class="btn btn-xs btn-ghost btn-circle ml-1"
-            :title="'Close board ' + boardId"
-          >
-            <PhX class="w-3 h-3" />
-          </button>
-        </button>
-      </div>
-    </div>
+		<!-- Board Tabs -->
 
-    <!-- New Board Button -->
-    <button
-      @click="createNewBoard"
-      class="btn btn-sm btn-primary btn-outline ml-2"
-      title="Open new board (Ctrl+T)"
-    >
-      <PhPlus class="w-4 h-4" />
-    </button>
+		<div class="flex-1 flex items-center overflow-x-auto">
 
-    <!-- Board Actions Menu -->
-    <div class="dropdown dropdown-end ml-1">
-      <button tabindex="0" class="btn btn-sm btn-ghost">
-        <PhDotsThree class="w-4 h-4" />
-      </button>
-      <ul
-        tabindex="0"
-        class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow-lg border border-base-300"
-      >
-        <li>
-          <a @click="duplicateCurrentBoard" class="flex items-center gap-2">
-            <PhCopy class="w-4 h-4" />
-            Duplicate Board
-          </a>
-        </li>
-        <li>
-          <a @click="closeAllOtherBoards" class="flex items-center gap-2">
-            <PhX class="w-4 h-4" />
-            Close Others
-          </a>
-        </li>
-        <li v-if="boards.length > 1">
-          <a @click="closeAllBoards" class="flex items-center gap-2 text-error">
-            <PhX class="w-4 h-4" />
-            Close All
-          </a>
-        </li>
-        <li class="menu-title">
-          <span>Recent Boards</span>
-        </li>
-        <li v-for="recentBoard in recentBoards" :key="recentBoard.id">
-          <a @click="reopenBoard(recentBoard)" class="flex items-center gap-2">
-            <PhClock class="w-4 h-4" />
-            {{ recentBoard.name }}
-          </a>
-        </li>
-      </ul>
-    </div>
+			<div
+				role="tablist"
+				class="tabs tabs-box bg-transparent"
+			>
 
-    <!-- Context Menu -->
-    <ContextMenu
-      :visible="contextMenu.visible"
-      :x="contextMenu.x"
-      :y="contextMenu.y"
-      :items="contextMenuItems"
-      @item-click="handleContextMenuClick"
-      @close="hideContextMenu"
-    />
-  </div>
+				<button
+					v-for="boardId in boards"
+					:key="boardId"
+					role="tab"
+					class="select-none"
+					:class="tabClasses(boardId)"
+					@click="$emit('switchBoard', boardId)"
+					@contextmenu.prevent="showContextMenu($event, boardId)"
+					:title="getBoardTitle(boardId)"
+				>
+
+					<!-- Unsaved changes indicator -->
+
+					<div
+						v-if="hasUnsavedChanges(boardId)"
+						class="w-2 h-2 bg-warning rounded-full ml-1"
+						title="Unsaved changes"
+					/>
+
+					<input
+						v-if="renamingBoardId === boardId"
+						ref="renameInput"
+						v-model="tempName"
+						class="input input-xs bg-transparent border-none outline-none focus:bg-base-100 focus:border-primary flex-1 text-sm px-1"
+						@keydown.enter="saveRename"
+						@keydown.escape="cancelRename"
+						@blur="saveRename"
+						@click.stop
+						autofocus
+					/>
+
+					<span
+						v-else
+						class="flex-1 truncate text-sm"
+					>
+						 {{ getBoardDisplayName(boardId) }}
+					</span>
+
+					<!-- Close button -->
+
+					<button
+						v-if="boards.length > 1"
+						@click.stop="$emit('closeBoard', boardId)"
+						class="btn btn-xs btn-ghost btn-circle ml-1"
+						:title="'Close board ' + boardId"
+					>
+
+						<PhX class="w-3 h-3" />
+
+					</button>
+
+				</button>
+
+			</div>
+
+		</div>
+
+		<!-- New Board Button -->
+
+		<button
+			@click="createNewBoard"
+			class="btn btn-sm btn-primary btn-outline ml-2"
+			title="Open new board (Ctrl+T)"
+		>
+
+			<PhPlus class="w-4 h-4" />
+
+		</button>
+
+		<!-- Board Actions Menu -->
+
+		<div class="dropdown dropdown-end ml-1">
+
+			<button
+				tabindex="0"
+				class="btn btn-sm btn-ghost"
+			>
+
+				<PhDotsThree class="w-4 h-4" />
+
+			</button>
+
+			<ul
+				tabindex="0"
+				class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow-lg border border-base-300"
+			>
+
+				<li>
+
+					<a
+						@click="duplicateCurrentBoard"
+						class="flex items-center gap-2"
+					>
+
+						<PhCopy class="w-4 h-4" />
+						 Duplicate Board
+					</a>
+
+				</li>
+
+				<li>
+
+					<a
+						@click="closeAllOtherBoards"
+						class="flex items-center gap-2"
+					>
+
+						<PhX class="w-4 h-4" />
+						 Close Others
+					</a>
+
+				</li>
+
+				<li v-if="boards.length > 1">
+
+					<a
+						@click="closeAllBoards"
+						class="flex items-center gap-2 text-error"
+					>
+
+						<PhX class="w-4 h-4" />
+						 Close All
+					</a>
+
+				</li>
+
+				<li class="menu-title">
+
+					<span>Recent Boards</span>
+
+				</li>
+
+				<li
+					v-for="recentBoard in recentBoards"
+					:key="recentBoard.id"
+				>
+
+					<a
+						@click="reopenBoard(recentBoard)"
+						class="flex items-center gap-2"
+					>
+
+						<PhClock class="w-4 h-4" />
+						 {{ recentBoard.name }}
+					</a>
+
+				</li>
+
+			</ul>
+
+		</div>
+
+		<!-- Context Menu -->
+
+		<ContextMenu
+			:visible="contextMenu.visible"
+			:x="contextMenu.x"
+			:y="contextMenu.y"
+			:items="contextMenuItems"
+			@item-click="handleContextMenuClick"
+			@close="hideContextMenu"
+		/>
+
+	</div>
+
 </template>
 
 <script setup lang="ts">
@@ -406,3 +476,4 @@ onUnmounted(() => {
   padding: 0;
 }
 </style>
+

@@ -1,276 +1,446 @@
 <template>
-  <div class="p-4 bg-base-100 rounded-lg flex flex-col min-h-0">
-    <!-- Navigation buttons -->
-    <div class="mb-4 flex justify-center">
-      <div class="flex gap-2">
-        <button
-          @click="$emit('navigate-start')"
-          class="btn btn-sm btn-ghost"
-          :disabled="!currentNodeId"
-        >
-          <PhCaretLineLeft :size="16" />
-        </button>
-        <button
-          @click="$emit('navigate-previous')"
-          class="btn btn-sm btn-ghost"
-          :disabled="!canNavigateBack"
-        >
-          <PhCaretLeft :size="16" />
-        </button>
-        <button
-          @click="$emit('navigate-next', 0)"
-          class="btn btn-sm btn-ghost"
-          :disabled="!canNavigateForward"
-        >
-          <PhCaretRight :size="16" />
-        </button>
-        <button
-          @click="$emit('navigate-end')"
-          class="btn btn-sm btn-ghost"
-          :disabled="!hasMainLine"
-        >
-          <PhCaretLineRight :size="16" />
-        </button>
-      </div>
-    </div>
 
-    <!-- View mode toggle and options -->
-    <div class="flex justify-center mb-2 gap-4">
-      <div class="join">
-        <button
-          v-for="mode in (['compact', 'tabular'] as const)"
-          :key="mode"
-          @click="viewMode = mode"
-          class="join-item btn btn-xs"
-          :class="{ 'btn-active': viewMode === mode }"
-        >
-          {{ mode }}
-        </button>
-      </div>
+	<div class="p-4 bg-base-100 rounded-lg flex flex-col min-h-0">
 
-      <!-- Show variations toggle -->
-      <div class="form-control">
-        <label class="label cursor-pointer gap-2">
-          <span class="label-text text-xs">Show variations</span>
-          <input
-            type="checkbox"
-            v-model="showVariations"
-            class="checkbox checkbox-xs"
-          />
-        </label>
-      </div>
-    </div>
+		<!-- Navigation buttons -->
 
-    <!-- Current position info -->
-    <div v-if="currentNode" class="my-4 space-y-2">
-      <!-- Current move -->
-      <div
-        class="flex justify-between gap-2 text-md w-full border-b border-base-300 pb-2"
-      >
-        <PhCaretRight :size="16" />
-        <span class="font-mono cursor-pointer">
-          {{ currentMove?.san ?? "Initial position" }}
-        </span>
-        <PhCaretLeft :size="16" />
-      </div>
+		<div class="mb-4 flex justify-center">
 
-      <!-- Evaluation display -->
-      <div v-if="currentEvaluation" class="flex items-center gap-2 text-sm">
-        <PhChartLine :size="16" />
-        <span class="font-mono">
-          {{ formatEvaluation(currentEvaluation) }}
-        </span>
-        <span class="text-base-content/60">
-          depth {{ currentEvaluation.depth }}
-        </span>
-      </div>
-      <div v-else class="flex items-center gap-2 text-sm">
-        <span class="text-base-content/60">No evaluation</span>
-      </div>
+			<div class="flex gap-2">
 
-      <!-- Time info -->
-      <div
-        v-if="currentMove?.time_info"
-        class="flex items-center gap-2 text-sm"
-      >
-        <PhClock :size="16" />
-        <span>
-          {{ formatTime(currentMove.time_info.time_spent_ms) }} spent
-        </span>
-        <span
-          v-if="currentMove.time_info.time_left_ms"
-          class="text-base-content/60"
-        >
-          ({{ formatTime(currentMove.time_info.time_left_ms) }} left)
-        </span>
-      </div>
-      <div v-else class="flex items-center gap-2 text-sm">
-        <span class="text-base-content/60">No time info</span>
-      </div>
+				<button
+					@click="$emit('navigate-start')"
+					class="btn btn-sm btn-ghost"
+					:disabled="!currentNodeId"
+				>
 
-      <!-- Annotations -->
-      <div v-if="currentAnnotations.length > 0" class="space-y-2">
-        <div
-          v-for="annotation in currentAnnotations"
-          :key="annotation.id"
-          class="bg-base-300 rounded p-2 text-sm"
-        >
-          <PhChatText :size="14" class="inline mr-1" />
-          {{ annotation.comment }}
-        </div>
-      </div>
-      <div v-else class="flex items-center gap-2 text-sm">
-        <span class="text-base-content/60">No annotations</span>
-      </div>
-    </div>
+					<PhCaretLineLeft :size="16" />
 
-    <!-- Move display area -->
-    <div class="bg-base-200 rounded-lg p-4 flex-1 min-h-0" ref="moveContainer">
-      <div v-if="rootNode">
-        <!-- Compact view (optimized for long games) -->
-        <div v-if="viewMode === 'compact'" class="space-y-2">
-          <div
-            v-for="(group, index) in moveGroups"
-            :key="index"
-            class="space-y-1"
-          >
-            <!-- Main line moves -->
-            <div class="flex flex-wrap gap-1">
-              <button
-                v-for="moveData in group.mainMoves"
-                :key="moveData.nodeId.idx"
-                @click="handleMoveSelect(moveData.move?.id)"
-                class="px-2 py-1 rounded text-sm font-mono transition-colors cursor-pointer"
-                :class="{
-                  'bg-primary text-primary-content': isCurrentMove(
-                    moveData.nodeId
-                  ),
-                  'hover:bg-base-300': !isCurrentMove(moveData.nodeId),
-                }"
-              >
-                <span v-if="moveData.showNumber" class="font-bold">
-                  {{ moveData.moveNumber }}.
-                </span>
-                {{ moveData.san }}
-              </button>
-            </div>
+				</button>
 
-            <!-- Variations -->
-            <div
-              v-if="showVariations && group.variations.length > 0"
-              class="ml-4 space-y-1"
-            >
-              <div
-                v-for="(variation, varIndex) in group.variations"
-                :key="varIndex"
-                class="flex flex-wrap gap-1 items-center"
-              >
-                <PhGitBranch size="12" class="text-base-content/60" />
-                <span class="text-xs text-base-content/60">(</span>
-                <button
-                  v-for="moveData in variation"
-                  :key="moveData.nodeId.idx"
-                  @click="handleMoveSelect(moveData.move?.id)"
-                  class="px-1.5 py-0.5 rounded text-xs font-mono transition-colors cursor-pointer border border-base-300"
-                  :class="{
-                    'bg-secondary text-secondary-content border-secondary':
-                      isCurrentMove(moveData.nodeId),
-                    'hover:bg-base-300': !isCurrentMove(moveData.nodeId),
-                    'bg-base-100': !isCurrentMove(moveData.nodeId),
-                  }"
-                >
-                  <span v-if="moveData.showNumber" class="font-bold">
-                    {{ moveData.moveNumber }}.
-                  </span>
-                  {{ moveData.san }}
-                </button>
-                <span class="text-xs text-base-content/60">)</span>
-              </div>
-            </div>
-          </div>
-        </div>
+				<button
+					@click="$emit('navigate-previous')"
+					class="btn btn-sm btn-ghost"
+					:disabled="!canNavigateBack"
+				>
 
-        <!-- Tabular view -->
-        <div v-if="viewMode === 'tabular'" class="overflow-x-auto">
-          <table class="table table-xs">
-            <tbody>
-              <template v-for="(row, index) in tableRows" :key="index">
-                <!-- Main move row -->
-                <tr v-if="row.type === 'move'">
-                  <td class="font-bold text-right">{{ row.number }}.</td>
-                  <td>
-                    <button
-                      v-if="row.white"
-                      @click="handleMoveSelect(row.white.move?.id)"
-                      class="px-2 py-1 rounded text-sm font-mono transition-colors cursor-pointer w-full text-left"
-                      :class="{
-                        'bg-primary text-primary-content': isCurrentMove(
-                          row.white.nodeId
-                        ),
-                        'hover:bg-base-300': !isCurrentMove(row.white.nodeId),
-                      }"
-                    >
-                      {{ row.white.san }}
-                    </button>
-                  </td>
-                  <td>
-                    <button
-                      v-if="row.black"
-                      @click="handleMoveSelect(row.black.move?.id)"
-                      class="px-2 py-1 rounded text-sm font-mono transition-colors cursor-pointer w-full text-left"
-                      :class="{
-                        'bg-primary text-primary-content': isCurrentMove(
-                          row.black.nodeId
-                        ),
-                        'hover:bg-base-300': !isCurrentMove(row.black.nodeId),
-                      }"
-                    >
-                      {{ row.black.san }}
-                    </button>
-                  </td>
-                </tr>
+					<PhCaretLeft :size="16" />
 
-                <!-- Variation row -->
-                <tr
-                  v-else-if="row.type === 'variation' && showVariations"
-                  class=""
-                >
-                  <td></td>
-                  <td colspan="2" class="pl-2">
-                    <div class="flex items-center gap-1 flex-wrap">
-                      <PhGitBranch :size="12" class="text-base-content/60" />
-                      <span class="text-xs text-base-content/60">(</span>
-                      <button
-                        v-for="moveData in row.moves"
-                        :key="moveData.nodeId.idx"
-                        @click="handleMoveSelect(moveData.move?.id)"
-                        class="px-1.5 py-0.5 rounded text-xs font-mono transition-colors cursor-pointer border border-base-300"
-                        :class="{
-                          'bg-secondary text-secondary-content border-secondary':
-                            isCurrentMove(moveData.nodeId),
-                          'hover:bg-base-300': !isCurrentMove(moveData.nodeId),
-                          'bg-base-100': !isCurrentMove(moveData.nodeId),
-                        }"
-                      >
-                        <span v-if="moveData.showNumber" class="font-bold">
-                          {{ moveData.moveNumber }}.
-                        </span>
-                        {{ moveData.san }}
-                      </button>
-                      <span class="text-xs text-base-content/60">)</span>
-                    </div>
-                  </td>
-                </tr>
-              </template>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div v-else class="text-center text-base-content/60 py-8">
-        No moves to display
-      </div>
-    </div>
-  </div>
+				</button>
+
+				<button
+					@click="$emit('navigate-next', 0)"
+					class="btn btn-sm btn-ghost"
+					:disabled="!canNavigateForward"
+				>
+
+					<PhCaretRight :size="16" />
+
+				</button>
+
+				<button
+					@click="$emit('navigate-end')"
+					class="btn btn-sm btn-ghost"
+					:disabled="!hasMainLine"
+				>
+
+					<PhCaretLineRight :size="16" />
+
+				</button>
+
+			</div>
+
+		</div>
+
+		<!-- View mode toggle and options -->
+
+		<div class="flex justify-center mb-2 gap-4">
+
+			<div class="join">
+
+				<button
+					v-for="mode in ['compact', 'tabular'] as const"
+					:key="mode"
+					@click="viewMode = mode"
+					class="join-item btn btn-xs"
+					:class="{ 'btn-active': viewMode === mode }"
+				>
+					 {{ mode }}
+				</button>
+
+			</div>
+
+			<!-- Show variations toggle -->
+
+			<div class="form-control">
+
+				<label class="label cursor-pointer gap-2">
+
+					<span class="label-text text-xs">Show variations</span>
+
+					<input
+						type="checkbox"
+						v-model="showVariations"
+						class="checkbox checkbox-xs"
+					/>
+
+				</label>
+
+			</div>
+
+		</div>
+
+		<!-- Current position info -->
+
+		<div
+			v-if="currentNode"
+			class="my-4 space-y-2"
+		>
+
+			<!-- Current move -->
+
+			<div
+				class="flex justify-between gap-2 text-md w-full border-b border-base-300 pb-2"
+			>
+
+				<PhCaretRight :size="16" />
+
+				<span class="font-mono cursor-pointer">
+					 {{ currentMove?.san ?? "Initial position" }}
+				</span>
+
+				<PhCaretLeft :size="16" />
+
+			</div>
+
+			<!-- Evaluation display -->
+
+			<div
+				v-if="currentEvaluation"
+				class="flex items-center gap-2 text-sm"
+			>
+
+				<PhChartLine :size="16" />
+
+				<span class="font-mono">
+					 {{ formatEvaluation(currentEvaluation) }}
+				</span>
+
+				<span class="text-base-content/60">
+					 depth {{ currentEvaluation.depth }}
+				</span>
+
+			</div>
+
+			<div
+				v-else
+				class="flex items-center gap-2 text-sm"
+			>
+
+				<span class="text-base-content/60">No evaluation</span>
+
+			</div>
+
+			<!-- Time info -->
+
+			<div
+				v-if="currentMove?.time_info"
+				class="flex items-center gap-2 text-sm"
+			>
+
+				<PhClock :size="16" />
+
+				<span>
+					 {{ formatTime(currentMove.time_info.time_spent_ms) }} spent
+				</span>
+
+				<span
+					v-if="currentMove.time_info.time_left_ms"
+					class="text-base-content/60"
+				>
+					 ({{ formatTime(currentMove.time_info.time_left_ms) }} left)
+				</span>
+
+			</div>
+
+			<div
+				v-else
+				class="flex items-center gap-2 text-sm"
+			>
+
+				<span class="text-base-content/60">No time info</span>
+
+			</div>
+
+			<!-- Annotations -->
+
+			<div
+				v-if="currentAnnotations.length > 0"
+				class="space-y-2"
+			>
+
+				<div
+					v-for="annotation in currentAnnotations"
+					:key="annotation.id"
+					class="bg-base-300 rounded p-2 text-sm"
+				>
+
+					<PhChatText
+						:size="14"
+						class="inline mr-1"
+					/>
+					 {{ annotation.comment }}
+				</div>
+
+			</div>
+
+			<div
+				v-else
+				class="flex items-center gap-2 text-sm"
+			>
+
+				<span class="text-base-content/60">No annotations</span>
+
+			</div>
+
+		</div>
+
+		<!-- Move display area -->
+
+		<div
+			class="bg-base-200 rounded-lg p-4 flex-1 min-h-0"
+			ref="moveContainer"
+		>
+
+			<div v-if="rootNode">
+
+				<!-- Compact view (optimized for long games) -->
+
+				<div
+					v-if="viewMode === 'compact'"
+					class="space-y-2"
+				>
+
+					<div
+						v-for="(group, index) in moveGroups"
+						:key="index"
+						class="space-y-1"
+					>
+
+						<!-- Main line moves -->
+
+						<div class="flex flex-wrap gap-1">
+
+							<button
+								v-for="moveData in group.mainMoves"
+								:key="moveData.nodeId.idx"
+								@click="handleMoveSelect(moveData.move?.id)"
+								class="px-2 py-1 rounded text-sm font-mono transition-colors cursor-pointer"
+								:class="{
+									'bg-primary text-primary-content': isCurrentMove(
+										moveData.nodeId,
+									),
+									'hover:bg-base-300': !isCurrentMove(moveData.nodeId),
+								}"
+							>
+
+								<span
+									v-if="moveData.showNumber"
+									class="font-bold"
+								>
+									 {{ moveData.moveNumber }}.
+								</span>
+								 {{ moveData.san }}
+							</button>
+
+						</div>
+
+						<!-- Variations -->
+
+						<div
+							v-if="showVariations && group.variations.length > 0"
+							class="ml-4 space-y-1"
+						>
+
+							<div
+								v-for="(variation, varIndex) in group.variations"
+								:key="varIndex"
+								class="flex flex-wrap gap-1 items-center"
+							>
+
+								<PhGitBranch
+									size="12"
+									class="text-base-content/60"
+								/>
+
+								<span class="text-xs text-base-content/60">(</span>
+
+								<button
+									v-for="moveData in variation"
+									:key="moveData.nodeId.idx"
+									@click="handleMoveSelect(moveData.move?.id)"
+									class="px-1.5 py-0.5 rounded text-xs font-mono transition-colors cursor-pointer border border-base-300"
+									:class="{
+										'bg-secondary text-secondary-content border-secondary':
+											isCurrentMove(moveData.nodeId),
+										'hover:bg-base-300': !isCurrentMove(moveData.nodeId),
+										'bg-base-100': !isCurrentMove(moveData.nodeId),
+									}"
+								>
+
+									<span
+										v-if="moveData.showNumber"
+										class="font-bold"
+									>
+										 {{ moveData.moveNumber }}.
+									</span>
+									 {{ moveData.san }}
+								</button>
+
+								<span class="text-xs text-base-content/60">)</span>
+
+							</div>
+
+						</div>
+
+					</div>
+
+				</div>
+
+				<!-- Tabular view -->
+
+				<div
+					v-if="viewMode === 'tabular'"
+					class="overflow-x-auto"
+				>
+
+					<table class="table table-xs">
+
+						<tbody>
+
+							<template
+								v-for="(row, index) in tableRows"
+								:key="index"
+							>
+
+								<!-- Main move row -->
+
+								<tr v-if="row.type === 'move'">
+
+									<td class="font-bold text-right">{{ row.number }}.</td>
+
+									<td>
+
+										<button
+											v-if="row.white"
+											@click="handleMoveSelect(row.white.move?.id)"
+											class="px-2 py-1 rounded text-sm font-mono transition-colors cursor-pointer w-full text-left"
+											:class="{
+												'bg-primary text-primary-content': isCurrentMove(
+													row.white.nodeId,
+												),
+												'hover:bg-base-300': !isCurrentMove(row.white.nodeId),
+											}"
+										>
+											 {{ row.white.san }}
+										</button>
+
+									</td>
+
+									<td>
+
+										<button
+											v-if="row.black"
+											@click="handleMoveSelect(row.black.move?.id)"
+											class="px-2 py-1 rounded text-sm font-mono transition-colors cursor-pointer w-full text-left"
+											:class="{
+												'bg-primary text-primary-content': isCurrentMove(
+													row.black.nodeId,
+												),
+												'hover:bg-base-300': !isCurrentMove(row.black.nodeId),
+											}"
+										>
+											 {{ row.black.san }}
+										</button>
+
+									</td>
+
+								</tr>
+
+								<!-- Variation row -->
+
+								<tr
+									v-else-if="row.type === 'variation' && showVariations"
+									class=""
+								>
+
+									<td></td>
+
+									<td
+										colspan="2"
+										class="pl-2"
+									>
+
+										<div class="flex items-center gap-1 flex-wrap">
+
+											<PhGitBranch
+												:size="12"
+												class="text-base-content/60"
+											/>
+
+											<span class="text-xs text-base-content/60">(</span>
+
+											<button
+												v-for="moveData in row.moves"
+												:key="moveData.nodeId.idx"
+												@click="handleMoveSelect(moveData.move?.id)"
+												class="px-1.5 py-0.5 rounded text-xs font-mono transition-colors cursor-pointer border border-base-300"
+												:class="{
+													'bg-secondary text-secondary-content border-secondary':
+														isCurrentMove(moveData.nodeId),
+													'hover:bg-base-300': !isCurrentMove(moveData.nodeId),
+													'bg-base-100': !isCurrentMove(moveData.nodeId),
+												}"
+											>
+
+												<span
+													v-if="moveData.showNumber"
+													class="font-bold"
+												>
+													 {{ moveData.moveNumber }}.
+												</span>
+												 {{ moveData.san }}
+											</button>
+
+											<span class="text-xs text-base-content/60">)</span>
+
+										</div>
+
+									</td>
+
+								</tr>
+
+							</template>
+
+						</tbody>
+
+					</table>
+
+				</div>
+
+			</div>
+
+			<div
+				v-else
+				class="text-center text-base-content/60 py-8"
+			>
+				 No moves to display
+			</div>
+
+		</div>
+
+	</div>
+
 </template>
 
 <script setup lang="ts">
@@ -667,3 +837,4 @@ watch(currentNodeId, async () => {
 	}
 });
 </script>
+

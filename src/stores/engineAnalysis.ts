@@ -9,6 +9,7 @@ import type {
 	EngineSettings,
 	Score,
 } from "../shared/types";
+import { useError } from "../composables/useError";
 
 interface EngineState {
 	name: string;
@@ -166,7 +167,19 @@ export const useEngineAnalysisStore = defineStore("engineAnalysis", {
 		async loadEngine(name: string, path: string) {
 			if (this.engines.has(name)) return;
 			this.initEngine(name);
-			await api.engines.POST.loadEngine(name, path);
+			try {
+				await api.engines.POST.loadEngine(name, path);
+			} catch (error) {
+				const { handleEngineError } = useError();
+				handleEngineError(
+					"ENGINE_LOAD_ERROR",
+					`Failed to load engine ${name} from ${path}`,
+					{
+						metadata: { engineName: name, enginePath: path },
+					},
+				);
+				this.removeEngine(name);
+			}
 		},
 		async unloadEngine(name: string) {
 			await api.engines.POST.unloadEngine(name);
