@@ -1,16 +1,17 @@
 <template>
   <div
     :class="[
-      'relative overflow-hidden',
-      direction === 'horizontal' ? 'w-full h-6' : 'h-full w-6',
-      'border border-base-300 rounded-sm',
+      'relative overflow-hidden bg-base-100',
+      direction === 'horizontal' ? 'w-full h-8' : 'h-full w-8',
+      'border-2 border-base-300 rounded-sm',
     ]"
   >
     <!-- White advantage bar (fills from left/bottom) -->
     <div
       :class="[
-        'absolute bg-primary',
+        'absolute',
         direction === 'horizontal' ? 'h-full left-1/2' : 'w-full bottom-1/2',
+		orientation === 'white' ? 'bg-white' : 'bg-black',
       ]"
       :style="whiteBarStyle"
     ></div>
@@ -18,8 +19,9 @@
     <!-- Black advantage bar (fills from right/top) -->
     <div
       :class="[
-        'absolute bg-secondary',
+        'absolute',
         direction === 'horizontal' ? 'h-full right-1/2' : 'w-full top-1/2',
+		orientation === 'white' ? 'bg-black' : 'bg-white',
       ]"
       :style="blackBarStyle"
     ></div>
@@ -37,7 +39,7 @@
     <!-- Evaluation text -->
     <div
       :class="[
-        'absolute text-xs font-bold text-base-content flex items-center justify-center',
+        'absolute text-xs font-bold text-base-content flex items-center justify-center bg-base-100',
         direction === 'horizontal'
           ? 'h-full px-1 left-1/2 -translate-x-1/2'
           : 'w-full py-1 top-1/2 -translate-y-1/2',

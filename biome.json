@@ -1,64 +1,76 @@
 {
-  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "vcs": {
-    "enabled": true,
-    "clientKind": "git",
-    "useIgnoreFile": true
-  },
-  "files": {
-    "ignoreUnknown": false,
-    "ignore": ["src-tauri", "vite-env.d.ts"]
-  },
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "tab"
-  },
-  "organizeImports": {
-    "enabled": true
-  },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "recommended": true
-    }
-  },
-  "javascript": {
-    "formatter": {
-      "quoteStyle": "double",
-      "trailingCommas": "all",
-      "attributePosition": "multiline",
-      "quoteProperties": "preserve"
-    }
-  },
-  "json": {
-    "parser": {
-      "allowComments": true,
-      "allowTrailingCommas": true
-    },
-    "formatter": {
-      "trailingCommas": "all"
-    }
-  },
-  "overrides": [
-    {
-      "include": ["package.json"],
-      "json": {
-        "parser": {
-          "allowComments": false,
-          "allowTrailingCommas": false
-        },
-        "formatter": {
-          "trailingCommas": "none"
-        }
-      }
-    },
-    {
-      "include": ["src/shared/bindings/**/*"],
-      "javascript": {
-        "formatter": {
-          "enabled": false
-        }
-      }
-    }
-  ]
+	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"ignoreUnknown": false,
+		"ignore": ["src-tauri", "vite-env.d.ts"]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"attributePosition": "multiline"
+	},
+	"organizeImports": {
+		"enabled": true
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double",
+			"trailingCommas": "all",
+			"attributePosition": "multiline",
+			"quoteProperties": "preserve"
+		}
+	},
+	"json": {
+		"parser": {
+			"allowComments": true,
+			"allowTrailingCommas": true
+		},
+		"formatter": {
+			"trailingCommas": "all"
+		}
+	},
+	"overrides": [
+		{
+			"include": ["package.json"],
+			"json": {
+				"parser": {
+					"allowComments": false,
+					"allowTrailingCommas": false
+				},
+				"formatter": {
+					"trailingCommas": "none"
+				}
+			}
+		},
+		{
+			"include": ["src/shared/bindings/**/*"],
+			"javascript": {
+				"formatter": {
+					"enabled": false
+				}
+			}
+		},
+		{
+			"include": ["*.vue"],
+			"linter": {
+				"rules": {
+					"style": {
+						"useConst": "off",
+						"useImportType": "off"
+					}
+				}
+			}
+		}
+	]
 }

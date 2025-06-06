@@ -34,6 +34,7 @@ pub fn run() {
             api::commands::database::get_entity_by_id,
             api::commands::database::get_game_by_id,
             api::commands::database::delete_game,
+            api::commands::database::update_game_property,
             // Session lifecycle commands
             api::commands::game::create_session,
             api::commands::game::load_game_into_session,

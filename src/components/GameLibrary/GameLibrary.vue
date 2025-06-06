@@ -97,6 +97,7 @@
     <!-- Games table -->
     <div v-else class="flex-1 min-h-0">
       <table class="table table-sm table-pin-rows table-pin-cols" role="table">
+        <!-- Table header -->
         <thead>
           <tr role="row">
             <th
@@ -144,6 +145,8 @@
             </th>
           </tr>
         </thead>
+
+        <!-- Table body -->
         <tbody>
           <tr
             v-for="(game, index) in paginatedGames"
@@ -161,27 +164,115 @@
             role="row"
             :aria-label="`Game between ${game.white_player.name} and ${game.black_player.name}, result ${game.result}`"
           >
-            <td>{{ formatDate(game.date) }}</td>
-            <td>{{ game.white_player.name }}</td>
-            <td>{{ game.black_player.name }}</td>
-            <td>
+            <td @dblclick="startEdit(game.id, 'date', game.date ?? '')">
               <span
-                class="badge badge-xs badge-neutral float-right break-keep"
+                v-if="
+                  editingField?.gameId !== game.id ||
+                  editingField?.field !== 'date'
+                "
+              >
+                {{ formatDate(game.date) }}
+              </span>
+              <input
+                v-else
+                v-model="editingField.inputValue"
+                name="game-date"
+                class="input input-xs input-neutral w-full text-base-content"
+                autofocus
+                @blur="stopEdit"
+                @keydown.enter="stopEdit"
+                @keydown.esc="stopEdit"
+              />
+            </td>
+            <td
+              @dblclick="
+                startEdit(game.id, 'white_player_name', game.white_player.name)
+              "
+            >
+              <span
+                v-if="
+                  editingField?.gameId !== game.id ||
+                  editingField?.field !== 'white_player_name'
+                "
+              >
+                {{ game.white_player.name }}
+              </span>
+              <input
+                v-else
+                v-model="editingField.inputValue"
+                name="game-white-player-name"
+                class="input input-xs input-neutral w-full text-base-content"
+                @blur="stopEdit"
+                @keydown.enter="stopEdit"
+                @keydown.esc="stopEdit"
+              />
+            </td>
+            <td
+              @dblclick="
+                startEdit(game.id, 'black_player_name', game.black_player.name)
+              "
+            >
+              <span
+                v-if="
+                  editingField?.gameId !== game.id ||
+                  editingField?.field !== 'black_player_name'
+                "
+              >
+                {{ game.black_player.name }}
+              </span>
+              <input
+                v-else
+                v-model="editingField.inputValue"
+                name="game-black-player-name"
+                class="input input-xs input-neutral w-full text-base-content"
+                @blur="stopEdit"
+                @keydown.enter="stopEdit"
+                @keydown.esc="stopEdit"
+              />
+            </td>
+            <td @dblclick="startEdit(game.id, 'result', game.result)">
+              <span
+                v-if="
+                  editingField?.gameId !== game.id ||
+                  editingField?.field !== 'result'
+                "
+                class="badge badge-xs float-right break-keep"
                 :class="{
                   'badge-success': game.result === '1-0',
                   'badge-error': game.result === '0-1',
                   'badge-warning': game.result === '1/2-1/2',
-                }"
+                  'badge-neutral': game.result === '*',
+                }" 
               >
                 {{ game.result }}
               </span>
+              <select
+                v-else
+                v-model="editingField.inputValue"
+                name="game-result"
+                class="select select-xs select-neutral w-full text-base-content"
+                @blur="stopEdit"
+                @keydown.enter="stopEdit"
+                @keydown.esc="stopEdit"
+              >
+                <option value="*" :selected="game.result === '*'">*</option>
+                <option value="1-0" :selected="game.result === '1-0'">
+                  1-0
+                </option>
+                <option value="0-1" :selected="game.result === '0-1'">
+                  0-1
+                </option>
+                <option value="1/2-1/2" :selected="game.result === '1/2-1/2'">
+                  1/2-1/2
+                </option>
+              </select>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- Footer (pagination, etc.) -->
+    <!-- Pagination -->
     <div
       v-if="gameList.length > 0"
       class="flex flex-col sm:flex-row gap-4 p-4 bg-base-200 justify-between items-center"
@@ -240,17 +331,9 @@ import {
 	PhTrash,
 } from "@phosphor-icons/vue";
 import { computed, ref, watch } from "vue";
+import { ExplorerGame } from "../../shared/types";
 import { useGlobalStore } from "../../stores";
 import { ContextMenu, type MenuItem } from "../Layout/ContextMenu";
-
-// Types
-interface ExplorerGame {
-	id: number;
-	date?: string;
-	white_player: { name: string };
-	black_player: { name: string };
-	result: string;
-}
 
 const globalStore = useGlobalStore();
 const uiStore = globalStore.uiStore;
@@ -260,6 +343,11 @@ const gamesStore = globalStore.gamesStore;
 const currentSort = ref("date_desc");
 const currentFilter = ref("all");
 const searchQuery = ref("");
+const editingField = ref<{
+	gameId: number;
+	field: string;
+	inputValue: string;
+} | null>(null);
 const page = ref(1);
 const isLoading = ref(false);
 const error = ref<string | null>(null);
@@ -466,6 +554,22 @@ watch(pageCount, (newPageCount) => {
 	}
 });
 
+const startEdit = (gameId: number, field: string, inputValue: string) => {
+	editingField.value = { gameId, field, inputValue };
+};
+
+const stopEdit = async () => {
+	// Save the value to the game
+	if (editingField.value) {
+		await globalStore.updateGameProperty(
+			editingField.value.gameId,
+			editingField.value.field,
+			editingField.value.inputValue,
+		);
+	}
+	editingField.value = null;
+};
+
 const openGame = (gameId: number) => {
 	try {
 		const activeBoardId = uiStore.activeBoardId;
@@ -523,13 +627,15 @@ const handleContextMenuClick = async (itemId: string) => {
 			if (await gamesStore.deleteGame(gameId)) {
 				uiStore.addAlert({
 					type: "success",
-					message: "Game deleted successfully",
+					title: "Game deleted",
+					message: "Successfully deleted game",
 					timeout: 3000,
 				});
 			} else {
 				uiStore.addAlert({
 					type: "error",
-					message: "Failed to delete game",
+					title: "Error deleting game",
+					message: "Failed to delete game, see console for details",
 					timeout: 3000,
 				});
 			}

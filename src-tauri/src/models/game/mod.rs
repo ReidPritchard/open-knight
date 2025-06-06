@@ -668,48 +668,22 @@ impl ChessGame {
     /// # Returns
     /// * `Result<(), AppError>` - Success or an error
     pub async fn delete(db: &DatabaseConnection, game_id: i32) -> Result<(), AppError> {
-        // Directly impacted tables:
-        // Move, GameTag
-        // Indirectly impacted tables:
-        // Move -> (Annotation, MoveTimeTracking, MoveTag)
-
-        // // Create a transaction to ensure data consistency
-        // let txn = db
-        //     .begin()
-        //     .await
-        //     .map_err(|e| AppError::DatabaseError(format!("Failed to start transaction: {}", e)))?;
-
-        // // Delete all moves for the game
-        // r#move::Entity::delete_many()
-        //     .filter(r#move::Column::GameId.eq(game_id))
-        //     .exec(&txn)
-        //     .await
-        //     .map_err(|e| AppError::DatabaseError(format!("Failed to delete moves: {}", e)))?;
-
-        // // Delete all game tags for the game
-        // game_tag::Entity::delete_many()
-        //     .filter(game_tag::Column::GameId.eq(game_id))
-        //     .exec(&txn)
-        //     .await
-        //     .map_err(|e| AppError::DatabaseError(format!("Failed to delete game tags: {}", e)))?;
-
-        // // Delete the game
-        // game::Entity::delete_by_id(game_id)
-        //     .exec(&txn)
-        //     .await
-        //     .map_err(|e| AppError::DatabaseError(format!("Failed to delete game: {}", e)))?;
-
-        // // Commit the transaction
-        // txn.commit()
-        //     .await
-        //     .map_err(|e| AppError::DatabaseError(format!("Failed to commit transaction: {}", e)))?;
-
-        // cascade constraints have been added, so we can just delete the game
         game::Entity::delete_by_id(game_id)
             .exec(db)
             .await
             .map_err(|e| AppError::DatabaseError(format!("Failed to delete game: {}", e)))?;
 
         Ok(())
+    }
+
+    /// Saves the game to the database
+    ///
+    /// # Arguments
+    /// * `db` - Database connection
+    ///
+    /// # Returns
+    /// * `Result<(), AppError>` - Success or an error
+    pub async fn save(self, db: &DatabaseConnection) -> Result<Self, AppError> {
+        Self::save_single_game(db, &self).await
     }
 }

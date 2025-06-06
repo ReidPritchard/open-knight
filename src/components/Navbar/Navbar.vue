@@ -17,7 +17,7 @@
         <button
           class="btn btn-sm tooltip tooltip-bottom"
           data-tip="New Game"
-          @click="newGameClick"
+          @click="emit('newGame')"
         >
           <PhPlus class="w-4 h-4" />
           <span class="hidden xl:inline ml-1">New</span>
@@ -161,9 +161,5 @@ const importModalOpen = computed({
 
 const openSettingsModal = () => {
 	uiStore.updateSettingsModalOpen(true);
-};
-
-const newGameClick = () => {
-	emit("newGame");
 };
 </script>

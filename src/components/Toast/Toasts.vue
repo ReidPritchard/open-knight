@@ -28,25 +28,25 @@ import { useUIStore } from "../../stores/ui";
 const uiStore = useUIStore();
 
 const alertIcons: Record<AlertToast["type"], Component> = {
-  success: PhCheck,
-  error: PhWarningDiamond,
-  info: PhInfo,
-  warning: PhWarningDiamond,
+	success: PhCheck,
+	error: PhWarningDiamond,
+	info: PhInfo,
+	warning: PhWarningDiamond,
 };
 
 const alertTitles: Record<AlertToast["type"], string> = {
-  success: "Success",
-  error: "Error",
-  info: "Info",
-  warning: "Warning",
+	success: "Success",
+	error: "Error",
+	info: "Info",
+	warning: "Warning",
 };
 
 const alerts = computed(() =>
-  uiStore.alerts.map((alert) => ({
-    ...alert,
-    icon: alertIcons[alert.type],
-    title: alert.title ?? alertTitles[alert.type],
-    style: `alert-${alert.type} text-${alert.type}-content`,
-  })),
+	uiStore.alerts.map((alert) => ({
+		...alert,
+		icon: alertIcons[alert.type],
+		title: alert.title ?? alertTitles[alert.type],
+		style: `alert-${alert.type} text-${alert.type}-content`,
+	})),
 );
 </script>

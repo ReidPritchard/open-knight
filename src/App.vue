@@ -4,6 +4,7 @@
   >
     <Navbar
       v-model:importModalOpen="importModalOpen"
+      @newGame="newGameClick"
       @refreshGames="refreshGamesClick"
       @resetDatabase="resetDatabaseClick"
     />
@@ -59,7 +60,7 @@
               <EvaluationBar
                 class="min-h-full max-w-10"
                 :evaluation="engineAnalysisStore.boardEvaluation"
-                orientation="black"
+                :orientation="uiStore.whiteOnSide === 'top' ? 'black' : 'white'"
                 direction="vertical"
               />
               <div class="flex flex-col">
@@ -278,6 +279,15 @@ const navigateToPrevious = async () => {
 
 const navigateToNext = async () => {
 	await globalStore.gamesStore.nextMove(activeBoardId.value);
+};
+
+const newGameClick = async () => {
+	// TODO: Add UI for selecting variant
+
+	const boardId = uiStore.createNewBoard();
+	await globalStore.gamesStore.newGame(boardId, "standard");
+
+	console.log("New game created:", globalStore.activeGame);
 };
 </script>
 

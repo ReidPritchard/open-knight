@@ -62,6 +62,7 @@ export const useEngineAnalysisStore = defineStore("engineAnalysis", {
 						type: lastUpdate.score?.type ?? "centipawns",
 					};
 					if (evaluation.value !== undefined) {
+						console.log("Evaluation", evaluation);
 						return evaluation as Score;
 					}
 				}

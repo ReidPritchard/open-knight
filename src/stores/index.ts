@@ -38,6 +38,10 @@ export const useGlobalStore = defineStore("global", {
 			this.explorer.games = games;
 			return games;
 		},
+		async updateGameProperty(gameId: number, property: string, value: string) {
+			await api.games.POST.updateProperty(gameId, property, value);
+			await this.fetchExplorerGames();
+		},
 		async importPGNGames(pgn: string) {
 			await api.games.POST.importPGNGames(pgn);
 			await this.fetchExplorerGames();

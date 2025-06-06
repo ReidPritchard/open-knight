@@ -490,7 +490,7 @@ export const useUIStore = defineStore("ui", {
 		 * @param alert - The alert to add, can optionally include a key (if not provided, a random key will be generated)
 		 * @returns the key of the alert
 		 */
-		addAlert(alert: AlertToast & { key?: string }) {
+		addAlert(alert: Omit<AlertToast, "key"> & { key?: string }) {
 			// generate a unique key for the alert
 			const key = alert.key ?? Math.random().toString(36).substring(2, 15);
 			// Check if a key was provided and if it's already in use

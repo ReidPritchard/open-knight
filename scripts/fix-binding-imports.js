@@ -14,193 +14,193 @@ const BINDINGS_PATH = join(process.cwd(), BINDINGS_DIR);
  * Discovers all available TypeScript types from the bindings directory
  */
 function discoverAvailableTypes() {
-  try {
-    const files = readdirSync(BINDINGS_PATH).filter(
-      (file) => file.endsWith(".ts") && file !== "index.ts"
-    );
-    return files.map((file) => file.replace(".ts", ""));
-  } catch (error) {
-    console.warn(
-      `Warning: Could not read bindings directory: ${error.message}`
-    );
-    return [];
-  }
+	try {
+		const files = readdirSync(BINDINGS_PATH).filter(
+			(file) => file.endsWith(".ts") && file !== "index.ts",
+		);
+		return files.map((file) => file.replace(".ts", ""));
+	} catch (error) {
+		console.warn(
+			`Warning: Could not read bindings directory: ${error.message}`,
+		);
+		return [];
+	}
 }
 
 /**
  * Finds missing imports for a given file
  */
 function findMissingImports(filePath, content, availableTypes) {
-  if (availableTypes.length === 0) return [];
+	if (availableTypes.length === 0) return [];
 
-  const lines = content.split("\n");
-  const missingImports = [];
+	const lines = content.split("\n");
+	const missingImports = [];
 
-  // Extract the current file's type name to avoid self-imports
-  const fileName = filePath.split(/[/\\]/).pop(); // Get filename from path
-  const currentTypeName = fileName.replace(".ts", "");
+	// Extract the current file's type name to avoid self-imports
+	const fileName = filePath.split(/[/\\]/).pop(); // Get filename from path
+	const currentTypeName = fileName.replace(".ts", "");
 
-  // Get existing imports
-  const existingImports = new Set();
-  for (const line of lines) {
-    // Match import statements and extract imported types
-    const importMatch = line.match(/import.*\{([^}]+)\}/);
-    if (importMatch) {
-      const imports = importMatch[1]
-        .split(",")
-        .map((imp) => imp.trim())
-        .filter(Boolean);
-      for (const imp of imports) {
-        existingImports.add(imp);
-      }
-    }
-  }
+	// Get existing imports
+	const existingImports = new Set();
+	for (const line of lines) {
+		// Match import statements and extract imported types
+		const importMatch = line.match(/import.*\{([^}]+)\}/);
+		if (importMatch) {
+			const imports = importMatch[1]
+				.split(",")
+				.map((imp) => imp.trim())
+				.filter(Boolean);
+			for (const imp of imports) {
+				existingImports.add(imp);
+			}
+		}
+	}
 
-  // Find type references - create regex for all available types
-  const typeRegex = new RegExp(`\\b(${availableTypes.join("|")})\\b`, "g");
-  const referencedTypes = new Set();
+	// Find type references - create regex for all available types
+	const typeRegex = new RegExp(`\\b(${availableTypes.join("|")})\\b`, "g");
+	const referencedTypes = new Set();
 
-  for (const line of lines) {
-    // Skip import lines but ALLOW export lines (this was the bug!)
-    // Also skip comments
-    const trimmedLine = line.trim();
-    if (
-      trimmedLine.startsWith("import") ||
-      trimmedLine.startsWith("//") ||
-      trimmedLine.startsWith("/*") ||
-      trimmedLine.startsWith("*")
-    ) {
-      continue;
-    }
+	for (const line of lines) {
+		// Skip import lines but ALLOW export lines (this was the bug!)
+		// Also skip comments
+		const trimmedLine = line.trim();
+		if (
+			trimmedLine.startsWith("import") ||
+			trimmedLine.startsWith("//") ||
+			trimmedLine.startsWith("/*") ||
+			trimmedLine.startsWith("*")
+		) {
+			continue;
+		}
 
-    const matches = line.match(typeRegex);
-    if (matches) {
-      for (const match of matches) {
-        referencedTypes.add(match);
-      }
-    }
-  }
+		const matches = line.match(typeRegex);
+		if (matches) {
+			for (const match of matches) {
+				referencedTypes.add(match);
+			}
+		}
+	}
 
-  // Find missing imports
-  for (const type of referencedTypes) {
-    // Skip if it's the same type as the current file (avoid self-imports)
-    if (type === currentTypeName) {
-      continue;
-    }
+	// Find missing imports
+	for (const type of referencedTypes) {
+		// Skip if it's the same type as the current file (avoid self-imports)
+		if (type === currentTypeName) {
+			continue;
+		}
 
-    if (!existingImports.has(type)) {
-      const typeFileName = `${type}.ts`;
-      const typePath = join(BINDINGS_PATH, typeFileName);
+		if (!existingImports.has(type)) {
+			const typeFileName = `${type}.ts`;
+			const typePath = join(BINDINGS_PATH, typeFileName);
 
-      if (existsSync(typePath)) {
-        missingImports.push({
-          type,
-          importStatement: `import type { ${type} } from "./${type}";`,
-        });
-      } else {
-        console.warn(
-          `Warning: Type file ${typeFileName} not found for type ${type}`
-        );
-      }
-    }
-  }
+			if (existsSync(typePath)) {
+				missingImports.push({
+					type,
+					importStatement: `import type { ${type} } from "./${type}";`,
+				});
+			} else {
+				console.warn(
+					`Warning: Type file ${typeFileName} not found for type ${type}`,
+				);
+			}
+		}
+	}
 
-  return missingImports;
+	return missingImports;
 }
 
 /**
  * Adds missing imports to a file
  */
 function addImportsToFile(filePath, missingImports) {
-  if (missingImports.length === 0) return false;
+	if (missingImports.length === 0) return false;
 
-  const content = readFileSync(filePath, "utf8");
-  const lines = content.split("\n");
+	const content = readFileSync(filePath, "utf8");
+	const lines = content.split("\n");
 
-  // Find insertion point (after generated comment)
-  let insertIndex = 1;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].includes("// This file was generated")) {
-      insertIndex = i + 1;
-      break;
-    }
-  }
+	// Find insertion point (after generated comment)
+	let insertIndex = 1;
+	for (let i = 0; i < lines.length; i++) {
+		if (lines[i].includes("// This file was generated")) {
+			insertIndex = i + 1;
+			break;
+		}
+	}
 
-  // Insert missing imports (sorted for consistency)
-  const importStatements = missingImports
-    .map((imp) => imp.importStatement)
-    .sort();
+	// Insert missing imports (sorted for consistency)
+	const importStatements = missingImports
+		.map((imp) => imp.importStatement)
+		.sort();
 
-  lines.splice(insertIndex, 0, ...importStatements);
+	lines.splice(insertIndex, 0, ...importStatements);
 
-  // Write back to file
-  const newContent = lines.join("\n");
-  writeFileSync(filePath, newContent, "utf8");
+	// Write back to file
+	const newContent = lines.join("\n");
+	writeFileSync(filePath, newContent, "utf8");
 
-  return true;
+	return true;
 }
 
 /**
  * Main execution function
  */
 function main() {
-  try {
-    console.log("🔍 Scanning TypeScript binding files for missing imports...");
+	try {
+		console.log("🔍 Scanning TypeScript binding files for missing imports...");
 
-    if (!existsSync(BINDINGS_PATH)) {
-      throw new Error(`Bindings directory not found: ${BINDINGS_PATH}`);
-    }
+		if (!existsSync(BINDINGS_PATH)) {
+			throw new Error(`Bindings directory not found: ${BINDINGS_PATH}`);
+		}
 
-    // Discover available types automatically
-    const availableTypes = discoverAvailableTypes();
-    console.log(`📋 Found ${availableTypes.length} available types`);
+		// Discover available types automatically
+		const availableTypes = discoverAvailableTypes();
+		console.log(`📋 Found ${availableTypes.length} available types`);
 
-    if (availableTypes.length === 0) {
-      console.log("⚠️  No types found to process");
-      return;
-    }
+		if (availableTypes.length === 0) {
+			console.log("⚠️  No types found to process");
+			return;
+		}
 
-    const files = readdirSync(BINDINGS_PATH).filter(
-      (file) => file.endsWith(".ts") && file !== "index.ts"
-    );
+		const files = readdirSync(BINDINGS_PATH).filter(
+			(file) => file.endsWith(".ts") && file !== "index.ts",
+		);
 
-    let totalFixed = 0;
+		let totalFixed = 0;
 
-    for (const file of files) {
-      const filePath = join(BINDINGS_PATH, file);
-      const content = readFileSync(filePath, "utf8");
+		for (const file of files) {
+			const filePath = join(BINDINGS_PATH, file);
+			const content = readFileSync(filePath, "utf8");
 
-      // Skip if not a generated file
-      if (!content.includes("// This file was generated by [ts-rs]")) {
-        continue;
-      }
+			// Skip if not a generated file
+			if (!content.includes("// This file was generated by [ts-rs]")) {
+				continue;
+			}
 
-      const missingImports = findMissingImports(
-        filePath,
-        content,
-        availableTypes
-      );
+			const missingImports = findMissingImports(
+				filePath,
+				content,
+				availableTypes,
+			);
 
-      if (missingImports.length > 0) {
-        console.log(`📝 Fixing ${file}:`);
-        for (const imp of missingImports) {
-          console.log(`  + ${imp.importStatement}`);
-        }
+			if (missingImports.length > 0) {
+				console.log(`📝 Fixing ${file}:`);
+				for (const imp of missingImports) {
+					console.log(`  + ${imp.importStatement}`);
+				}
 
-        addImportsToFile(filePath, missingImports);
-        totalFixed++;
-      }
-    }
+				addImportsToFile(filePath, missingImports);
+				totalFixed++;
+			}
+		}
 
-    if (totalFixed > 0) {
-      console.log(`✅ Fixed imports in ${totalFixed} file(s)`);
-    } else {
-      console.log("✅ No missing imports found");
-    }
-  } catch (error) {
-    console.error("❌ Error fixing binding imports:", error.message);
-    process.exit(1);
-  }
+		if (totalFixed > 0) {
+			console.log(`✅ Fixed imports in ${totalFixed} file(s)`);
+		} else {
+			console.log("✅ No missing imports found");
+		}
+	} catch (error) {
+		console.error("❌ Error fixing binding imports:", error.message);
+		process.exit(1);
+	}
 }
 
 main();

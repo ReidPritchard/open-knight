@@ -153,6 +153,20 @@ export default {
 				// TODO: Implement a 'soft' delete (by setting a deleted flag or timestamp)
 				await invoke("delete_game", { gameId });
 			},
+
+			/**
+			 * Update a property on a game
+			 * @param gameId The ID of the game to update
+			 * @param property The property to update
+			 * @param value The value to set the property to
+			 */
+			updateProperty: async (
+				gameId: number,
+				property: string,
+				value: string,
+			): Promise<void> => {
+				await invoke("update_game_property", { gameId, property, value });
+			},
 		},
 	},
 

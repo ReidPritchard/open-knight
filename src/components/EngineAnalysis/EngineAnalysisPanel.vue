@@ -232,6 +232,60 @@ const isGameAnalysisInProgress = computed(
 	() => engineAnalysisStore.gameAnalysisInProgress,
 );
 
+// Local storage key for saved engines
+const SAVED_ENGINES_KEY = "open-knight-saved-engines";
+
+interface SavedEngine {
+	name: string;
+	path: string;
+}
+
+// Save engine configuration to localStorage
+function saveEngineToStorage(name: string, path: string) {
+	try {
+		const savedEngines = getSavedEngines();
+		// Check if engine already exists, if so update it
+		const existingIndex = savedEngines.findIndex(
+			(engine) => engine.name === name,
+		);
+		if (existingIndex >= 0) {
+			savedEngines[existingIndex] = { name, path };
+		} else {
+			savedEngines.push({ name, path });
+		}
+		localStorage.setItem(SAVED_ENGINES_KEY, JSON.stringify(savedEngines));
+	} catch (error) {
+		console.error("Failed to save engine to localStorage:", error);
+	}
+}
+
+// Load saved engines from localStorage
+function getSavedEngines(): SavedEngine[] {
+	try {
+		const saved = localStorage.getItem(SAVED_ENGINES_KEY);
+		return saved ? JSON.parse(saved) : [];
+	} catch (error) {
+		console.error("Failed to load saved engines from localStorage:", error);
+		return [];
+	}
+}
+
+// Load saved engines into availableEngines
+function loadSavedEngines() {
+	const savedEngines = getSavedEngines();
+	for (const engine of savedEngines) {
+		if (!availableEngines.value.includes(engine.name)) {
+			availableEngines.value.push(engine.name);
+		}
+	}
+}
+
+// Get saved engine path by name
+function getSavedEnginePath(name: string): string | undefined {
+	const savedEngines = getSavedEngines();
+	return savedEngines.find((engine) => engine.name === name)?.path;
+}
+
 const onStockfishAnalysisResult = (result: { [key: string]: unknown }) => {
 	const messageType = result.message_type;
 	if (messageType === "info") {
@@ -266,8 +320,23 @@ watch(currentPosition, (newPosition) => {
 	}
 });
 
+// Watch for engine selection changes to auto-populate saved engine paths
+watch(selectedEngine, (newEngine) => {
+	if (newEngine !== "New Engine") {
+		const savedPath = getSavedEnginePath(newEngine);
+		if (savedPath) {
+			newEnginePath.value = savedPath;
+			newEngineName.value = newEngine;
+		}
+	}
+});
+
 onMounted(async () => {
 	engineAnalysisStore.initAnalysisService();
+
+	// Load saved engines from localStorage
+	loadSavedEngines();
+
 	try {
 		if (!engineAnalysisStore.engines.has(selectedEngine.value)) {
 			engineAnalysisStore.addAnalysisListener(
@@ -291,6 +360,10 @@ async function loadEngine() {
 		newEngineName.value,
 		newEnginePath.value,
 	);
+
+	// Save engine configuration to localStorage
+	saveEngineToStorage(newEngineName.value, newEnginePath.value);
+
 	if (!availableEngines.value.includes(newEngineName.value)) {
 		availableEngines.value.push(newEngineName.value);
 	}
@@ -365,4 +438,7 @@ function onEngineSettingsUpdate(updatedSettings: [string, EngineOption][]) {
 		Object.fromEntries(updatedSettings);
 	engineAnalysisStore.setEngineSettings(selectedEngine.value, settingsObj);
 }
+
+// TODO: At some point we should save them to the database, but that's a low priority for now.
+// NOTE: Basic localStorage saving is now implemented for engine name and path.
 </script>
