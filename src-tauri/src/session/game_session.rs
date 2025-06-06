@@ -30,11 +30,11 @@ impl GameSession {
                 || self.last_saved_at.elapsed() > Duration::from_secs(30))
     }
 
-    pub async fn persist(&mut self, _db: &DatabaseConnection) -> Result<(), AppError> {
+    pub async fn persist(&mut self, db: &DatabaseConnection) -> Result<(), AppError> {
+        self.save_to_database(db, true).await?;
         self.last_saved_at = Instant::now();
         self.move_count_since_save = 0;
         self.dirty = false;
-        // TODO: Save to database
         Ok(())
     }
 
@@ -106,28 +106,18 @@ impl GameSession {
         db: &DatabaseConnection,
         overwrite: bool,
     ) -> Result<i32, AppError> {
-        // For now, we'll always create a new game since we don't have update functionality
-        // TODO: Implement proper save/update logic in ChessGame
-        let _ = overwrite; // Suppress unused variable warning
+        let game_result = if overwrite {
+            self.game.clone().save(db).await?
+        } else {
+            self.game.clone().update(db).await?
+        };
 
-        // FIXME: Check if we can update an existing game instead of creating a new one
+        // Update our game with the saved version
+        self.game = game_result;
+        self.last_saved_at = Instant::now();
+        self.move_count_since_save = 0;
+        self.dirty = false;
 
-        // Create a vector with just this game for the save_from_pgn method
-        let pgn = self.game.to_pgn();
-        println!("Saving game to database: \n\n{}\n\n", pgn);
-        match ChessGame::save_from_pgn(db, &pgn).await {
-            Ok(mut games) => {
-                if let Some(saved_game) = games.pop() {
-                    let game_id = saved_game.id;
-                    self.last_saved_at = Instant::now();
-                    self.move_count_since_save = 0;
-                    self.dirty = false;
-                    Ok(game_id)
-                } else {
-                    Err(AppError::DatabaseError("No games were saved".to_string()))
-                }
-            }
-            Err(e) => Err(AppError::DatabaseError(e.to_string())),
-        }
+        Ok(self.game.id)
     }
 }
