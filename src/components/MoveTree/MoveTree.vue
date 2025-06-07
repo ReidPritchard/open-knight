@@ -2,56 +2,6 @@
 
 	<div class="p-4 bg-base-100 rounded-lg flex flex-col min-h-0">
 
-		<!-- Navigation buttons -->
-
-		<div class="mb-4 flex justify-center">
-
-			<div class="flex gap-2">
-
-				<button
-					@click="$emit('navigate-start')"
-					class="btn btn-sm btn-ghost"
-					:disabled="!currentNodeId"
-				>
-
-					<PhCaretLineLeft :size="16" />
-
-				</button>
-
-				<button
-					@click="$emit('navigate-previous')"
-					class="btn btn-sm btn-ghost"
-					:disabled="!canNavigateBack"
-				>
-
-					<PhCaretLeft :size="16" />
-
-				</button>
-
-				<button
-					@click="$emit('navigate-next', 0)"
-					class="btn btn-sm btn-ghost"
-					:disabled="!canNavigateForward"
-				>
-
-					<PhCaretRight :size="16" />
-
-				</button>
-
-				<button
-					@click="$emit('navigate-end')"
-					class="btn btn-sm btn-ghost"
-					:disabled="!hasMainLine"
-				>
-
-					<PhCaretLineRight :size="16" />
-
-				</button>
-
-			</div>
-
-		</div>
-
 		<!-- View mode toggle and options -->
 
 		<div class="flex justify-center mb-2 gap-4">
@@ -62,7 +12,7 @@
 					v-for="mode in ['compact', 'tabular'] as const"
 					:key="mode"
 					@click="viewMode = mode"
-					class="join-item btn btn-xs"
+					class="join-item btn btn-xs btn-ghost btn-secondary"
 					:class="{ 'btn-active': viewMode === mode }"
 				>
 					 {{ mode }}
@@ -446,8 +396,6 @@
 <script setup lang="ts">
 import {
 	PhCaretLeft,
-	PhCaretLineLeft,
-	PhCaretLineRight,
 	PhCaretRight,
 	PhChartLine,
 	PhChatText,
@@ -558,18 +506,6 @@ const currentAnnotations = computed((): ChessAnnotation[] => {
 	return currentMove.value.annotations.filter(
 		(a: ChessAnnotation) => a.comment,
 	);
-});
-
-const canNavigateBack = computed((): boolean => {
-	return currentNode.value?.parent_id != null;
-});
-
-const canNavigateForward = computed((): boolean => {
-	return (currentNode.value?.children_ids?.length || 0) > 0;
-});
-
-const hasMainLine = computed((): boolean => {
-	return props.moveTree.nodes.some((n) => n.value?.game_move);
 });
 
 // Enhanced move tree flattening that preserves variation structure
