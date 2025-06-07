@@ -47,7 +47,7 @@
 					<li role="none">
 
 						<a
-							@click="setFilter('my_games')"
+							@click="setFilter('favorites')"
 							role="menuitem"
 						>
 							 My Games
@@ -58,7 +58,7 @@
 					<li role="none">
 
 						<a
-							@click="setFilter('wins')"
+							@click="setFilter('tags', ['win'])"
 							role="menuitem"
 						>
 							 Wins
@@ -69,7 +69,7 @@
 					<li role="none">
 
 						<a
-							@click="setFilter('losses')"
+							@click="setFilter('tags', ['loss'])"
 							role="menuitem"
 						>
 							 Losses
@@ -80,7 +80,7 @@
 					<li role="none">
 
 						<a
-							@click="setFilter('draws')"
+							@click="setFilter('tags', ['draw'])"
 							role="menuitem"
 						>
 							 Draws
@@ -199,17 +199,21 @@
 							class="cursor-pointer hover:bg-info/10 flex gap-1 justify-between items-center"
 							:class="{
 								'bg-info/50':
-									currentSort === 'date_desc' || currentSort === 'date_asc',
+									currentSort.field === 'date' && currentSort.order === 'desc',
 							}"
 						>
 							 Date
 							<PhSortAscending
-								v-if="currentSort === 'date_asc'"
+								v-if="
+									currentSort.field === 'date' && currentSort.order === 'asc'
+								"
 								size="16"
 							/>
 
 							<PhSortDescending
-								v-if="currentSort === 'date_desc'"
+								v-if="
+									currentSort.field === 'date' && currentSort.order === 'desc'
+								"
 								size="16"
 							/>
 
@@ -220,7 +224,7 @@
 							@click="setSort('white')"
 							class="cursor-pointer hover:bg-info/10"
 							:class="{
-								'bg-info/50': currentSort === 'white',
+								'bg-info/50': currentSort.field === 'white',
 							}"
 						>
 							 White
@@ -231,7 +235,7 @@
 							@click="setSort('black')"
 							class="cursor-pointer hover:bg-info/10"
 							:class="{
-								'bg-info/50': currentSort === 'black',
+								'bg-info/50': currentSort.field === 'black',
 							}"
 						>
 							 Black
@@ -242,7 +246,7 @@
 							@click="setSort('result')"
 							class="cursor-pointer hover:bg-info/10"
 							:class="{
-								'bg-info/50': currentSort === 'result',
+								'bg-info/50': currentSort.field === 'result',
 							}"
 						>
 							 Result
@@ -478,7 +482,6 @@
 <script setup lang="ts">
 import {
 	PhArrowSquareOut,
-	PhCopy,
 	PhFilePlus,
 	PhPencilSimpleLine,
 	PhShare,
@@ -488,17 +491,31 @@ import {
 } from "@phosphor-icons/vue";
 import { computed, ref, watch } from "vue";
 import { useError } from "../../composables/useError";
-import { ExplorerGame } from "../../shared/types";
+import {
+	ExplorerGame,
+	FilterOption,
+	SortConfig,
+	SortOption,
+} from "../../shared/types";
 import { useGlobalStore } from "../../stores";
 import { ContextMenu, type MenuItem } from "../Layout/ContextMenu";
+import {
+	filterGames,
+	searchGames,
+	sortGames,
+} from "../../services/ImportExportService";
 
 const globalStore = useGlobalStore();
 const uiStore = globalStore.uiStore;
 const gamesStore = globalStore.gamesStore;
 
 // Reactive state
-const currentSort = ref("date_desc");
-const currentFilter = ref("all");
+const currentSort = ref<SortConfig>({
+	field: "date",
+	order: "desc",
+});
+const currentFilter = ref<FilterOption>("all");
+const currentFilterTags = ref<string[]>([]);
 const searchQuery = ref("");
 const editingField = ref<{
 	gameId: number;
@@ -518,17 +535,18 @@ const contextMenu = ref({
 });
 
 // Constants
-const CURRENT_USER_NAME = "You"; // TODO: Get from user store
+// const CURRENT_USER_NAME = "You"; // TODO: Get from user store
 const PAGE_SIZE = 20; // Fixed page size - layout container handles overflow
 
 // Filter function
-function setFilter(filterType: string) {
+function setFilter(filterType: FilterOption, filterTags: string[] = []) {
 	currentFilter.value = filterType;
+	currentFilterTags.value = filterTags;
 	page.value = 1; // Reset to first page when filter changes
 }
 
 // Get filter label for display
-const getFilterLabel = (filter: string): string => {
+const getFilterLabel = (filter: FilterOption): string => {
 	const labels: Record<string, string> = {
 		my_games: "My Games",
 		wins: "Wins",
@@ -558,78 +576,15 @@ const formatDate = (dateString?: string): string => {
 
 // Computed property for filtered and sorted games
 const gameList = computed(() => {
-	try {
-		let games: ExplorerGame[] = [...(globalStore.explorerGames || [])];
+	let games: ExplorerGame[] = [...(globalStore.explorerGames || [])];
 
-		// Apply search filter
-		if (searchQuery.value.trim()) {
-			const query = searchQuery.value.toLowerCase().trim();
-			games = games.filter(
-				(game) =>
-					game.white_player.name.toLowerCase().includes(query) ||
-					game.black_player.name.toLowerCase().includes(query),
-			);
-		}
+	games = searchGames(games, searchQuery.value);
 
-		// Apply category filter
-		if (currentFilter.value !== "all") {
-			games = games.filter((game) => {
-				switch (currentFilter.value) {
-					case "my_games":
-						return (
-							game.white_player.name === CURRENT_USER_NAME ||
-							game.black_player.name === CURRENT_USER_NAME
-						);
-					case "wins":
-						return (
-							(game.white_player.name === CURRENT_USER_NAME &&
-								game.result === "1-0") ||
-							(game.black_player.name === CURRENT_USER_NAME &&
-								game.result === "0-1")
-						);
-					case "losses":
-						return (
-							(game.white_player.name === CURRENT_USER_NAME &&
-								game.result === "0-1") ||
-							(game.black_player.name === CURRENT_USER_NAME &&
-								game.result === "1-0")
-						);
-					case "draws":
-						return game.result === "1/2-1/2";
-					default:
-						return true;
-				}
-			});
-		}
+	games = filterGames(games, currentFilter.value, currentFilterTags.value);
 
-		// Apply sort
-		games.sort((a, b) => {
-			switch (currentSort.value) {
-				case "date_desc":
-				case "date_asc": {
-					const dateA = new Date(a.date || "").getTime() || 0;
-					const dateB = new Date(b.date || "").getTime() || 0;
-					return currentSort.value === "date_desc"
-						? dateB - dateA
-						: dateA - dateB;
-				}
-				case "white":
-					return a.white_player.name.localeCompare(b.white_player.name);
-				case "black":
-					return a.black_player.name.localeCompare(b.black_player.name);
-				case "result":
-					return a.result.localeCompare(b.result);
-				default:
-					return 0;
-			}
-		});
+	games = sortGames(games, currentSort.value.field, currentSort.value.order);
 
-		return games;
-	} catch (err) {
-		console.error("Error processing games:", err);
-		error.value = "Error loading games";
-		return [];
-	}
+	return games;
 });
 
 // Fixed page size - no dynamic calculation needed
@@ -661,11 +616,6 @@ const contextMenuItems = computed((): MenuItem[] => [
 		id: "divider",
 		label: "",
 		type: "divider",
-	},
-	{
-		id: "copy",
-		label: "Copy Game",
-		icon: PhCopy,
 	},
 	{
 		id: "export",
@@ -728,14 +678,8 @@ const stopEdit = async () => {
 };
 
 const openGame = (gameId: number) => {
-	try {
-		const activeBoardId = uiStore.activeBoardId;
-		console.debug(`Opening game ${gameId} in board ${activeBoardId}`);
-		gamesStore.openGame(gameId, activeBoardId);
-	} catch (err) {
-		console.error("Error opening game:", err);
-		error.value = "Error opening game";
-	}
+	const activeBoardId = uiStore.activeBoardId;
+	gamesStore.openGame(gameId, activeBoardId);
 };
 
 const showContextMenu = (event: MouseEvent, gameId: number) => {
@@ -751,12 +695,14 @@ const hideContextMenu = () => {
 	contextMenu.value.visible = false;
 };
 
-const setSort = (sortType: string) => {
+const setSort = (sortType: SortOption) => {
 	if (sortType === "date") {
 		currentSort.value =
-			currentSort.value === "date_desc" ? "date_asc" : "date_desc";
+			currentSort.value.order === "desc"
+				? { field: "date", order: "asc" }
+				: { field: "date", order: "desc" };
 	} else {
-		currentSort.value = sortType;
+		currentSort.value = { field: sortType, order: "desc" };
 	}
 };
 
@@ -769,12 +715,10 @@ const handleContextMenuClick = async (itemId: string) => {
 			openGame(gameId);
 			break;
 		case "open-new-board":
-			// TODO: Implement opening in new board
-			console.log("Open in new board:", gameId);
+			// Create new active board
+			gamesStore.openGame(gameId, uiStore.createNewBoard());
 			break;
-		case "copy":
-			// TODO: Implement copy game
-			console.log("Copy game:", gameId);
+		case "edit":
 			break;
 		case "export":
 			// TODO: Implement export game

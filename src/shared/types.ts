@@ -17,10 +17,34 @@ export interface AlertToast {
 	timeout?: number;
 }
 
+/**
+ * Metadata for an open chess board
+ */
 export interface BoardMetadata {
 	name: string;
 	hasUnsavedChanges: boolean;
 }
+
+/**
+ * Sorting options for the game library
+ */
+export type SortOption =
+	| "date"
+	| "event"
+	| "white"
+	| "black"
+	| "result"
+	| "opening";
+
+export interface SortConfig {
+	field: SortOption;
+	order: "asc" | "desc";
+}
+
+/**
+ * Filter options for the game library
+ */
+export type FilterOption = "all" | "favorites" | "tags";
 
 ////////////////////////////////////////////////////////////
 // Application Interfaces

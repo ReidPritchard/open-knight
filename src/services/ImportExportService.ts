@@ -1,5 +1,10 @@
 import API from "../shared/api";
-import type { ExplorerGame, OperationResult } from "../shared/types";
+import type {
+	ExplorerGame,
+	FilterOption,
+	OperationResult,
+	SortOption,
+} from "../shared/types";
 import { ErrorCategory, withErrorHandling } from "./ErrorService";
 
 /**
@@ -106,7 +111,7 @@ export function validatePGNFormat(pgn: string): {
  */
 export function sortGames(
 	games: ExplorerGame[],
-	sortBy: "date" | "event" | "white" | "black" | "result" | "opening",
+	sortBy: SortOption,
 	sortOrder: "asc" | "desc" = "desc",
 ): ExplorerGame[] {
 	const sortedGames = [...games].sort((a, b) => {
@@ -154,7 +159,7 @@ export function sortGames(
  */
 export function filterGames(
 	games: ExplorerGame[],
-	filter: "all" | "favorites" | "tags",
+	filter: FilterOption,
 	filterTags: string[] = [],
 ): ExplorerGame[] {
 	switch (filter) {

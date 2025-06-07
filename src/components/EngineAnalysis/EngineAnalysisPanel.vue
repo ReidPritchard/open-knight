@@ -247,8 +247,8 @@
 
 			<EngineSettings
 				v-if="selectedEngine !== 'New Engine'"
-				:engineSettings="engineSettings"
-				@update:engineSettings="onEngineSettingsUpdate"
+				:engine-settings="engineSettings"
+				@update:engine-settings="onEngineSettingsUpdate"
 				class="flex-1 min-h-0"
 			/>
 
@@ -261,7 +261,7 @@
 <script setup lang="ts">
 import { PhBinary, PhIdentificationCard } from "@phosphor-icons/vue";
 import { computed, onMounted, ref, watch } from "vue";
-import type { AnalysisUpdate, EngineOption } from "../../shared/types";
+import type { EngineOption } from "../../shared/types";
 import { useGlobalStore } from "../../stores";
 import { useEngineAnalysisStore } from "../../stores/engineAnalysis";
 import EngineSettings from "./EngineSettings.vue";

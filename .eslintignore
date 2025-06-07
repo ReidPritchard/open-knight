@@ -1,0 +1,9 @@
+dist/
+node_modules/
+src-tauri/
+vite-env.d.ts
+*.config.js
+*.config.ts
+.vscode/
+.cursor/
+scripts/fix-binding-imports.js 

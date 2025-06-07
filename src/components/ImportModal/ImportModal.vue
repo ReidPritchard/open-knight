@@ -1,106 +1,145 @@
 <template>
 
-	<Teleport to="body">
+	<Modal
+		id="import-modal"
+		title="Import Games"
+		description="Import games from a PGN file."
+		:is-open="isOpen"
+		:on-close="onClose"
+	>
 
-		<div
-			id="import-modal"
-			class="modal"
-			:class="{ 'modal-open': isOpen }"
-		>
+		<template #content>
 
-			<div class="modal-box">
+			<fieldset
+				class="fieldset bg-base-200 border-base-300 rounded-box w-full border p-4"
+			>
 
-				<div
-					v-if="loading"
-					class="flex flex-col justify-center items-center"
+				<legend class="fieldset-legend">PGN Import</legend>
+
+				<div class="flex flex-row gap-4 items-center justify-evenly">
+
+					<label class="label cursor-pointer bg-base-200">
+
+						<input
+							type="radio"
+							name="pgn-input-type"
+							class="radio radio-primary"
+							v-model="inputType"
+							value="file"
+						/>
+
+						<span class="label">Upload File</span>
+
+					</label>
+
+					<div class="divider divider-horizontal">OR</div>
+
+					<label class="label cursor-pointer bg-base-200">
+
+						<input
+							type="radio"
+							name="pgn-input-type"
+							class="radio radio-primary"
+							v-model="inputType"
+							value="raw"
+						/>
+
+						<span class="label">Raw Text</span>
+
+					</label>
+
+				</div>
+
+				<template v-if="inputType === 'file'">
+
+					<label
+						class="label"
+						for="pgn-file"
+					>
+						 PGN File
+					</label>
+
+					<input
+						type="file"
+						id="pgn-file"
+						required
+						class="file-input file-input-bordered validator"
+						@change="handleFileChange"
+					/>
+
+					<p class="validator-hint">Must be a valid PGN file</p>
+
+				</template>
+
+				<template v-if="inputType === 'raw'">
+
+					<label
+						class="label"
+						for="pgn-text"
+					>
+						 PGN Text
+					</label>
+
+					<textarea
+						v-model="pgn"
+						id="pgn-text"
+						required
+						class="textarea h-24 w-full validator"
+						:class="{ 'validator:user-invalid': !pgnValid }"
+						placeholder="PGN Text"
+					></textarea>
+
+					<p class="validator-hint">Must be a valid PGN text</p>
+
+				</template>
+
+				<div class="join mt-4">
+
+					<button
+						class="join-item btn btn-error"
+						@click="onClose"
+					>
+						 Cancel
+					</button>
+
+					<button
+						class="join-item btn btn-primary grow"
+						:disabled="!pgnValid || loading"
+						@click="importGames"
+					>
+						 Import Games
+					</button>
+
+				</div>
+
+			</fieldset>
+
+		</template>
+
+		<template #footer>
+
+			<div class="flex flex-col gap-4">
+
+				<button
+					class="btn btn-neutral"
+					@click="importDemoGames"
 				>
-
-					<div class="loading loading-dots loading-lg"></div>
-
-					<p class="text-lg">Importing games...</p>
-
-				</div>
-
-				<div v-else>
-
-					<form method="dialog">
-
-						<button
-							class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-							@click="onClose"
-						>
-							 ✕
-						</button>
-
-					</form>
-
-					<h3 class="font-bold text-lg">Import Games</h3>
-
-					<p class="py-4">Import games from a PGN file.</p>
-
-					<div class="form-control">
-
-						<label class="label cursor-pointer">
-
-							<span class="label-text">PGN File</span>
-
-							<input
-								type="file"
-								class="file-input file-input-bordered"
-								@change="handleFileChange"
-							/>
-
-						</label>
-
-						<label class="label cursor-pointer">
-
-							<span class="label-text">PGN Text</span>
-
-							<textarea
-								class="textarea textarea-bordered"
-								v-model="pgn"
-							></textarea>
-
-						</label>
-
-						<button
-							class="btn btn-primary"
-							@click="importGames"
-						>
-							 Import
-						</button>
-
-						<button
-							class="btn btn-secondary"
-							@click="importDemoGames"
-						>
-							 Import Demo Games
-						</button>
-
-					</div>
-
-				</div>
+					 Import Demo Games
+				</button>
 
 			</div>
 
-			<form
-				method="dialog"
-				class="modal-backdrop"
-			>
+		</template>
 
-				<button @click="onClose">close</button>
-
-			</form>
-
-		</div>
-
-	</Teleport>
+	</Modal>
 
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { useGlobalStore } from "../../stores";
+import Modal from "../Layout/Modal/Modal.vue";
+import { validatePGNFormat } from "../../services/ImportExportService";
 
 const props = defineProps<{
 	isOpen: boolean;
@@ -111,7 +150,11 @@ const globalStore = useGlobalStore();
 
 const loading = ref(false);
 
-const pgn = ref("");
+const inputType = ref<"file" | "raw">("file");
+const pgn = ref<string>("");
+const pgnValid = computed(() => {
+	return validatePGNFormat(pgn.value).isValid;
+});
 
 const handleFileChange = (event: Event) => {
 	const file = (event.target as HTMLInputElement).files?.[0];

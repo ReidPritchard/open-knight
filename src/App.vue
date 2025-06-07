@@ -5,10 +5,10 @@
 	>
 
 		<Navbar
-			v-model:importModalOpen="importModalOpen"
-			@newGame="newGameClick"
-			@refreshGames="refreshGamesClick"
-			@resetDatabase="resetDatabaseClick"
+			v-model:import-modal-open="importModalOpen"
+			@new-game="newGameClick"
+			@refresh-games="refreshGamesClick"
+			@reset-database="resetDatabaseClick"
 		/>
 
 		<!-- Main Layout with Resizable Split Panes -->
@@ -131,7 +131,7 @@
 
 						<MoveTree
 							v-if="globalStore?.activeGame !== null"
-							:moveTree="globalStore.activeGame.move_tree"
+							:move-tree="globalStore.activeGame.move_tree"
 							@select-move="handleMoveSelect"
 							@navigate-start="navigateToStart"
 							@navigate-end="navigateToEnd"

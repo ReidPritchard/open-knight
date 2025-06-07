@@ -122,7 +122,6 @@ export async function loadGameSession(
 	const result = await withErrorHandling(
 		async () => {
 			const game = await API.board.open(gameId, boardId);
-			console.log("Loaded game session:", game);
 			return { id: gameId, game };
 		},
 		ErrorCategory.CHESS_GAME,
