@@ -1,20 +1,12 @@
-import api from "../shared/api";
+import { API } from "../shared/api";
 import type {
 	ChessGame,
 	ChessPosition,
 	ChessTreeNode,
 	LegalMove,
 } from "../shared/bindings";
-import { ErrorFactory, ErrorHandler } from "./ErrorService";
-
-/**
- * Result of a game operation
- */
-export interface GameOperationResult<T = void> {
-	success: boolean;
-	data?: T;
-	error?: string;
-}
+import type { OperationResult } from "../shared/types";
+import { ErrorCategory, withErrorHandling } from "./ErrorService";
 
 /**
  * Game session data
@@ -58,20 +50,16 @@ export async function getValidMoves(
 	position?: string,
 ): Promise<LegalMove[] | null> {
 	if (!position) return null;
-	try {
-		return await api.moves.GET.validMoves(position);
-	} catch (error) {
-		ErrorHandler.handle(
-			ErrorFactory.chessGame(
-				"INVALID_POSITION",
-				`Failed to get valid moves for position: ${position}`,
-				{
-					metadata: { position },
-				},
-			),
-		);
-		return null;
-	}
+
+	const result = await withErrorHandling(
+		() => API.analysis.getValidMoves(position),
+		ErrorCategory.CHESS_GAME,
+		"INVALID_POSITION",
+		`Failed to get valid moves for position: ${position}`,
+		{ position },
+	);
+
+	return result.success ? (result.data ?? null) : null;
 }
 
 /**
@@ -108,32 +96,20 @@ export function moveExistsInTree(
 export async function createGameSession(
 	boardId: number,
 	type: "standard" | "puzzle" | "960" = "standard",
-): Promise<GameOperationResult<GameSession>> {
-	try {
-		const game = await api.sessions.POST.create(boardId, type);
-		console.log("New game session:", game);
+): Promise<OperationResult<GameSession>> {
+	const result = await withErrorHandling(
+		async () => {
+			const game = await API.games.create(boardId, type);
+			console.log("New game session:", game);
+			return { id: game.id, game };
+		},
+		ErrorCategory.CHESS_GAME,
+		"INVALID_POSITION",
+		"Failed to create new game",
+		{ boardId, type },
+	);
 
-		return {
-			success: true,
-			data: { id: game.id, game },
-		};
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to create new game";
-		ErrorHandler.handle(
-			ErrorFactory.chessGame(
-				"INVALID_POSITION",
-				`Failed to create game session: ${errorMessage}`,
-				{
-					metadata: { boardId, type },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+	return result;
 }
 
 /**
@@ -142,32 +118,20 @@ export async function createGameSession(
 export async function loadGameSession(
 	gameId: number,
 	boardId: number,
-): Promise<GameOperationResult<GameSession>> {
-	try {
-		const game = await api.sessions.POST.load(gameId, boardId);
-		console.log("Loaded game session:", game);
+): Promise<OperationResult<GameSession>> {
+	const result = await withErrorHandling(
+		async () => {
+			const game = await API.board.open(gameId, boardId);
+			console.log("Loaded game session:", game);
+			return { id: gameId, game };
+		},
+		ErrorCategory.CHESS_GAME,
+		"INVALID_POSITION",
+		"Failed to load game",
+		{ gameId, boardId },
+	);
 
-		return {
-			success: true,
-			data: { id: gameId, game },
-		};
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to load game";
-		ErrorHandler.handle(
-			ErrorFactory.chessGame(
-				"INVALID_POSITION",
-				`Failed to load game session: ${errorMessage}`,
-				{
-					metadata: { gameId, boardId },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+	return result;
 }
 
 /**
@@ -175,28 +139,19 @@ export async function loadGameSession(
  */
 export async function closeGameSession(
 	boardId: number,
-): Promise<GameOperationResult> {
-	try {
-		await api.sessions.POST.close(boardId);
-		console.log("Closed game session:", boardId);
-		return { success: true };
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to close session";
-		ErrorHandler.handle(
-			ErrorFactory.general(
-				"UNEXPECTED",
-				`Failed to close game session: ${errorMessage}`,
-				{
-					metadata: { boardId },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+): Promise<OperationResult> {
+	const result = await withErrorHandling(
+		async () => {
+			await API.board.close(boardId);
+			console.log("Closed game session:", boardId);
+		},
+		ErrorCategory.GENERAL,
+		"UNEXPECTED",
+		"Failed to close session",
+		{ boardId },
+	);
+
+	return result;
 }
 
 /**
@@ -206,39 +161,33 @@ export async function makeMove(
 	boardId: number,
 	moveNotation: string,
 	currentGame: ChessGame,
-): Promise<GameOperationResult<ChessGame>> {
-	try {
-		// Check if move already exists in the tree
-		if (moveExistsInTree(currentGame, moveNotation)) {
-			console.log("Move already exists, navigating to next move");
-			return await navigateToNextMove(boardId);
-		}
+): Promise<OperationResult<ChessGame>> {
+	const result = await withErrorHandling(
+		async () => {
+			// Check if move already exists in the tree
+			if (moveExistsInTree(currentGame, moveNotation)) {
+				console.log("Move already exists, navigating to next move");
+				const nextMoveResult = await navigateToNextMove(boardId);
+				if (!nextMoveResult.success || !nextMoveResult.data) {
+					throw new Error(
+						nextMoveResult.error || "Failed to navigate to next move",
+					);
+				}
+				return nextMoveResult.data;
+			}
 
-		console.log("Move is new, adding to move tree");
-		const updatedGame = await api.sessions.POST.makeMove(boardId, moveNotation);
-		console.log("Move made successfully:", updatedGame);
+			console.log("Move is new, adding to move tree");
+			const updatedGame = await API.board.move(boardId, moveNotation);
+			console.log("Move made successfully:", updatedGame);
+			return updatedGame;
+		},
+		ErrorCategory.CHESS_GAME,
+		"INVALID_MOVE",
+		"Failed to make move",
+		{ boardId, moveNotation },
+	);
 
-		return {
-			success: true,
-			data: updatedGame,
-		};
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to make move";
-		ErrorHandler.handle(
-			ErrorFactory.chessGame(
-				"INVALID_MOVE",
-				`Failed to make move: ${errorMessage}`,
-				{
-					metadata: { boardId, moveNotation },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+	return result;
 }
 
 /**
@@ -246,31 +195,20 @@ export async function makeMove(
  */
 export async function navigateToPreviousMove(
 	boardId: number,
-): Promise<GameOperationResult<ChessGame>> {
-	try {
-		const updatedGame = await api.sessions.POST.previousMove(boardId);
-		console.log("Moved to previous position:", updatedGame);
-		return {
-			success: true,
-			data: updatedGame,
-		};
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to go to previous move";
-		ErrorHandler.handle(
-			ErrorFactory.chessGame(
-				"INVALID_POSITION",
-				`Failed to navigate to previous move: ${errorMessage}`,
-				{
-					metadata: { boardId },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+): Promise<OperationResult<ChessGame>> {
+	const result = await withErrorHandling(
+		async () => {
+			const updatedGame = await API.board.previous(boardId);
+			console.log("Moved to previous position:", updatedGame);
+			return updatedGame;
+		},
+		ErrorCategory.CHESS_GAME,
+		"INVALID_POSITION",
+		"Failed to go to previous move",
+		{ boardId },
+	);
+
+	return result;
 }
 
 /**
@@ -278,31 +216,20 @@ export async function navigateToPreviousMove(
  */
 export async function navigateToNextMove(
 	boardId: number,
-): Promise<GameOperationResult<ChessGame>> {
-	try {
-		const updatedGame = await api.sessions.POST.nextMove(boardId);
-		console.log("Moved to next position:", updatedGame);
-		return {
-			success: true,
-			data: updatedGame,
-		};
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to go to next move";
-		ErrorHandler.handle(
-			ErrorFactory.chessGame(
-				"INVALID_POSITION",
-				`Failed to navigate to next move: ${errorMessage}`,
-				{
-					metadata: { boardId },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+): Promise<OperationResult<ChessGame>> {
+	const result = await withErrorHandling(
+		async () => {
+			const updatedGame = await API.board.next(boardId);
+			console.log("Moved to next position:", updatedGame);
+			return updatedGame;
+		},
+		ErrorCategory.CHESS_GAME,
+		"INVALID_POSITION",
+		"Failed to go to next move",
+		{ boardId },
+	);
+
+	return result;
 }
 
 /**
@@ -311,31 +238,20 @@ export async function navigateToNextMove(
 export async function jumpToMove(
 	boardId: number,
 	moveId: number,
-): Promise<GameOperationResult<ChessGame>> {
-	try {
-		await api.sessions.POST.jumpToMove(boardId, moveId);
-		const updatedGame = await api.sessions.GET.get(boardId);
-		return {
-			success: true,
-			data: updatedGame,
-		};
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to jump to move";
-		ErrorHandler.handle(
-			ErrorFactory.chessGame(
-				"INVALID_POSITION",
-				`Failed to jump to move: ${errorMessage}`,
-				{
-					metadata: { boardId, moveId },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+): Promise<OperationResult<ChessGame>> {
+	const result = await withErrorHandling(
+		async () => {
+			await API.board.jumpTo(boardId, moveId);
+			const updatedGame = await API.board.getState(boardId);
+			return updatedGame;
+		},
+		ErrorCategory.CHESS_GAME,
+		"INVALID_POSITION",
+		"Failed to jump to move",
+		{ boardId, moveId },
+	);
+
+	return result;
 }
 
 /**
@@ -343,32 +259,21 @@ export async function jumpToMove(
  */
 export async function navigateToStart(
 	boardId: number,
-): Promise<GameOperationResult<ChessGame>> {
-	try {
-		await api.sessions.POST.navigateToStart(boardId);
-		const updatedGame = await api.sessions.GET.get(boardId);
-		console.log("Navigated to start:", updatedGame);
-		return {
-			success: true,
-			data: updatedGame,
-		};
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to navigate to start";
-		ErrorHandler.handle(
-			ErrorFactory.chessGame(
-				"INVALID_POSITION",
-				`Failed to navigate to start: ${errorMessage}`,
-				{
-					metadata: { boardId },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+): Promise<OperationResult<ChessGame>> {
+	const result = await withErrorHandling(
+		async () => {
+			await API.board.toStart(boardId);
+			const updatedGame = await API.board.getState(boardId);
+			console.log("Navigated to start:", updatedGame);
+			return updatedGame;
+		},
+		ErrorCategory.CHESS_GAME,
+		"INVALID_POSITION",
+		"Failed to navigate to start",
+		{ boardId },
+	);
+
+	return result;
 }
 
 /**
@@ -376,32 +281,14 @@ export async function navigateToStart(
  */
 export async function navigateToEnd(
 	boardId: number,
-): Promise<GameOperationResult<ChessGame>> {
-	try {
-		await api.sessions.POST.navigateToEnd(boardId);
-		const updatedGame = await api.sessions.GET.get(boardId);
-		console.log("Navigated to end:", updatedGame);
-		return {
-			success: true,
-			data: updatedGame,
-		};
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to navigate to end";
-		ErrorHandler.handle(
-			ErrorFactory.chessGame(
-				"INVALID_POSITION",
-				`Failed to navigate to end: ${errorMessage}`,
-				{
-					metadata: { boardId },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+): Promise<OperationResult<ChessGame>> {
+	return await withErrorHandling(
+		() => API.board.toEnd(boardId),
+		ErrorCategory.CHESS_GAME,
+		"INVALID_POSITION",
+		"Failed to navigate to end",
+		{ boardId },
+	);
 }
 
 /**
@@ -410,57 +297,27 @@ export async function navigateToEnd(
 export async function saveGameSession(
 	boardId: number,
 	overwrite = false,
-): Promise<GameOperationResult<number>> {
-	try {
-		const savedGameId = await api.sessions.POST.save(boardId, overwrite);
-		console.log("Game saved with ID:", savedGameId);
-		return {
-			success: true,
-			data: savedGameId,
-		};
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to save game";
-		ErrorHandler.handle(
-			ErrorFactory.database(
-				"INSERT_ERROR",
-				`Failed to save game: ${errorMessage}`,
-				{
-					metadata: { boardId, overwrite },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+): Promise<OperationResult<number>> {
+	return await withErrorHandling(
+		() => API.board.save(boardId, overwrite),
+		ErrorCategory.DATABASE,
+		"SAVE_ERROR",
+		"Failed to save game",
+		{ metadata: { boardId, overwrite } },
+	);
 }
 
 /**
  * Delete a game from the database
  */
-export async function deleteGame(gameId: number): Promise<GameOperationResult> {
-	try {
-		await api.games.POST.delete(gameId);
-		return { success: true };
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to delete game";
-		ErrorHandler.handle(
-			ErrorFactory.database(
-				"QUERY_ERROR",
-				`Failed to delete game: ${errorMessage}`,
-				{
-					metadata: { gameId },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+export async function deleteGame(gameId: number): Promise<OperationResult> {
+	return await withErrorHandling(
+		() => API.games.delete(gameId),
+		ErrorCategory.DATABASE,
+		"DELETE_ERROR",
+		"Failed to delete game",
+		{ metadata: { gameId } },
+	);
 }
 
 /**
@@ -468,29 +325,12 @@ export async function deleteGame(gameId: number): Promise<GameOperationResult> {
  */
 export async function refreshGameState(
 	boardId: number,
-): Promise<GameOperationResult<ChessGame>> {
-	try {
-		const updatedGame = await api.sessions.GET.get(boardId);
-		console.log("Refreshed game state:", updatedGame);
-		return {
-			success: true,
-			data: updatedGame,
-		};
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to refresh game state";
-		ErrorHandler.handle(
-			ErrorFactory.general(
-				"UNEXPECTED",
-				`Failed to refresh game state: ${errorMessage}`,
-				{
-					metadata: { boardId },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+): Promise<OperationResult<ChessGame>> {
+	return await withErrorHandling(
+		() => API.board.getState(boardId),
+		ErrorCategory.DATABASE,
+		"REFRESH_ERROR",
+		"Failed to refresh game state",
+		{ metadata: { boardId } },
+	);
 }

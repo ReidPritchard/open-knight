@@ -1,3 +1,5 @@
+import type { OperationResult } from "../shared/types";
+
 /**
  * Categories of errors that can be thrown by the application.
  */
@@ -276,6 +278,28 @@ export const ErrorFactory = {
 	},
 } as const;
 
+/**
+ * Mapping object for ErrorFactory methods by category
+ */
+type ErrorFactoryFunction = (
+	code: string,
+	message: string,
+	options?: { metadata?: Record<string, unknown> },
+) => ApplicationError;
+
+const errorFactoryMap: Record<ErrorCategory, ErrorFactoryFunction> = {
+	[ErrorCategory.GENERAL]: (code, message, options) =>
+		ErrorFactory.general(code as GeneralErrorCode, message, options),
+	[ErrorCategory.USER_INTERFACE]: (code, message, options) =>
+		ErrorFactory.userInterface(code as UIErrorCode, message, options),
+	[ErrorCategory.CHESS_ENGINE]: (code, message, options) =>
+		ErrorFactory.chessEngine(code as EngineErrorCode, message, options),
+	[ErrorCategory.CHESS_GAME]: (code, message, options) =>
+		ErrorFactory.chessGame(code as GameErrorCode, message, options),
+	[ErrorCategory.DATABASE]: (code, message, options) =>
+		ErrorFactory.database(code as DatabaseErrorCode, message, options),
+};
+
 // Private state for error handler
 const errorListeners: Array<(error: ApplicationError) => void> = [];
 
@@ -438,3 +462,36 @@ export const ErrorChecks = {
 		return false;
 	},
 } as const;
+
+/**
+ * Wrap an operation in error handling
+ *
+ * @param operation - The operation to wrap.
+ * @param errorCategory - The category of the error.
+ * @param errorCode - The error code.
+ * @param fallbackMessage - The fallback message to use if the operation fails.
+ * @param metadata - Additional error context or metadata.
+ */
+export async function withErrorHandling<T>(
+	operation: () => Promise<T>,
+	errorCategory: ErrorCategory,
+	errorCode: string,
+	fallbackMessage: string,
+	metadata?: Record<string, unknown>,
+): Promise<OperationResult<T>> {
+	try {
+		const result = await operation();
+		return { success: true, data: result };
+	} catch (error) {
+		const errorMessage =
+			error instanceof Error ? error.message : fallbackMessage;
+
+		const factoryFunction = errorFactoryMap[errorCategory];
+		const applicationError = factoryFunction
+			? factoryFunction(errorCode, errorMessage, { metadata })
+			: ErrorFactory.general("UNEXPECTED", errorMessage, { metadata });
+
+		ErrorHandler.handle(applicationError);
+		return { success: false, error: errorMessage };
+	}
+}

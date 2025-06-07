@@ -201,7 +201,7 @@ import {
 } from "@phosphor-icons/vue";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useError } from "../../composables/useError";
-import api from "../../shared/api";
+import api, { API } from "../../shared/api";
 import { useGlobalStore } from "../../stores/";
 import AnnotationArrow from "../AnnotationArrow/AnnotationArrow.vue";
 import ChessBoardSquare from "./ChessBoardSquare.vue";
@@ -256,7 +256,7 @@ watch(
 	async (newPosition) => {
 		if (newPosition?.fen) {
 			try {
-				validMoves.value = await api.moves.GET.validMoves(newPosition.fen);
+				validMoves.value = await API.analysis.getValidMoves(newPosition.fen);
 			} catch (error) {
 				const { handleAPIError } = useError();
 				handleAPIError(error, "fetch valid moves", { fen: newPosition.fen });

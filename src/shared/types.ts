@@ -164,13 +164,10 @@ export const parseEngineSettingsPayload =
 ////////////////////////////////////////////////////////////
 
 /**
- * Error thrown when interacting with the engine
+ * A generic result of an operation
  */
-export class EngineError extends Error {
-	public readonly EngineError: string;
-
-	constructor(message: string) {
-		super(message);
-		this.EngineError = message;
-	}
+export interface OperationResult<T = void> {
+	success: boolean;
+	data?: T;
+	error?: string;
 }

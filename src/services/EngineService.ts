@@ -1,5 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
-import api from "../shared/api";
+import { API } from "../shared/api";
 import type {
 	AnalysisUpdate,
 	BestMove,
@@ -7,16 +6,8 @@ import type {
 	EngineSettings,
 	Score,
 } from "../shared/types";
-import { ErrorFactory, ErrorHandler } from "./ErrorService";
-
-/**
- * Result of an engine operation
- */
-export interface EngineOperationResult<T = void> {
-	success: boolean;
-	data?: T;
-	error?: string;
-}
+import type { OperationResult } from "../shared/types";
+import { ErrorCategory, withErrorHandling } from "./ErrorService";
 
 /**
  * Engine state information
@@ -35,57 +26,31 @@ export interface EngineState {
 export async function loadEngine(
 	name: string,
 	path: string,
-): Promise<EngineOperationResult> {
-	try {
-		await api.engines.POST.loadEngine(name, path);
-		console.log("Engine loaded successfully:", name);
-		return { success: true };
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to load engine";
-		ErrorHandler.handle(
-			ErrorFactory.chessEngine(
-				"ENGINE_LOAD_ERROR",
-				`Failed to load engine ${name} from ${path}: ${errorMessage}`,
-				{
-					metadata: { engineName: name, enginePath: path },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+): Promise<OperationResult> {
+	return await withErrorHandling(
+		async () => API.analysis.loadEngine(name, path),
+		ErrorCategory.CHESS_ENGINE,
+		"ENGINE_LOAD_ERROR",
+		`Failed to load engine ${name} from ${path}`,
+		{
+			metadata: { engineName: name, enginePath: path },
+		},
+	);
 }
 
 /**
  * Unload a chess engine
  */
-export async function unloadEngine(
-	name: string,
-): Promise<EngineOperationResult> {
-	try {
-		await api.engines.POST.unloadEngine(name);
-		console.log("Engine unloaded successfully:", name);
-		return { success: true };
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to unload engine";
-		ErrorHandler.handle(
-			ErrorFactory.chessEngine(
-				"ENGINE_UNLOAD_ERROR",
-				`Failed to unload engine ${name}: ${errorMessage}`,
-				{
-					metadata: { engineName: name },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+export async function unloadEngine(name: string): Promise<OperationResult> {
+	return await withErrorHandling(
+		() => API.analysis.unloadEngine(name),
+		ErrorCategory.CHESS_ENGINE,
+		"ENGINE_UNLOAD_ERROR",
+		`Failed to unload engine ${name}`,
+		{
+			metadata: { engineName: name },
+		},
+	);
 }
 
 /**
@@ -95,28 +60,16 @@ export async function setEngineOption(
 	engineName: string,
 	option: string,
 	value: string,
-): Promise<EngineOperationResult> {
-	try {
-		await invoke("set_engine_option", { engineName, option, value });
-		console.log("Engine option set:", engineName, option, value);
-		return { success: true };
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to set engine option";
-		ErrorHandler.handle(
-			ErrorFactory.chessEngine(
-				"ENGINE_PROTOCOL_ERROR",
-				`Failed to set engine option ${option}=${value} for ${engineName}: ${errorMessage}`,
-				{
-					metadata: { engineName, option, value },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+): Promise<OperationResult> {
+	return await withErrorHandling(
+		() => API.analysis.setEngineOption(engineName, option, value),
+		ErrorCategory.CHESS_ENGINE,
+		"ENGINE_OPTION_ERROR",
+		`Failed to set engine option ${option}=${value} for ${engineName}`,
+		{
+			metadata: { engineName, option, value },
+		},
+	);
 }
 
 /**
@@ -127,28 +80,16 @@ export async function analyzePosition(
 	fen: string,
 	depth = 20,
 	timeMs = 10000,
-): Promise<EngineOperationResult> {
-	try {
-		await api.engines.POST.analyzePosition(engineName, fen, depth, timeMs);
-		console.log("Position analysis started:", engineName, fen);
-		return { success: true };
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to analyze position";
-		ErrorHandler.handle(
-			ErrorFactory.chessEngine(
-				"ENGINE_PROTOCOL_ERROR",
-				`Failed to analyze position for ${engineName}: ${errorMessage}`,
-				{
-					metadata: { engineName, fen, depth, timeMs },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+): Promise<OperationResult> {
+	return await withErrorHandling(
+		() => API.analysis.analyze(engineName, fen, { depth, timeMs }),
+		ErrorCategory.CHESS_ENGINE,
+		"ENGINE_ANALYSIS_ERROR",
+		`Failed to analyze position for ${engineName}`,
+		{
+			metadata: { engineName, fen, depth, timeMs },
+		},
+	);
 }
 
 /**
@@ -156,28 +97,16 @@ export async function analyzePosition(
  */
 export async function stopAnalysis(
 	engineName: string,
-): Promise<EngineOperationResult> {
-	try {
-		await api.engines.POST.stopAnalysis(engineName);
-		console.log("Analysis stopped:", engineName);
-		return { success: true };
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to stop analysis";
-		ErrorHandler.handle(
-			ErrorFactory.chessEngine(
-				"ENGINE_PROTOCOL_ERROR",
-				`Failed to stop analysis for ${engineName}: ${errorMessage}`,
-				{
-					metadata: { engineName },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+): Promise<OperationResult> {
+	return await withErrorHandling(
+		() => API.analysis.stopAnalysis(engineName),
+		ErrorCategory.CHESS_ENGINE,
+		"ENGINE_ANALYSIS_ERROR",
+		`Failed to stop analysis for ${engineName}`,
+		{
+			metadata: { engineName },
+		},
+	);
 }
 
 /**
@@ -186,28 +115,16 @@ export async function stopAnalysis(
 export async function analyzeGame(
 	engineName: string,
 	gameId: number,
-): Promise<EngineOperationResult> {
-	try {
-		await invoke("analyze_game", { engineName, gameId });
-		console.log("Game analysis started:", engineName, gameId);
-		return { success: true };
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to analyze game";
-		ErrorHandler.handle(
-			ErrorFactory.chessEngine(
-				"ENGINE_PROTOCOL_ERROR",
-				`Failed to analyze game ${gameId} with ${engineName}: ${errorMessage}`,
-				{
-					metadata: { engineName, gameId },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+): Promise<OperationResult> {
+	return await withErrorHandling(
+		() => API.analysis.analyzeGame(engineName, gameId),
+		ErrorCategory.CHESS_ENGINE,
+		"ENGINE_ANALYSIS_ERROR",
+		`Failed to analyze game ${gameId} with ${engineName}`,
+		{
+			metadata: { engineName, gameId },
+		},
+	);
 }
 
 /**
@@ -242,6 +159,7 @@ export function getLatestBestMove(
 			if (latestAnalysisUpdate.timestamp > latestBestMove.timestamp) {
 				return null;
 			}
+			return latestBestMove;
 		}
 	}
 	return null;

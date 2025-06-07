@@ -69,6 +69,15 @@ const props = defineProps<{
 	evaluation: Score;
 
 	/**
+	 * The "side" that the evaluation is for
+	 *
+	 * This is because the evaluation is relative to the side to move
+	 * and we need to know which side to move to normalize the evaluation
+	 * so all evaluations are relative to the same side.
+	 */
+	evaluationSide: "white" | "black";
+
+	/**
 	 * The orientation of the evaluation
 	 */
 	orientation: "white" | "black";
@@ -79,7 +88,12 @@ const props = defineProps<{
 	direction: "vertical" | "horizontal";
 }>();
 
-const evalValue = computed(() => props.evaluation.value);
+const evalValue = computed(() => {
+	if (props.evaluationSide === "white") {
+		return props.evaluation.value;
+	}
+	return -props.evaluation.value;
+});
 const evalType = computed(() => props.evaluation.type);
 
 // Format the evaluation text

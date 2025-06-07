@@ -75,9 +75,17 @@
 
 						<div class="flex flex-row">
 
+							<!-- TODO: We need to invalidate the evaluation when the board changes
+							 currently it re-uses the evaluation from the previous position
+							  -->
+
 							<EvaluationBar
 								class="min-h-full max-w-10"
 								:evaluation="engineAnalysisStore.boardEvaluation"
+								:evaluation-side="
+									globalStore.gamesStore.getCurrentTurn(activeBoardId) ??
+									'white'
+								"
 								:orientation="uiStore.whiteOnSide === 'top' ? 'black' : 'white'"
 								direction="vertical"
 							/>

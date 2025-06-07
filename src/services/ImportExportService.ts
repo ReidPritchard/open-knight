@@ -1,73 +1,35 @@
-import api from "../shared/api";
-import type { ExplorerGame } from "../shared/types";
-import { ErrorFactory, ErrorHandler } from "./ErrorService";
-
-/**
- * Result of an import/export operation
- */
-export interface ImportExportOperationResult<T = void> {
-	success: boolean;
-	data?: T;
-	error?: string;
-}
+import API from "../shared/api";
+import type { ExplorerGame, OperationResult } from "../shared/types";
+import { ErrorCategory, withErrorHandling } from "./ErrorService";
 
 /**
  * Import PGN games into the database
  */
-export async function importPGNGames(
-	pgn: string,
-): Promise<ImportExportOperationResult> {
-	try {
-		await api.games.POST.importPGNGames(pgn);
-		console.log("PGN games imported successfully");
-		return { success: true };
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to import PGN games";
-		ErrorHandler.handle(
-			ErrorFactory.database(
-				"INSERT_ERROR",
-				`Failed to import PGN games: ${errorMessage}`,
-				{
-					metadata: { pgnLength: pgn.length },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+export async function importPGNGames(pgn: string): Promise<OperationResult> {
+	return await withErrorHandling(
+		() => API.games.import(pgn),
+		ErrorCategory.DATABASE,
+		"INSERT_ERROR",
+		"Failed to import PGN games",
+		{
+			metadata: { pgnLength: pgn.length },
+		},
+	);
 }
 
 /**
  * Fetch games for the explorer/library view
  */
 export async function fetchExplorerGames(): Promise<
-	ImportExportOperationResult<ExplorerGame[]>
+	OperationResult<ExplorerGame[]>
 > {
-	try {
-		const games = await api.games.GET.explorer();
-		console.log("Explorer games fetched:", games.length);
-		return {
-			success: true,
-			data: games,
-		};
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to fetch games";
-		ErrorHandler.handle(
-			ErrorFactory.database(
-				"QUERY_ERROR",
-				`Failed to fetch explorer games: ${errorMessage}`,
-				{},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+	return await withErrorHandling(
+		() => API.games.list(),
+		ErrorCategory.DATABASE,
+		"QUERY_ERROR",
+		"Failed to fetch explorer games",
+		{},
+	);
 }
 
 /**
@@ -77,53 +39,29 @@ export async function updateGameProperty(
 	gameId: number,
 	property: string,
 	value: string,
-): Promise<ImportExportOperationResult> {
-	try {
-		await api.games.POST.updateProperty(gameId, property, value);
-		console.log("Game property updated:", gameId, property, value);
-		return { success: true };
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to update game property";
-		ErrorHandler.handle(
-			ErrorFactory.database(
-				"QUERY_ERROR",
-				`Failed to update game property ${property}=${value} for game ${gameId}: ${errorMessage}`,
-				{
-					metadata: { gameId, property, value },
-				},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+): Promise<OperationResult> {
+	return await withErrorHandling(
+		() => API.games.update(gameId, property, value),
+		ErrorCategory.DATABASE,
+		"UPDATE_ERROR",
+		"Failed to update game property",
+		{
+			metadata: { gameId, property, value },
+		},
+	);
 }
 
 /**
  * Reset/empty the entire database
  */
-export async function resetDatabase(): Promise<ImportExportOperationResult> {
-	try {
-		await api.emptyDatabase();
-		console.log("Database reset successfully");
-		return { success: true };
-	} catch (error) {
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to reset database";
-		ErrorHandler.handle(
-			ErrorFactory.database(
-				"CONNECTION_ERROR",
-				`Failed to reset database: ${errorMessage}`,
-				{},
-			),
-		);
-		return {
-			success: false,
-			error: errorMessage,
-		};
-	}
+export async function resetDatabase(): Promise<OperationResult> {
+	return await withErrorHandling(
+		() => API.utils.emptyDatabase(),
+		ErrorCategory.DATABASE,
+		"EMPTY_DATABASE_ERROR",
+		"Failed to reset database",
+		{},
+	);
 }
 
 /**
