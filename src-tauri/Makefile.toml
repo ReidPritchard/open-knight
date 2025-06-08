@@ -1,12 +1,25 @@
+[config]
+default_to_workspace = false
+
 [tasks.default]
 clear = true
 
+[tasks.maker-test]
+workspace = false
+command = "echo"
+args = ["running maker-test"]
+
 [tasks.rm-db]
+workspace = false
 script_runner = "@shell"
 script = '''
 rm -f ./chess.db
 '''
 
 [tasks.generate-entities]
+workspace = false
 install_crate = "sea-orm-cli"
+# TODO: This throws "No such file or directory" error, when using cargo make
+# but works when running directly from the terminal. It doesn't need to be run
+# often so it's not a big deal.
 command = "sea-orm-cli generate entity -u sqlite://chess.db -o src/entities"
