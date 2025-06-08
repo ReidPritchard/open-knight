@@ -14,9 +14,10 @@ ts_export! {
         pub round: Option<i32>,
         pub date: String,
         pub move_tree: ChessMoveTree,
-        pub tags: Vec<String>,
         pub fen: Option<String>,
+        pub variant: String,
         pub pgn: Option<String>,
+        pub tags: Vec<String>,
     }
 }
 

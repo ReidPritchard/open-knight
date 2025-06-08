@@ -5,6 +5,7 @@ pub mod prelude;
 pub mod annotation;
 pub mod evaluation;
 pub mod game;
+pub mod game_header;
 pub mod game_tag;
 pub mod r#move;
 pub mod move_tag;

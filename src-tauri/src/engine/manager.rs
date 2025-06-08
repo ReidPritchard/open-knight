@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::process::Command;
 
-use open_knight_parse::uci::OptionDefinition;
+use ok_parse::uci::OptionDefinition;
 
 use super::events::{EngineStateInfoEvent, EventBus};
 use super::utils::EngineError;
@@ -25,6 +25,12 @@ use super::{
 pub struct EngineManager {
     engines: HashMap<String, EngineProcess<EngineStateInfo>>,
     engine_names: Vec<String>,
+}
+
+impl Default for EngineManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl EngineManager {

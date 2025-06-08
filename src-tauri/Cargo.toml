@@ -34,7 +34,7 @@ tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"
 thiserror = "2"
 slotmap = { version = "1.0", features = ["serde"] }
-open-knight-parse = { path = "./src/lib/open-knight-parse" }
+ok-parse = { path = "./src/lib/ok-parse" }
 
 [workspace]
 members = ["./src/lib/*"]

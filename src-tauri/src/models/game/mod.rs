@@ -1,10 +1,10 @@
 pub mod conversion;
 pub mod database;
 pub mod metadata;
-pub mod pgn;
 pub mod player_ops;
 pub mod structs;
 
+use ok_parse::pgn::parse_pgn_games;
 use sea_orm::prelude::*;
 use sea_orm::sqlx::types::chrono;
 use sea_orm::ActiveValue::Set;
@@ -22,10 +22,11 @@ impl ChessGame {
     /// Creates a new chess game with default starting position
     pub async fn new(variant: &str, db: &DatabaseConnection) -> Result<Self, AppError> {
         if variant != "standard" {
-            return Err(AppError::ChessError(format!(
-                "Unsupported chess variant: {}. Only 'standard' is currently supported.",
+            // Display warning message
+            eprintln!(
+                "Warning: Non-standard chess variant ({}) support is in progress and may not work as expected.",
                 variant
-            )));
+            );
         }
 
         // Create default players
@@ -59,6 +60,7 @@ impl ChessGame {
             tags: vec!["local".to_string()],
             fen: Some(starting_position.fen),
             pgn: None,
+            variant: variant.to_string(),
         };
 
         // Insert into database
@@ -83,6 +85,25 @@ impl ChessGame {
 
         game.id = insert_result.last_insert_id;
         Ok(game)
+    }
+
+    /// Default constructor for a new chess game without database interaction
+    pub fn new_default() -> Self {
+        Self {
+            id: 0,
+            white_player: player_ops::new_player("White Player"),
+            black_player: player_ops::new_player("Black Player"),
+            tournament: None,
+            opening: None,
+            result: "*".to_string(),
+            round: None,
+            date: chrono::Utc::now().to_rfc3339(),
+            move_tree: ChessMoveTree::default(),
+            tags: vec![],
+            fen: Some(ChessPosition::default().fen),
+            pgn: None,
+            variant: "standard".to_string(),
+        }
     }
 
     /// Loads a chess game from the database by ID
@@ -157,6 +178,7 @@ impl ChessGame {
             tags: Vec::new(),
             fen: game.fen,
             pgn: Some(game.pgn),
+            variant: game.variant.unwrap_or_else(|| "standard".to_string()),
         })
     }
 
@@ -193,23 +215,13 @@ impl ChessGame {
 
     /// Saves multiple chess games from PGN format to the database
     pub async fn save_from_pgn(db: &DatabaseConnection, pgn: &str) -> Result<Vec<Self>, AppError> {
-        if pgn.trim().is_empty() {
-            return Err(AppError::ParseError("PGN string is empty".to_string()));
-        }
-
-        println!("Parsing PGN games...");
-        let chess_games = Self::from_pgn_games(pgn)
-            .map_err(|e| AppError::ParseError(format!("Failed to parse PGN: {}", e)))?;
-        println!("PGN games parsed successfully: {} games", chess_games.len());
+        let chess_games: Vec<Self> = parse_pgn_games(pgn)
+            .map(|games| games.into_iter().map(|g| g.into()).collect())
+            .map_err(|e| AppError::ParseError(e.into_iter().next().unwrap()))?;
 
         if chess_games.is_empty() {
-            return Err(AppError::ParseError("No games found in PGN".to_string()));
+            return Err(AppError::GeneralError("No games found in PGN".to_string()));
         }
-
-        println!(
-            "Attempting to save {} games to database...",
-            chess_games.len()
-        );
 
         let mut saved_games = Vec::new();
 

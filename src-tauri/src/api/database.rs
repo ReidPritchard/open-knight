@@ -347,7 +347,7 @@ pub async fn query_full_games(
     // Then load full games
     let mut games = Vec::new();
     for id in game_ids {
-        if let Some(mut game) = ChessGame::load(db, id).await.ok() {
+        if let Ok(mut game) = ChessGame::load(db, id).await {
             if params.load_moves.unwrap_or(false) {
                 let _ = game.load_moves(db).await;
             }

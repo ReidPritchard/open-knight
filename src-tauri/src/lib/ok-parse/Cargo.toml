@@ -1,5 +1,5 @@
 [package]
-name = "open-knight-parse"
+name = "ok-parse"
 version = "0.1.0"
 description = "Parsing utilities for PGN and UCI protocols"
 authors = ["Reid Pritchard"]

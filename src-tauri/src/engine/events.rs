@@ -6,7 +6,7 @@ use serde::Serialize;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
-use open_knight_parse::uci::IdInfo;
+use ok_parse::uci::IdInfo;
 
 use super::state::EngineState;
 use super::utils::EngineError;
@@ -34,9 +34,9 @@ pub enum EngineStateInfoEvent {
     /// Engine Info Update
     InfoUpdate(IdInfo),
     /// Adding an engine capability/config option
-    CapabilityAdded(String, open_knight_parse::uci::OptionDefinition),
+    CapabilityAdded(String, ok_parse::uci::OptionDefinition),
     /// Update of the engine's analysis
-    AnalysisUpdate(open_knight_parse::uci::InfoParams),
+    AnalysisUpdate(ok_parse::uci::InfoParams),
     /// Update of the engine's best move (Best Move, Ponder Move)
     BestMove(String, Option<String>),
     /// Update of the engine's ready state
@@ -85,6 +85,12 @@ pub struct EventBus {
     subscribers: Mutex<HashMap<TypeId, Vec<Box<dyn TypedSender + Send + Sync>>>>,
 }
 
+impl Default for EventBus {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EventBus {
     /// Create a new event bus
     pub fn new() -> Self {
@@ -126,7 +132,7 @@ impl EventBus {
 
         subscribers
             .entry(type_id)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(boxed_sender);
 
         receiver
@@ -150,7 +156,7 @@ impl EventBus {
 
         subscribers
             .entry(type_id)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(boxed_sender);
 
         receiver

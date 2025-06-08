@@ -68,7 +68,7 @@ pub fn create_game_model(
         round_number: Set(game.round),
         date_played: Set(game_date),
         fen: Set(game.fen.clone()),
-        pgn: Set(game.pgn.clone().unwrap_or_else(|| "".to_string())),
+        pgn: Set(game.pgn.clone().unwrap_or_default()),
         ..Default::default()
     };
 

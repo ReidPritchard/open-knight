@@ -102,7 +102,7 @@ impl ChessMoveTree {
         if !node.children_ids.is_empty() {
             // Additional children are variations
             for &variation_id in node.children_ids.iter().skip(1) {
-                pgn.push_str("(");
+                pgn.push('(');
 
                 // For variations, we need to indicate whose turn it is at the start
                 let variation_node = &self.nodes[variation_id];
@@ -140,7 +140,7 @@ impl ChessMoveTree {
 
                         // Handle sub-variations
                         for &sub_var_id in variation_node.children_ids.iter().skip(1) {
-                            pgn.push_str("(");
+                            pgn.push('(');
                             let mut sub_var_move_num = var_move_num;
                             let mut sub_var_is_white = var_is_white_turn;
                             self.write_pgn_moves_recursive(
@@ -215,6 +215,5 @@ impl ChessMoveTree {
         self.nodes
             .iter()
             .find(|(_, node)| node.game_move.as_ref().map_or(false, |m| m.id == id))
-            .map(|(key, node)| (key, node))
     }
 }

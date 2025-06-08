@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::engine::events::EngineStateInfoEvent;
 use crate::engine::utils::EngineError;
-use open_knight_parse::uci::{IdInfo, InfoParams, OptionDefinition, ProtectionStatus};
+use ok_parse::uci::{IdInfo, InfoParams, OptionDefinition, ProtectionStatus};
 use serde::Serialize;
 
 /// Engine readiness (initialized, running, analyzing)
@@ -111,9 +111,9 @@ impl EngineStateInfo {
         info.push_str(&format!("Ready State: {:?}\n", self.ready_state));
         info.push_str(&format!("Current Position: {:?}\n", self.current_position));
         if let Some(analysis) = &self.analysis {
-            info.push_str(&format!("Analysis Updates:\n"));
+            info.push_str(&"Analysis Updates:\n".to_string());
             for update in &analysis.updates {
-                info.push_str(&format!("\t---\n"));
+                info.push_str(&"\t---\n".to_string());
                 info.push_str(&format!("{}", update));
             }
         }
@@ -125,7 +125,7 @@ impl EngineStateInfo {
             }
         }
 
-        info.push_str(&format!("Capabilities:\n"));
+        info.push_str(&"Capabilities:\n".to_string());
         for (name, cap) in &self.capabilities {
             info.push_str(&format!("    {} ({:?})\n", name, cap.option_type));
             if let Some(default) = &cap.default {

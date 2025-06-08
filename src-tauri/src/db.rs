@@ -27,9 +27,8 @@ pub async fn load_pgn_file(
     db: &DatabaseConnection,
     file_path: &str,
 ) -> Result<Vec<models::ChessGame>, AppError> {
-    let pgn_content = std::fs::read_to_string(file_path).map_err(|e| {
-        AppError::ParseError(format!("Failed to read PGN file '{}': {}", file_path, e))
-    })?;
+    let pgn_content =
+        std::fs::read_to_string(file_path).map_err(|e| AppError::IoError(e.to_string()))?;
     models::ChessGame::save_from_pgn(db, &pgn_content).await
 }
 

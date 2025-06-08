@@ -178,9 +178,8 @@ async fn handle_line<State: EngineState<Event = E>, E>(
                 Err(_) => {
                     // Error handling for generic E must be done by the caller
                     println!("Error applying update: {:?}", event);
-                    return;
                 }
-            };
+            }
         }
         Ok(ParserOutput::LifecycleEvent(_event)) => {
             // For generic E, lifecycle event handling must be done by the caller

@@ -1,4 +1,4 @@
-use super::{PgnParseError, PgnToken};
+use super::PgnToken;
 use chumsky::prelude::*;
 
 /// Parse a tag name (allowing more characters than just identifiers)
@@ -48,7 +48,12 @@ pub fn move_number_parser() -> impl Parser<char, PgnToken, Error = Simple<char>>
         .labelled("move number")
 }
 
-/// Parse a chess move (standard PGN format)
+/// Parse a chess move
+///
+/// Just captures the notation of the entire move
+/// does not validate any of the move's components
+///
+/// Does not include move suffix notation or annotation glyphs
 pub fn chess_move_parser() -> impl Parser<char, PgnToken, Error = Simple<char>> {
     filter(|&c: &char| c.is_alphanumeric() || "+#=x-".contains(c))
         .repeated()
@@ -85,35 +90,18 @@ pub fn nag_parser() -> impl Parser<char, PgnToken, Error = Simple<char>> {
         })
         .labelled("nag")
 }
-
-/// Parse a PGN string into tokens (backward compatibility)
-pub fn parse_pgn(pgn: &str) -> Result<Vec<PgnToken>, PgnParseError> {
-    super::parse_pgn_tokens(pgn)
-}
-
-/// Parse a PGN string and group tokens by game
-pub fn parse_pgn_games(pgn: &str) -> Result<Vec<Vec<PgnToken>>, PgnParseError> {
-    let tokens = parse_pgn(pgn)?;
-
-    let mut games = Vec::new();
-    let mut current_game = Vec::new();
-
-    for token in tokens {
-        if let PgnToken::Tag { name, .. } = &token {
-            // Use the "Event" tag to determine the start of a new game
-            // this should always be the first tag in the game (I think)
-            if name == "Event" && !current_game.is_empty() {
-                games.push(current_game);
-                current_game = Vec::new();
-            }
-        }
-
-        current_game.push(token);
-    }
-
-    if !current_game.is_empty() {
-        games.push(current_game);
-    }
-
-    Ok(games)
+/// Parse move suffix notation like "?", "!", "??", "!!", "?!", "!?"
+pub fn move_suffix_parser() -> impl Parser<char, PgnToken, Error = Simple<char>> {
+    choice((
+        just("??"),
+        just("!!"),
+        just("?!"),
+        just("!?"),
+        just("?"),
+        just("!"),
+    ))
+    .map(|suffix: &str| PgnToken::MoveSuffixNotation {
+        suffix: suffix.to_string(),
+    })
+    .labelled("move suffix")
 }

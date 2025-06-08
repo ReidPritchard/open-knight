@@ -101,9 +101,7 @@ impl<S: EngineState> InputHandler<S> {
             })
             .await;
 
-        if let Err(e) = cmd_res {
-            return Err(e);
-        }
+        cmd_res?;
 
         // Update the state
         let state_update =
@@ -168,9 +166,7 @@ impl<S: EngineState> InputHandler<S> {
             })
             .await;
 
-        if let Err(e) = cmd_res {
-            return Err(e);
-        }
+        cmd_res?;
 
         Ok(())
     }

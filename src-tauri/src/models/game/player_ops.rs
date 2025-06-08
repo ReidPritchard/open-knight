@@ -73,3 +73,12 @@ where
         Ok(result.last_insert_id)
     }
 }
+
+pub fn new_player(name: &str) -> ChessPlayer {
+    ChessPlayer {
+        id: 0,
+        name: name.to_string(),
+        elo: None,
+        country: None,
+    }
+}
