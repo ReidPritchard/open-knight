@@ -8,7 +8,6 @@ pub mod entities;
 pub mod macros;
 pub mod migrations;
 pub mod models;
-pub mod parse;
 pub mod session;
 pub mod utils;
 

@@ -1,0 +1,11 @@
+[package]
+name = "open-knight-parse"
+version = "0.1.0"
+description = "Parsing utilities for PGN and UCI protocols"
+authors = ["Reid Pritchard"]
+edition = "2021"
+
+[dependencies]
+chumsky = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }

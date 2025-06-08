@@ -6,6 +6,8 @@ use simple::{
     uciok_parser,
 };
 
+use crate::DEBUG;
+
 pub mod complex;
 pub mod simple;
 pub mod util;
@@ -278,56 +280,29 @@ pub enum OptionType {
 }
 
 /// Error type for parsing failures
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ParseError {
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("UCI parse error: {0}")]
+pub enum UciParseError {
     /// Failed to parse the response
+    #[error("Parse failure: \n\tInput: '{input}'\n\tMessage: {message}")]
     ParseFailure { input: String, message: String },
 
     /// Invalid value for a parameter
+    #[error("Invalid value for parameter: \n\tParameter: '{param}'\n\tValue: '{value}'")]
     InvalidValue { param: String, value: String },
 
     /// Missing value for a parameter
+    #[error("Missing value for parameter: \n\tParameter: '{param}'")]
     MissingValue { param: String },
 
     /// Unknown response type
+    #[error("Unknown response type: \n\tToken: '{token}'")]
     UnknownResponseType { token: String },
 
     /// Unknown protocol
+    #[error("Unknown protocol: \n\tName: '{name}'")]
     UnknownProtocol { name: String },
 }
-
-impl std::fmt::Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::ParseFailure { input, message } => {
-                write!(
-                    f,
-                    "Parse failure: \n\tInput: '{}'\n\tMessage: {}",
-                    input.trim_end(),
-                    message
-                )
-            }
-            Self::InvalidValue { param, value } => {
-                write!(
-                    f,
-                    "Invalid value for parameter: \n\tParameter: '{}'\n\tValue: '{}'",
-                    param, value
-                )
-            }
-            Self::MissingValue { param } => {
-                write!(f, "Missing value for parameter: \n\tParameter: '{}'", param)
-            }
-            Self::UnknownResponseType { token } => {
-                write!(f, "Unknown response type: \n\tToken: '{}'", token)
-            }
-            Self::UnknownProtocol { name } => {
-                write!(f, "Unknown protocol: \n\tName: '{}'", name)
-            }
-        }
-    }
-}
-
-impl std::error::Error for ParseError {}
 
 /// Top-level parser for engine responses
 fn engine_response_parser() -> impl Parser<char, EngineResponse, Error = Simple<char>> {
@@ -356,15 +331,27 @@ fn engine_response_parser() -> impl Parser<char, EngineResponse, Error = Simple<
 }
 
 /// Public function to parse an engine response
-pub fn parse_engine_response(line: &str) -> Result<EngineResponse, ParseError> {
-    engine_response_parser()
-        .parse(line)
-        .map_err(|e| ParseError::ParseFailure {
+pub fn parse_engine_response(line: &str) -> Result<EngineResponse, UciParseError> {
+    if DEBUG {
+        let (response, errors) = engine_response_parser().parse_recovery_verbose(line);
+        response.ok_or_else(|| UciParseError::ParseFailure {
             input: line.to_string(),
-            message: e
+            message: errors
                 .iter()
                 .map(|e| e.to_string())
                 .collect::<Vec<String>>()
                 .join(", "),
         })
+    } else {
+        engine_response_parser()
+            .parse(line)
+            .map_err(|e| UciParseError::ParseFailure {
+                input: line.to_string(),
+                message: e
+                    .iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", "),
+            })
+    }
 }

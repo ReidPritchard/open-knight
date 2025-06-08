@@ -195,12 +195,13 @@ const importGames = async () => {
 };
 
 const importDemoGames = async () => {
-	// FIXME: Show UI for importing games
-	console.warn("Import UI not implemented - loading demo games");
 	// Use a pgn file from the assets folder
+	// - "demo_multiple_games.pgn"
+	// - "demo_single.pgn"
+	// - "best-chess-games-collection-p1.pgn"
 	try {
 		const pgn = (
-			await import("./../../assets/pgns/demo_multiple_games.pgn?raw")
+			await import("./../../assets/pgns/best-chess-games-collection-p1.pgn?raw")
 		).default;
 		await globalStore.importPGNGames(pgn);
 	} catch (error) {

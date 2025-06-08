@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::process::Command;
 
-use crate::parse::uci::OptionDefinition;
+use open_knight_parse::uci::OptionDefinition;
 
 use super::events::{EngineStateInfoEvent, EventBus};
 use super::utils::EngineError;

@@ -1,24 +1,4 @@
 use super::structs::ChessGame;
-use crate::parse::pgn::PgnToken;
-
-impl std::fmt::Display for PgnToken {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PgnToken::MoveNumber(n) => write!(f, "{}.", n),
-            PgnToken::Move(m) => write!(f, "{} ", m),
-            PgnToken::Result(r) => write!(f, "{}", r),
-            PgnToken::Tag(k, v) => write!(f, "[{} \"{}\"]", k, v),
-            PgnToken::Comment(c) => write!(f, "{{{}}}", c),
-            PgnToken::Variation(v) => write!(
-                f,
-                "({})",
-                v.iter().map(|t| t.to_string()).collect::<String>()
-            ),
-            PgnToken::NAG(n) => write!(f, "${}", n),
-            PgnToken::MoveSuffixNotation(m) => write!(f, "{}", m),
-        }
-    }
-}
 
 impl ChessGame {
     /// Converts the game to PGN format

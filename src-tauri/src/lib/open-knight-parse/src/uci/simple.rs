@@ -1,4 +1,4 @@
-use crate::parse::uci::util::*;
+use super::util::*;
 use chumsky::prelude::*;
 
 use super::{EngineResponse, IdInfo, ProtectionStatus, RegistrationStatus};

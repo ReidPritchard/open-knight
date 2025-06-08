@@ -1,6 +1,6 @@
 use crate::models::parse::parse_pgn_tokens;
 use crate::models::{ChessGame, ChessOpening, ChessPlayer, ChessPosition, ChessTournament};
-use crate::parse::pgn::PgnToken;
+use open_knight_parse::pgn::PgnToken;
 use std::error::Error;
 
 impl ChessGame {
@@ -20,7 +20,7 @@ impl ChessGame {
     /// # Returns
     /// * `Result<Vec<ChessGame>, Box<dyn Error>>` - A vector of parsed chess games or an error
     pub fn from_pgn_games(pgn: &str) -> Result<Vec<Self>, Box<dyn Error>> {
-        let games = crate::parse::pgn::parse_pgn_games(pgn)?;
+        let games = open_knight_parse::pgn::parse_pgn_games(pgn)?;
         let mut result = Vec::new();
 
         for game_tokens in games {
@@ -31,15 +31,15 @@ impl ChessGame {
             // Process all PGN tokens for the current game
             for token in &game_tokens {
                 match token {
-                    PgnToken::Tag(key, value) => tags.push((key.clone(), value.clone())),
-                    PgnToken::Result(r) => result_str = r.clone(),
+                    PgnToken::Tag { name, value } => tags.push((name.clone(), value.clone())),
+                    PgnToken::Result { result } => result_str = result.clone(),
                     // Collect all move-related tokens for later processing
-                    PgnToken::Move(_)
-                    | PgnToken::MoveNumber(_)
-                    | PgnToken::Comment(_)
-                    | PgnToken::Variation(_)
-                    | PgnToken::NAG(_)
-                    | PgnToken::MoveSuffixNotation(_) => {
+                    PgnToken::Move { .. }
+                    | PgnToken::MoveNumber { .. }
+                    | PgnToken::Comment { .. }
+                    | PgnToken::Variation { .. }
+                    | PgnToken::NAG { .. }
+                    | PgnToken::MoveSuffixNotation { .. } => {
                         move_tokens.push(token.clone());
                     }
                 }
@@ -75,7 +75,9 @@ impl ChessGame {
                     id: 0,
                     name,
                     tournament_type: None,
-                    start_date: get_tag("EventDate"),
+                    start_date: get_tag("EventDate")
+                        .or(get_tag("Date"))
+                        .or(Some("????-??-??".to_string())),
                     end_date: None,
                     location: get_tag("Site"),
                     time_control: get_tag("TimeControl"),

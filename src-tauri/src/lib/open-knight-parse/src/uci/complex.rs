@@ -1,6 +1,8 @@
 use chumsky::prelude::*;
 
-use super::{Bound, EngineResponse, InfoParams, OptionDefinition, OptionType, ParseError, Score};
+use super::{
+    Bound, EngineResponse, InfoParams, OptionDefinition, OptionType, Score, UciParseError,
+};
 
 /**
  * These are the parsers for the complex responses from the engine.
@@ -30,7 +32,7 @@ pub fn option_token_parser() -> impl Parser<char, String, Error = Simple<char>> 
 }
 
 /// Parse the parameters of an "info" command from a string
-pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
+pub fn parse_info_params(input: String) -> Result<EngineResponse, UciParseError> {
     let tokens: Vec<&str> = input.split_whitespace().collect();
     let mut params = InfoParams::default();
     let mut i = 0;
@@ -45,14 +47,14 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                             i += 2;
                         }
                         Err(_) => {
-                            return Err(ParseError::InvalidValue {
+                            return Err(UciParseError::InvalidValue {
                                 param: "depth".to_string(),
                                 value: tokens[i + 1].to_string(),
                             });
                         }
                     }
                 } else {
-                    return Err(ParseError::MissingValue {
+                    return Err(UciParseError::MissingValue {
                         param: "depth".to_string(),
                     });
                 }
@@ -65,14 +67,14 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                             i += 2;
                         }
                         Err(_) => {
-                            return Err(ParseError::InvalidValue {
+                            return Err(UciParseError::InvalidValue {
                                 param: "seldepth".to_string(),
                                 value: tokens[i + 1].to_string(),
                             });
                         }
                     }
                 } else {
-                    return Err(ParseError::MissingValue {
+                    return Err(UciParseError::MissingValue {
                         param: "seldepth".to_string(),
                     });
                 }
@@ -85,14 +87,14 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                             i += 2;
                         }
                         Err(_) => {
-                            return Err(ParseError::InvalidValue {
+                            return Err(UciParseError::InvalidValue {
                                 param: "time".to_string(),
                                 value: tokens[i + 1].to_string(),
                             });
                         }
                     }
                 } else {
-                    return Err(ParseError::MissingValue {
+                    return Err(UciParseError::MissingValue {
                         param: "time".to_string(),
                     });
                 }
@@ -105,14 +107,14 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                             i += 2;
                         }
                         Err(_) => {
-                            return Err(ParseError::InvalidValue {
+                            return Err(UciParseError::InvalidValue {
                                 param: "nodes".to_string(),
                                 value: tokens[i + 1].to_string(),
                             });
                         }
                     }
                 } else {
-                    return Err(ParseError::MissingValue {
+                    return Err(UciParseError::MissingValue {
                         param: "nodes".to_string(),
                     });
                 }
@@ -125,14 +127,14 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                             i += 2;
                         }
                         Err(_) => {
-                            return Err(ParseError::InvalidValue {
+                            return Err(UciParseError::InvalidValue {
                                 param: "multipv".to_string(),
                                 value: tokens[i + 1].to_string(),
                             });
                         }
                     }
                 } else {
-                    return Err(ParseError::MissingValue {
+                    return Err(UciParseError::MissingValue {
                         param: "multipv".to_string(),
                     });
                 }
@@ -142,7 +144,7 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                 i += 1; // Skip "score"
 
                 if i >= tokens.len() {
-                    return Err(ParseError::MissingValue {
+                    return Err(UciParseError::MissingValue {
                         param: "score".to_string(),
                     });
                 }
@@ -151,7 +153,7 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                     "cp" => {
                         i += 1;
                         if i >= tokens.len() {
-                            return Err(ParseError::MissingValue {
+                            return Err(UciParseError::MissingValue {
                                 param: "score cp".to_string(),
                             });
                         }
@@ -179,7 +181,7 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                                 params.score = Some(Score::Centipawns { value, bound });
                             }
                             Err(_) => {
-                                return Err(ParseError::InvalidValue {
+                                return Err(UciParseError::InvalidValue {
                                     param: "score cp".to_string(),
                                     value: tokens[i].to_string(),
                                 });
@@ -189,7 +191,7 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                     "mate" => {
                         i += 1;
                         if i >= tokens.len() {
-                            return Err(ParseError::MissingValue {
+                            return Err(UciParseError::MissingValue {
                                 param: "score mate".to_string(),
                             });
                         }
@@ -200,7 +202,7 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                                 i += 1;
                             }
                             Err(_) => {
-                                return Err(ParseError::InvalidValue {
+                                return Err(UciParseError::InvalidValue {
                                     param: "score mate".to_string(),
                                     value: tokens[i].to_string(),
                                 });
@@ -208,7 +210,7 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                         }
                     }
                     _ => {
-                        return Err(ParseError::InvalidValue {
+                        return Err(UciParseError::InvalidValue {
                             param: "score".to_string(),
                             value: tokens[i].to_string(),
                         });
@@ -220,7 +222,7 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                     params.currmove = Some(tokens[i + 1].to_string());
                     i += 2;
                 } else {
-                    return Err(ParseError::MissingValue {
+                    return Err(UciParseError::MissingValue {
                         param: "currmove".to_string(),
                     });
                 }
@@ -233,14 +235,14 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                             i += 2;
                         }
                         Err(_) => {
-                            return Err(ParseError::InvalidValue {
+                            return Err(UciParseError::InvalidValue {
                                 param: "currmovenumber".to_string(),
                                 value: tokens[i + 1].to_string(),
                             });
                         }
                     }
                 } else {
-                    return Err(ParseError::MissingValue {
+                    return Err(UciParseError::MissingValue {
                         param: "currmovenumber".to_string(),
                     });
                 }
@@ -253,14 +255,14 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                             i += 2;
                         }
                         Err(_) => {
-                            return Err(ParseError::InvalidValue {
+                            return Err(UciParseError::InvalidValue {
                                 param: "hashfull".to_string(),
                                 value: tokens[i + 1].to_string(),
                             });
                         }
                     }
                 } else {
-                    return Err(ParseError::MissingValue {
+                    return Err(UciParseError::MissingValue {
                         param: "hashfull".to_string(),
                     });
                 }
@@ -273,14 +275,14 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                             i += 2;
                         }
                         Err(_) => {
-                            return Err(ParseError::InvalidValue {
+                            return Err(UciParseError::InvalidValue {
                                 param: "nps".to_string(),
                                 value: tokens[i + 1].to_string(),
                             });
                         }
                     }
                 } else {
-                    return Err(ParseError::MissingValue {
+                    return Err(UciParseError::MissingValue {
                         param: "nps".to_string(),
                     });
                 }
@@ -293,14 +295,14 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                             i += 2;
                         }
                         Err(_) => {
-                            return Err(ParseError::InvalidValue {
+                            return Err(UciParseError::InvalidValue {
                                 param: "tbhits".to_string(),
                                 value: tokens[i + 1].to_string(),
                             });
                         }
                     }
                 } else {
-                    return Err(ParseError::MissingValue {
+                    return Err(UciParseError::MissingValue {
                         param: "tbhits".to_string(),
                     });
                 }
@@ -313,14 +315,14 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                             i += 2;
                         }
                         Err(_) => {
-                            return Err(ParseError::InvalidValue {
+                            return Err(UciParseError::InvalidValue {
                                 param: "sbhits".to_string(),
                                 value: tokens[i + 1].to_string(),
                             });
                         }
                     }
                 } else {
-                    return Err(ParseError::MissingValue {
+                    return Err(UciParseError::MissingValue {
                         param: "sbhits".to_string(),
                     });
                 }
@@ -333,14 +335,14 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
                             i += 2;
                         }
                         Err(_) => {
-                            return Err(ParseError::InvalidValue {
+                            return Err(UciParseError::InvalidValue {
                                 param: "cpuload".to_string(),
                                 value: tokens[i + 1].to_string(),
                             });
                         }
                     }
                 } else {
-                    return Err(ParseError::MissingValue {
+                    return Err(UciParseError::MissingValue {
                         param: "cpuload".to_string(),
                     });
                 }
@@ -438,7 +440,7 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, ParseError> {
 }
 
 /// Parse the parameters of an "option" command from a string
-pub fn parse_option_params(input: String) -> Result<EngineResponse, ParseError> {
+pub fn parse_option_params(input: String) -> Result<EngineResponse, UciParseError> {
     let tokens: Vec<&str> = input.split_whitespace().collect();
 
     // Find positions of key tokens
@@ -446,7 +448,7 @@ pub fn parse_option_params(input: String) -> Result<EngineResponse, ParseError> 
     let type_pos = tokens.iter().position(|&t| t == "type");
 
     if name_pos.is_none() || type_pos.is_none() || name_pos.unwrap() >= type_pos.unwrap() {
-        return Err(ParseError::ParseFailure {
+        return Err(UciParseError::ParseFailure {
             input,
             message: "Invalid option format, expected 'name' before 'type'".to_string(),
         });
@@ -459,7 +461,7 @@ pub fn parse_option_params(input: String) -> Result<EngineResponse, ParseError> 
     // Extract option type
     let type_pos = type_pos.unwrap();
     if type_pos + 1 >= tokens.len() {
-        return Err(ParseError::MissingValue {
+        return Err(UciParseError::MissingValue {
             param: "type".to_string(),
         });
     }
@@ -471,7 +473,7 @@ pub fn parse_option_params(input: String) -> Result<EngineResponse, ParseError> 
         "button" => OptionType::Button,
         "string" => OptionType::String,
         _ => {
-            return Err(ParseError::InvalidValue {
+            return Err(UciParseError::InvalidValue {
                 param: "type".to_string(),
                 value: tokens[type_pos + 1].to_string(),
             });

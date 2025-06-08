@@ -193,10 +193,8 @@ async fn handle_line<State: EngineState<Event = E>, E>(
     }
 }
 
-async fn handle_error(event_sender: &mpsc::Sender<EngineStateInfoEvent>, e: std::io::Error) {
-    let _ = event_sender
-        .send(EngineStateInfoEvent::Error(EngineError::from(e)))
-        .await;
+async fn handle_error(event_sender: &mpsc::Sender<EngineStateInfoEvent>, e: EngineError) {
+    let _ = event_sender.send(EngineStateInfoEvent::Error(e)).await;
 }
 
 unsafe impl<S, E> Send for OutputHandler<S, E>

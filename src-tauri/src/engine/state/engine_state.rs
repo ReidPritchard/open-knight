@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::engine::events::EngineStateInfoEvent;
 use crate::engine::utils::EngineError;
-use crate::parse::uci::{IdInfo, InfoParams, OptionDefinition, ProtectionStatus};
+use open_knight_parse::uci::{IdInfo, InfoParams, OptionDefinition, ProtectionStatus};
 use serde::Serialize;
 
 /// Engine readiness (initialized, running, analyzing)
@@ -59,8 +59,8 @@ pub struct EngineStateInfo {
 /// Ongoing analysis
 #[derive(Debug, Serialize, Clone)]
 pub struct Analysis {
-    /// A vector of the recieved analysis updates
-    /// leading to the "bestmove" and reset on subseqent calls to `start_analysis`
+    /// A vector of the received analysis updates
+    /// leading to the "bestmove" and reset on subsequent calls to `start_analysis`
     pub updates: Vec<InfoParams>,
 }
 

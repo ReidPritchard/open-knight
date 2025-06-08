@@ -1,4 +1,3 @@
-// TODO: Most of these should be private
 pub mod builder;
 pub mod events;
 pub mod io_handler;

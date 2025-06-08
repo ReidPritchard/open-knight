@@ -7,7 +7,7 @@ use slotmap::{DefaultKey, SlotMap};
 
 use crate::entities::{position, r#move};
 use crate::models::{generate_uci, ChessAnnotation, ChessMove, ChessPosition};
-use crate::parse::pgn::PgnToken;
+use open_knight_parse::pgn::PgnToken;
 
 use super::{ChessMoveTree, ChessTreeNode};
 
@@ -76,15 +76,15 @@ fn parse_pgn_tokens_recursive(
 
     for token in tokens {
         match token {
-            PgnToken::MoveNumber(num) => {
-                let new_move_count = *num as i32;
+            PgnToken::MoveNumber { number } => {
+                let new_move_count = *number as i32;
                 // If the new move count is different from the previous move count, we have a new full move
                 // therefore the next move is white, if it's the same, the next move is black
                 // (ex. 1. e4 1... e5 2... d4 3... d5 4...)
                 *is_white = new_move_count != *full_move_count;
                 *full_move_count = new_move_count;
             }
-            PgnToken::Move(notation) => {
+            PgnToken::Move { notation } => {
                 // ply number
                 let new_move_ply = *full_move_count * 2 + if *is_white { -1 } else { 0 };
 
@@ -126,7 +126,7 @@ fn parse_pgn_tokens_recursive(
 
                 *is_white = !*is_white;
             }
-            PgnToken::Variation(var_tokens) => {
+            PgnToken::Variation { moves: var_tokens } => {
                 // Save the current state before processing the variation
                 let saved_position = current_position.clone();
                 let saved_node_id = current_node_id;
@@ -143,12 +143,12 @@ fn parse_pgn_tokens_recursive(
                     &mut saved_is_white.clone(),
                 )?;
             }
-            PgnToken::Comment(comment) => {
+            PgnToken::Comment { text } => {
                 // If we're at a move node (not the root), add the comment to the move
                 if let Some(ref mut game_move) = tree.nodes[current_node_id].game_move.as_mut() {
                     game_move.annotations.push(ChessAnnotation {
                         id: 0,
-                        comment: Some(comment.clone()),
+                        comment: Some(text.clone()),
                         arrows: None,
                         highlights: None,
                     });
@@ -265,12 +265,20 @@ mod tests {
     #[test]
     fn parse_pgn_tokens_simple_game() {
         let tokens = vec![
-            PgnToken::MoveNumber(1),
-            PgnToken::Move("e4".to_string()),
-            PgnToken::Move("e5".to_string()),
-            PgnToken::MoveNumber(2),
-            PgnToken::Move("d4".to_string()),
-            PgnToken::Move("d5".to_string()),
+            PgnToken::MoveNumber { number: 1 },
+            PgnToken::Move {
+                notation: "e4".to_string(),
+            },
+            PgnToken::Move {
+                notation: "e5".to_string(),
+            },
+            PgnToken::MoveNumber { number: 2 },
+            PgnToken::Move {
+                notation: "d4".to_string(),
+            },
+            PgnToken::Move {
+                notation: "d5".to_string(),
+            },
         ];
 
         let mut tree = parse_pgn_tokens(1, ChessPosition::default(), &tokens).unwrap();
@@ -322,10 +330,18 @@ mod tests {
         // 1. a4 (a5) b4
 
         let tokens = vec![
-            PgnToken::MoveNumber(1),
-            PgnToken::Move("a4".to_string()),
-            PgnToken::Variation(vec![PgnToken::Move("a5".to_string())]),
-            PgnToken::Move("b5".to_string()),
+            PgnToken::MoveNumber { number: 1 },
+            PgnToken::Move {
+                notation: "a4".to_string(),
+            },
+            PgnToken::Variation {
+                moves: vec![PgnToken::Move {
+                    notation: "a5".to_string(),
+                }],
+            },
+            PgnToken::Move {
+                notation: "b5".to_string(),
+            },
         ];
 
         let tree = parse_pgn_tokens(1, ChessPosition::default(), &tokens).unwrap();

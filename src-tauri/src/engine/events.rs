@@ -6,7 +6,7 @@ use serde::Serialize;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
-use crate::parse::uci::IdInfo;
+use open_knight_parse::uci::IdInfo;
 
 use super::state::EngineState;
 use super::utils::EngineError;
@@ -34,9 +34,9 @@ pub enum EngineStateInfoEvent {
     /// Engine Info Update
     InfoUpdate(IdInfo),
     /// Adding an engine capability/config option
-    CapabilityAdded(String, crate::parse::uci::OptionDefinition),
+    CapabilityAdded(String, open_knight_parse::uci::OptionDefinition),
     /// Update of the engine's analysis
-    AnalysisUpdate(crate::parse::uci::InfoParams),
+    AnalysisUpdate(open_knight_parse::uci::InfoParams),
     /// Update of the engine's best move (Best Move, Ponder Move)
     BestMove(String, Option<String>),
     /// Update of the engine's ready state
