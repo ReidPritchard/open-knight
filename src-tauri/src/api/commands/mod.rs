@@ -11,7 +11,7 @@ use tokio::sync::Mutex;
 pub mod chess;
 pub mod database;
 pub mod engine;
-pub mod game;
+pub mod session;
 
 /// Application state shared across Tauri commands
 ///

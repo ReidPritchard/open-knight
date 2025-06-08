@@ -26,35 +26,38 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            // Database commands
+            // Database management commands
             api::commands::database::import_pgn_games,
             api::commands::database::empty_db,
+            api::commands::database::import_eco_database,
+            // Database game commands
             api::commands::database::query_games,
-            api::commands::database::query_entities,
-            api::commands::database::get_entity_by_id,
             api::commands::database::get_game_by_id,
             api::commands::database::delete_game,
             api::commands::database::update_game_property,
+            // Database entity commands
+            api::commands::database::query_entities,
+            api::commands::database::get_entity_by_id,
             // Session lifecycle commands
-            api::commands::game::create_session,
-            api::commands::game::load_game_into_session,
-            api::commands::game::get_session,
-            api::commands::game::get_all_sessions,
-            api::commands::game::close_session,
-            api::commands::game::close_all_sessions,
+            api::commands::session::create_session,
+            api::commands::session::load_game_into_session,
+            api::commands::session::get_session,
+            api::commands::session::get_all_sessions,
+            api::commands::session::close_session,
+            api::commands::session::close_all_sessions,
             // Session operation commands
-            api::commands::game::make_move,
-            api::commands::game::undo_move,
-            api::commands::game::redo_move,
-            api::commands::game::next_move,
-            api::commands::game::previous_move,
-            api::commands::game::navigate_to_end,
-            api::commands::game::navigate_to_start,
-            api::commands::game::reset_to_position,
-            api::commands::game::get_session_moves,
+            api::commands::session::make_move,
+            api::commands::session::undo_move,
+            api::commands::session::redo_move,
+            api::commands::session::next_move,
+            api::commands::session::previous_move,
+            api::commands::session::navigate_to_end,
+            api::commands::session::navigate_to_start,
+            api::commands::session::reset_to_position,
+            api::commands::session::get_session_moves,
             // Session persistence commands
-            api::commands::game::save_session,
-            api::commands::game::save_all_sessions,
+            api::commands::session::save_session,
+            api::commands::session::save_all_sessions,
             // Chess commands
             api::commands::chess::get_legal_moves,
             // Engine commands
