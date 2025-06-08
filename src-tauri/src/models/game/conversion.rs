@@ -14,6 +14,8 @@ impl std::fmt::Display for PgnToken {
                 "({})",
                 v.iter().map(|t| t.to_string()).collect::<String>()
             ),
+            PgnToken::NAG(n) => write!(f, "${}", n),
+            PgnToken::MoveSuffixNotation(m) => write!(f, "{}", m),
         }
     }
 }

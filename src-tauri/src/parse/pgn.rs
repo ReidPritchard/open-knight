@@ -7,12 +7,14 @@ const DEBUG: bool = true;
 
 #[derive(Debug, Clone)]
 pub enum PgnToken {
-    MoveNumber(u32),          // Move numbers like "1."
-    Move(String),             // Chess moves like "e4" or "Nf3"
-    Result(String),           // Game result like "1-0", "0-1", "1/2-1/2", "*"
-    Tag(String, String),      // Metadata in square brackets like [Event "World Championship"]
-    Comment(String),          // Comments in curly braces like {This is a comment}
-    Variation(Vec<PgnToken>), // Variations in parentheses like (1.e4 e5 2.Nf3)
+    MoveNumber(u32),            // Move numbers like "1."
+    Move(String),               // Chess moves like "e4" or "Nf3"
+    MoveSuffixNotation(String), // Move suffix notation like "??", "?!", "!?", "!!"
+    Result(String),             // Game result like "1-0", "0-1", "1/2-1/2", "*"
+    Tag(String, String),        // Metadata in square brackets like [Event "World Championship"]
+    Comment(String),            // Comments in curly braces like {This is a comment}
+    Variation(Vec<PgnToken>),   // Variations in parentheses like (1.e4 e5 2.Nf3)
+    NAG(u8),                    // Numeric Annotation Glyphs like $1, $2, etc.
 }
 
 #[derive(Debug)]
@@ -91,6 +93,11 @@ fn parser() -> impl Parser<char, Vec<PgnToken>, Error = Simple<char>> {
         .map(PgnToken::Variation)
     });
 
+    // Parse Numeric Annotation Glyphs
+    let nag = just('$')
+        .ignore_then(text::int(10))
+        .map(|num: String| PgnToken::NAG(num.parse().unwrap()));
+
     // Combine all parsers
     choice((
         tag,
@@ -99,6 +106,7 @@ fn parser() -> impl Parser<char, Vec<PgnToken>, Error = Simple<char>> {
         chess_move,
         comment,
         variation,
+        nag,
     ))
     .padded()
     .repeated()

@@ -81,15 +81,15 @@
 					</label>
 
 					<textarea
+						ref="pgnTextarea"
 						v-model="pgn"
 						id="pgn-text"
 						required
 						class="textarea h-24 w-full validator"
-						:class="{ 'validator:user-invalid': !pgnValid }"
 						placeholder="PGN Text"
 					></textarea>
 
-					<p class="validator-hint">Must be a valid PGN text</p>
+					<p class="validator-hint">Valid PGN text required</p>
 
 				</template>
 
@@ -136,7 +136,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useGlobalStore } from "../../stores";
 import Modal from "../Layout/Modal/Modal.vue";
 import { validatePGNFormat } from "../../services/ImportExportService";
@@ -155,6 +155,26 @@ const pgn = ref<string>("");
 const pgnValid = computed(() => {
 	return validatePGNFormat(pgn.value).isValid;
 });
+
+const pgnTextarea = ref<HTMLTextAreaElement | null>(null);
+
+watch(
+	pgnValid,
+	() => {
+		if (!pgnValid.value) {
+			// set the input to invalid
+			pgnTextarea.value?.setCustomValidity("Text is not a valid PGN");
+			pgnTextarea.value?.reportValidity();
+		} else {
+			// set the input to valid
+			pgnTextarea.value?.setCustomValidity("");
+			pgnTextarea.value?.reportValidity();
+		}
+	},
+	{
+		immediate: true,
+	},
+);
 
 const handleFileChange = (event: Event) => {
 	const file = (event.target as HTMLInputElement).files?.[0];

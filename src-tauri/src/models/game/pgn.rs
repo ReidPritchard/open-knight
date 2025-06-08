@@ -37,7 +37,9 @@ impl ChessGame {
                     PgnToken::Move(_)
                     | PgnToken::MoveNumber(_)
                     | PgnToken::Comment(_)
-                    | PgnToken::Variation(_) => {
+                    | PgnToken::Variation(_)
+                    | PgnToken::NAG(_)
+                    | PgnToken::MoveSuffixNotation(_) => {
                         move_tokens.push(token.clone());
                     }
                 }
