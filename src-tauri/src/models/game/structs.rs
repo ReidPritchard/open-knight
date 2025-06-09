@@ -32,6 +32,7 @@ ts_export! {
 }
 
 ts_export! {
+    #[derive(Default)]
     pub struct ChessTournament {
         pub id: i32,
         pub name: String,
@@ -44,10 +45,18 @@ ts_export! {
 }
 
 ts_export! {
+    #[derive(Default)]
     pub struct ChessOpening {
         pub id: i32,
         pub eco: Option<String>,
         pub name: Option<String>,
         pub variation: Option<String>,
+    }
+}
+
+ts_export! {
+    pub struct ChessHeader {
+        pub name: String,
+        pub value: String,
     }
 }

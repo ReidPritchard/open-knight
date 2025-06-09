@@ -226,6 +226,22 @@ impl ChessGame {
         Ok(())
     }
 
+    /// Loads the game headers for this game from the database
+    pub async fn load_headers(&mut self, db: &DatabaseConnection) -> Result<(), AppError> {
+        let headers = game_header::Entity::find()
+            .filter(game_header::Column::GameId.eq(self.id))
+            .all(db)
+            .await
+            .map_err(|e| AppError::DatabaseError(format!("Failed to load headers: {}", e)))?;
+
+        self.headers = headers
+            .into_iter()
+            .map(|h| (h.header_name, h.header_value))
+            .collect();
+
+        Ok(())
+    }
+
     /// Saves multiple chess games from PGN format to the database
     pub async fn save_from_pgn(db: &DatabaseConnection, pgn: &str) -> Result<Vec<Self>, AppError> {
         let chess_games: Vec<Self> = parse_pgn_games(pgn)

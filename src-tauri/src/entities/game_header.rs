@@ -5,12 +5,13 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "game_header")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
+    pub created_at: DateTimeUtc,
+    pub updated_at: DateTimeUtc,
+    #[sea_orm(primary_key)]
+    pub header_id: i32,
     pub game_id: i32,
     pub header_name: String,
     pub header_value: String,
-    pub created_at: DateTimeUtc,
-    pub updated_at: DateTimeUtc,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -19,7 +20,7 @@ pub enum Relation {
         belongs_to = "super::game::Entity",
         from = "Column::GameId",
         to = "super::game::Column::GameId",
-        on_update = "NoAction",
+        on_update = "Cascade",
         on_delete = "Cascade"
     )]
     Game,

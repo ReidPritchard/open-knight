@@ -75,6 +75,7 @@ fn parse_pgn_tokens_recursive(
     let mut current_node_id = current_node_id;
 
     for token in tokens {
+        println!("Processing token: {}", token);
         match token {
             PgnToken::MoveNumber { number } => {
                 let new_move_count = *number as i32;
@@ -89,7 +90,13 @@ fn parse_pgn_tokens_recursive(
                 let new_move_ply = *full_move_count * 2 + if *is_white { -1 } else { 0 };
 
                 // post move position
-                let new_move_position = current_position.make_san_move(notation)?;
+                let new_move_position_result = current_position.make_san_move(notation);
+                if let Err(e) = new_move_position_result {
+                    eprintln!("Error making move.\nNotation: {}\nError:\n{}", notation, e);
+                    return Err(e);
+                }
+
+                let new_move_position = new_move_position_result.unwrap();
 
                 // UCI
                 let uci = generate_uci(notation, &Chess::from(current_position.clone()))?;
@@ -132,6 +139,10 @@ fn parse_pgn_tokens_recursive(
                 let saved_node_id = current_node_id;
                 let saved_move_count = *full_move_count;
                 let saved_is_white = *is_white;
+
+                // FIXME: We neeed to use the position of the parent node, not the current position
+
+                println!("Processing variation");
 
                 // Process the variation recursively
                 parse_pgn_tokens_recursive(

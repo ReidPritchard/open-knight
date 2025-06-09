@@ -17,16 +17,36 @@ impl From<PgnGame> for ChessGame {
         for tag in pgn_tags {
             if let PgnToken::Tag { name, value } = tag {
                 match name.as_str() {
-                    "Event" => chess_game.tournament.as_mut().unwrap().name = value,
-                    "Site" => chess_game.tournament.as_mut().unwrap().location = Some(value),
+                    "Event" => {
+                        let mut tournament = chess_game.tournament.unwrap_or_default();
+                        tournament.name = value;
+                        chess_game.tournament = Some(tournament);
+                    }
+                    "Site" => {
+                        let mut tournament = chess_game.tournament.unwrap_or_default();
+                        tournament.location = Some(value);
+                        chess_game.tournament = Some(tournament);
+                    }
                     "Date" => chess_game.date = value,
                     "Round" => chess_game.round = Some(value.parse().unwrap()),
                     "White" => chess_game.white_player.name = value,
                     "Black" => chess_game.black_player.name = value,
                     "Result" => chess_game.result = value,
-                    "ECO" => chess_game.opening.as_mut().unwrap().eco = Some(value),
-                    "Opening" => chess_game.opening.as_mut().unwrap().name = Some(value),
-                    "Variation" => chess_game.opening.as_mut().unwrap().variation = Some(value),
+                    "ECO" => {
+                        let mut opening = chess_game.opening.unwrap_or_default();
+                        opening.eco = Some(value);
+                        chess_game.opening = Some(opening);
+                    }
+                    "Opening" => {
+                        let mut opening = chess_game.opening.unwrap_or_default();
+                        opening.name = Some(value);
+                        chess_game.opening = Some(opening);
+                    }
+                    "Variation" => {
+                        let mut opening = chess_game.opening.unwrap_or_default();
+                        opening.variation = Some(value);
+                        chess_game.opening = Some(opening);
+                    }
                     "FEN" => chess_game.fen = Some(value),
                     "Variant" => chess_game.variant = value,
                     _ => {

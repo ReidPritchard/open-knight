@@ -7,9 +7,14 @@ use crate::{migrations::Migrator, models, utils::AppError};
 const DATABASE_URL: &str = "sqlite://chess.db?mode=rwc";
 
 pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), AppError> {
+    Migrator::up(db, Some(2))
+        .await
+        .map_err(|e| AppError::DatabaseError(format!("Failed to run migrations: {}", e)))?;
+
     Migrator::up(db, None)
         .await
         .map_err(|e| AppError::DatabaseError(format!("Failed to run migrations: {}", e)))?;
+
     Ok(())
 }
 
