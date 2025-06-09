@@ -18,7 +18,7 @@ use super::{ChessMoveTree, ChessTreeNode};
  * @param root_position - The starting position of the game
  * @returns the parsed ChessMoveTree
  */
-pub fn parse_pgn_tokens(
+pub fn pgn_tokens_to_move_tree(
     game_id: i32,
     root_position: ChessPosition,
     tokens: &[PgnToken],
@@ -281,7 +281,7 @@ mod tests {
             },
         ];
 
-        let mut tree = parse_pgn_tokens(1, ChessPosition::default(), &tokens).unwrap();
+        let mut tree = pgn_tokens_to_move_tree(1, ChessPosition::default(), &tokens).unwrap();
         assert_eq!(tree.nodes.len(), 5);
         // let serialized = serde_json::to_string(&tree).unwrap();
         // println!("{}", serialized);
@@ -344,7 +344,7 @@ mod tests {
             },
         ];
 
-        let tree = parse_pgn_tokens(1, ChessPosition::default(), &tokens).unwrap();
+        let tree = pgn_tokens_to_move_tree(1, ChessPosition::default(), &tokens).unwrap();
         assert_eq!(
             tree.nodes.len(),
             4,

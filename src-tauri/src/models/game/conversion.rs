@@ -1,22 +1,57 @@
-use ok_parse::pgn::{parse_pgn_games, PgnGame, PgnToken};
-use sea_orm::sqlx::types::chrono;
+use ok_parse::pgn::{PgnGame, PgnToken};
 
-use crate::{
-    models::{
-        parse::parse_pgn_tokens, ChessMoveTree, ChessOpening, ChessPlayer, ChessPosition,
-        ChessTournament,
-    },
-    utils::AppError,
-};
+use crate::models::{parse::pgn_tokens_to_move_tree, ChessPosition};
 
 use super::structs::ChessGame;
 
 /// Converts a PgnGame into a ChessGame
 impl From<PgnGame> for ChessGame {
-    fn from(_pgn_game: PgnGame) -> Self {
-        let _chess_game = ChessGame::new_default();
+    fn from(pgn_game: PgnGame) -> Self {
+        let mut chess_game = ChessGame::new_default();
 
-        todo!()
+        let pgn_tags = pgn_game.tags;
+        let pgn_moves = pgn_game.moves;
+        let pgn_result = pgn_game.result;
+
+        // Parse and set headers/tags
+        for tag in pgn_tags {
+            if let PgnToken::Tag { name, value } = tag {
+                match name.as_str() {
+                    "Event" => chess_game.tournament.as_mut().unwrap().name = value,
+                    "Site" => chess_game.tournament.as_mut().unwrap().location = Some(value),
+                    "Date" => chess_game.date = value,
+                    "Round" => chess_game.round = Some(value.parse().unwrap()),
+                    "White" => chess_game.white_player.name = value,
+                    "Black" => chess_game.black_player.name = value,
+                    "Result" => chess_game.result = value,
+                    "ECO" => chess_game.opening.as_mut().unwrap().eco = Some(value),
+                    "Opening" => chess_game.opening.as_mut().unwrap().name = Some(value),
+                    "Variation" => chess_game.opening.as_mut().unwrap().variation = Some(value),
+                    "FEN" => chess_game.fen = Some(value),
+                    "Variant" => chess_game.variant = value,
+                    _ => {
+                        // All unknown tags are added to the headers
+                        chess_game.headers.push((name, value));
+                    }
+                }
+            }
+        }
+
+        // Parse and set moves
+        let variant = chess_game.variant.clone();
+        let starting_position = chess_game
+            .fen
+            .clone()
+            .map_or(ChessPosition::default(), |fen| {
+                ChessPosition::from_fen(Some(fen), Some(variant)).unwrap()
+            });
+        chess_game.move_tree =
+            pgn_tokens_to_move_tree(chess_game.id, starting_position, &pgn_moves).unwrap();
+
+        // Set result
+        chess_game.result = pgn_result.unwrap_or("*".to_string());
+
+        chess_game
     }
 }
 
@@ -91,7 +126,7 @@ impl From<ChessGame> for String {
 
         // Add moves
         pgn.push_str(&game.move_tree.to_pgn_moves());
-        pgn.push_str(&format!("{}", game.result));
+        pgn.push_str(&game.result);
         pgn
     }
 }

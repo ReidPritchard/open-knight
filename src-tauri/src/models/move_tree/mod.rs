@@ -34,8 +34,10 @@ ts_export! {
  */
 impl ChessMoveTree {
     pub fn new(game_id: i32, root_position: ChessPosition) -> Self {
-        let mut tree = Self::default();
-        tree.game_id = game_id;
+        let mut tree = ChessMoveTree {
+            game_id: game_id,
+            ..Default::default()
+        };
 
         let root_node = ChessTreeNode {
             position: root_position,
@@ -49,8 +51,10 @@ impl ChessMoveTree {
 
         tree
     }
+}
 
-    pub fn default() -> Self {
+impl Default for ChessMoveTree {
+    fn default() -> Self {
         Self {
             game_id: 0,
             nodes: SlotMap::new(),

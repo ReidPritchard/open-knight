@@ -13,6 +13,7 @@ ts_export! {
         pub result: String,
         pub round: Option<i32>,
         pub date: String,
+        pub headers: Vec<(String, String)>,
         pub move_tree: ChessMoveTree,
         pub fen: Option<String>,
         pub variant: String,

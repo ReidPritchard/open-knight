@@ -56,6 +56,7 @@ impl ChessGame {
             result: "*".to_string(),
             round: None,
             date: current_date.clone(),
+            headers: vec![],
             move_tree: ChessMoveTree::default(),
             tags: vec!["local".to_string()],
             fen: Some(starting_position.fen),
@@ -98,6 +99,7 @@ impl ChessGame {
             result: "*".to_string(),
             round: None,
             date: chrono::Utc::now().to_rfc3339(),
+            headers: vec![],
             move_tree: ChessMoveTree::default(),
             tags: vec![],
             fen: Some(ChessPosition::default().fen),
@@ -116,6 +118,16 @@ impl ChessGame {
             .ok_or_else(|| {
                 AppError::DatabaseError(format!("Game with ID {} not found", game_id))
             })?;
+
+        // Load headers
+        let headers = game_header::Entity::find()
+            .filter(game_header::Column::GameId.eq(game_id))
+            .all(db)
+            .await
+            .map_err(|e| AppError::DatabaseError(format!("Failed to load headers: {}", e)))?
+            .into_iter()
+            .map(|h| (h.header_name, h.header_value))
+            .collect();
 
         // Load players
         let white_player = player::Entity::find_by_id(game.white_player_id)
@@ -174,6 +186,7 @@ impl ChessGame {
             result: game.result.unwrap_or_else(|| "*".to_string()),
             round: game.round_number,
             date: game.date_played.unwrap_or_else(|| "????-??-??".to_string()),
+            headers,
             move_tree: ChessMoveTree::default(),
             tags: Vec::new(),
             fen: game.fen,
@@ -227,12 +240,9 @@ impl ChessGame {
 
         // Process games in smaller batches to avoid overwhelming the database
         const BATCH_SIZE: usize = 10;
+        let num_batches = chess_games.len().div_ceil(BATCH_SIZE);
         for (batch_index, batch) in chess_games.chunks(BATCH_SIZE).enumerate() {
-            println!(
-                "Processing batch {} of {}",
-                batch_index + 1,
-                (chess_games.len() + BATCH_SIZE - 1) / BATCH_SIZE
-            );
+            println!("Processing batch {} of {}", batch_index + 1, num_batches);
 
             let mut batch_results = Vec::new();
 

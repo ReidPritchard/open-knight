@@ -214,6 +214,6 @@ impl ChessMoveTree {
     pub fn find_move(&self, id: i32) -> Option<(DefaultKey, &ChessTreeNode)> {
         self.nodes
             .iter()
-            .find(|(_, node)| node.game_move.as_ref().map_or(false, |m| m.id == id))
+            .find(|(_, node)| node.game_move.as_ref().is_some_and(|m| m.id == id))
     }
 }

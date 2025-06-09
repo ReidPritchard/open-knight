@@ -95,6 +95,18 @@ impl From<ChessPosition> for Chess {
     }
 }
 
+impl Default for ChessPosition {
+    /// Default constructor
+    /// Creates a new position with the starting position of a standard chess game
+    fn default() -> Self {
+        Self::from_fen(
+            Some("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string()),
+            None,
+        )
+        .unwrap()
+    }
+}
+
 impl ChessPosition {
     pub fn from_fen(fen: Option<String>, variant: Option<String>) -> Result<Self, Box<dyn Error>> {
         let default_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -141,18 +153,6 @@ impl ChessPosition {
             },
             chess_move,
         ))
-    }
-
-    /**
-     * Default constructor
-     * Creates a new position with the starting position of a standard chess game
-     */
-    pub fn default() -> Self {
-        Self::from_fen(
-            Some("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string()),
-            None,
-        )
-        .unwrap()
     }
 }
 
