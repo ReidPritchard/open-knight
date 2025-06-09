@@ -47,9 +47,13 @@ export interface TableMoveRow {
 	black?: MoveData;
 }
 
+export type VariationMove = MoveData | TableVariationRow;
+
 export interface TableVariationRow {
 	type: "variation";
-	moves: MoveData[];
+	moves: VariationMove[];
+	depth: number;
+	collapsible?: boolean;
 }
 
 export type TableRow = TableMoveRow | TableVariationRow;

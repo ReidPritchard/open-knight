@@ -43,22 +43,12 @@
 
 					<!-- Variation row -->
 
-					<tr v-else-if="row.type === 'variation' && showVariations">
-
-						<td
-							colspan="2"
-							class="pl-2"
-						>
-
-							<VariationRow
-								:moves="row.moves"
-								:is-current-move="isCurrentMove"
-								@move-click="handleMoveClick"
-							/>
-
-						</td>
-
-					</tr>
+					<VariationRow
+						v-else-if="row.type === 'variation' && showVariations"
+						:moves="row.moves"
+						:is-current-move="isCurrentMove"
+						@move-click="handleMoveClick"
+					/>
 
 				</template>
 

@@ -1,43 +1,88 @@
 <template>
 
-	<div class="flex flex-wrap gap-1 items-center">
+	<!-- FIXME: Create a new row for each nested variation (one that is not within this row) -->
 
-		<PhGitBranch
-			:size="12"
-			class="text-base-content/60"
-		/>
+	<tr>
 
-		<span class="text-xs text-base-content/60">(</span>
+		<td
+			colspan="2"
+			:class="`pl-${depth * 4}`"
+		>
 
-		<MoveButton
-			v-for="moveData in moves"
-			:key="moveData.nodeId.idx"
-			:move-data="moveData"
-			:is-current="isCurrentMove(moveData.nodeId)"
-			variant="variation"
+			<div class="flex flex-wrap gap-1 items-center">
+
+				<PhGitBranch
+					:size="12"
+					class="text-base-content/60"
+				/>
+
+				<span class="text-xs text-base-content/60">(</span>
+
+				<!-- Only display moves that are not nested variations -->
+
+				<template
+					v-for="move in nonNestedMoves"
+					:key="move.nodeId.idx"
+				>
+
+					<MoveButton
+						:move-data="move"
+						:is-current="isCurrentMove(move.nodeId)"
+						variant="variation"
+						:size="size"
+						@click="handleMoveClick"
+					/>
+
+				</template>
+
+				<span class="text-xs text-base-content/60">)</span>
+
+			</div>
+
+		</td>
+
+	</tr>
+
+	<!-- Render nested variations as separate rows -->
+
+	<template
+		v-for="nestedVariation in nestedVariations"
+		:key="`nested-${nestedVariation.depth}`"
+	>
+
+		<VariationRow
+			:moves="nestedVariation.moves"
+			:is-current-move="isCurrentMove"
 			:size="size"
-			@click="handleMoveClick"
+			:depth="nestedVariation.depth"
+			@move-click="handleMoveClick"
 		/>
 
-		<span class="text-xs text-base-content/60">)</span>
-
-	</div>
+	</template>
 
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import { PhGitBranch } from "@phosphor-icons/vue";
 import MoveButton from "../MoveButton/MoveButton.vue";
-import type { MoveData, NodeId } from "../../../shared/types";
+import type {
+	VariationMove,
+	NodeId,
+	TableVariationRow,
+	MoveData,
+} from "../../../shared/types";
 
 interface Props {
-	moves: MoveData[];
+	moves: VariationMove[];
 	isCurrentMove: (nodeId: NodeId) => boolean;
 	size?: "sm" | "xs";
+	depth?: number;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
 	size: "xs",
+	depth: 0,
 });
 
 const emit = defineEmits<{
@@ -47,5 +92,21 @@ const emit = defineEmits<{
 const handleMoveClick = (moveId: number | undefined) => {
 	emit("move-click", moveId);
 };
+
+// handle nested variations
+const isNestedVariation = (move: VariationMove): move is TableVariationRow => {
+	return "type" in move && move.type === "variation";
+};
+
+// Separate moves into nested variations and regular moves
+const nonNestedMoves = computed((): MoveData[] => {
+	return props.moves.filter(
+		(move): move is MoveData => !isNestedVariation(move),
+	);
+});
+
+const nestedVariations = computed((): TableVariationRow[] => {
+	return props.moves.filter(isNestedVariation);
+});
 </script>
 
