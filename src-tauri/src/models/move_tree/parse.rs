@@ -75,7 +75,6 @@ fn parse_pgn_tokens_recursive(
     let mut current_node_id = current_node_id;
 
     for token in tokens {
-        println!("Processing token: {}", token);
         match token {
             PgnToken::MoveNumber { number } => {
                 let new_move_count = *number as i32;
@@ -134,25 +133,38 @@ fn parse_pgn_tokens_recursive(
                 *is_white = !*is_white;
             }
             PgnToken::Variation { moves: var_tokens } => {
+                // Get the parent position
+                // The PGN spec says that variations are alternate to the move they come after
+                // so we need to use the parent position, not the current position
+                let parent_node_id = tree.nodes[current_node_id].parent_id;
+                let parent_position = if let Some(parent_node_id) = parent_node_id {
+                    let parent_node = &tree.nodes[parent_node_id];
+                    parent_node.position.clone()
+                } else {
+                    current_position.clone()
+                };
+
                 // Save the current state before processing the variation
                 let saved_position = current_position.clone();
                 let saved_node_id = current_node_id;
                 let saved_move_count = *full_move_count;
                 let saved_is_white = *is_white;
 
-                // FIXME: We neeed to use the position of the parent node, not the current position
-
-                println!("Processing variation");
-
                 // Process the variation recursively
                 parse_pgn_tokens_recursive(
                     var_tokens,
                     tree,
-                    saved_position,
+                    parent_position,
                     saved_node_id,
                     &mut saved_move_count.clone(),
                     &mut saved_is_white.clone(),
                 )?;
+
+                // Restore the current state after processing the variation
+                current_node_id = saved_node_id;
+                current_position = saved_position;
+                *full_move_count = saved_move_count;
+                *is_white = saved_is_white;
             }
             PgnToken::Comment { text } => {
                 // If we're at a move node (not the root), add the comment to the move

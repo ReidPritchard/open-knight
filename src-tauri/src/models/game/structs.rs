@@ -13,7 +13,7 @@ ts_export! {
         pub result: String,
         pub round: Option<i32>,
         pub date: String,
-        pub headers: Vec<(String, String)>,
+        pub headers: Vec<ChessHeader>,
         pub move_tree: ChessMoveTree,
         pub fen: Option<String>,
         pub variant: String,
@@ -55,7 +55,10 @@ ts_export! {
 }
 
 ts_export! {
+    #[derive(Default)]
     pub struct ChessHeader {
+        pub id: Option<i32>,
+        pub game_id: i32,
         pub name: String,
         pub value: String,
     }

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use sea_orm::*;
 use sea_orm_migration::*;
 
@@ -38,7 +40,14 @@ pub async fn load_pgn_file(
 }
 
 pub async fn connect_db() -> Result<DatabaseConnection, AppError> {
-    Database::connect(DATABASE_URL)
+    let mut options = ConnectOptions::new(DATABASE_URL);
+    options.max_connections(20); // Increased for better concurrency handling
+    options.min_connections(5); // Higher minimum to avoid connection establishment delays
+    options.idle_timeout(Duration::from_secs(60)); // Longer idle timeout
+    options.acquire_timeout(Duration::from_secs(10)); // Add explicit acquire timeout
+    options.connect_timeout(Duration::from_secs(10)); // Add explicit connect timeout
+
+    Database::connect(options)
         .await
         .map_err(|e| AppError::DatabaseError(format!("Failed to connect to database: {}", e)))
 }

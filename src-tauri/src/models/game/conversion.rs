@@ -1,6 +1,6 @@
 use ok_parse::pgn::{PgnGame, PgnToken};
 
-use crate::models::{parse::pgn_tokens_to_move_tree, ChessPosition};
+use crate::models::{parse::pgn_tokens_to_move_tree, structs::ChessHeader, ChessPosition};
 
 use super::structs::ChessGame;
 
@@ -28,7 +28,14 @@ impl From<PgnGame> for ChessGame {
                         chess_game.tournament = Some(tournament);
                     }
                     "Date" => chess_game.date = value,
-                    "Round" => chess_game.round = Some(value.parse().unwrap()),
+                    "Round" => {
+                        // safely try to parse the round number
+                        if let Ok(round) = value.parse::<i32>() {
+                            chess_game.round = Some(round);
+                        } else {
+                            chess_game.round = None;
+                        }
+                    }
                     "White" => chess_game.white_player.name = value,
                     "Black" => chess_game.black_player.name = value,
                     "Result" => chess_game.result = value,
@@ -51,7 +58,12 @@ impl From<PgnGame> for ChessGame {
                     "Variant" => chess_game.variant = value,
                     _ => {
                         // All unknown tags are added to the headers
-                        chess_game.headers.push((name, value));
+                        chess_game.headers.push(ChessHeader {
+                            id: None,
+                            game_id: chess_game.id,
+                            name,
+                            value,
+                        });
                     }
                 }
             }
