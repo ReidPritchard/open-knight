@@ -11,11 +11,11 @@
 					:key="index"
 				>
 
-					<!-- Main move row -->
+					<!-- Main move row (9 + 9 = 18 columns) -->
 
 					<tr v-if="row.type === 'move'">
 
-						<td>
+						<td colspan="9">
 
 							<MoveButton
 								v-if="row.white"
@@ -27,7 +27,7 @@
 
 						</td>
 
-						<td>
+						<td colspan="9">
 
 							<MoveButton
 								v-if="row.black"
@@ -41,12 +41,14 @@
 
 					</tr>
 
-					<!-- Variation row -->
+					<!-- Variation row(s) (18 columns) -->
 
 					<VariationRow
 						v-else-if="row.type === 'variation' && showVariations"
 						:moves="row.moves"
 						:is-current-move="isCurrentMove"
+						:max-depth="12"
+						:row-size="18"
 						@move-click="handleMoveClick"
 					/>
 
