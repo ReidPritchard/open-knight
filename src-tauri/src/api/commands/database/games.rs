@@ -129,7 +129,7 @@ pub async fn update_game_property(
                 .one(&state.db)
                 .await
                 .map_err(|e| AppError::DatabaseError(format!("Failed to query white player: {}", e)))?
-                .ok_or_else(|| AppError::DatabaseError(format!("White player not found")))?;
+                .ok_or_else(|| AppError::DatabaseError("White player not found".to_string()))?;
             
             // Create an ActiveModel for the update
             let mut player_active: player::ActiveModel = white_player.into();
@@ -150,7 +150,7 @@ pub async fn update_game_property(
                 .one(&state.db)
                 .await
                 .map_err(|e| AppError::DatabaseError(format!("Failed to query black player: {}", e)))?
-                .ok_or_else(|| AppError::DatabaseError(format!("Black player not found")))?;
+                .ok_or_else(|| AppError::DatabaseError("Black player not found".to_string()))?;
             
             // Create an ActiveModel for the update
             let mut player_active: player::ActiveModel = black_player.into();

@@ -13,6 +13,12 @@ pub struct GameSessionManager {
     active_games: HashMap<i32, GameSession>,
 }
 
+impl Default for GameSessionManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GameSessionManager {
     pub fn new() -> Self {
         Self {

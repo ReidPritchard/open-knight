@@ -13,10 +13,12 @@ ts_export! {
         pub result: String,
         pub round: Option<i32>,
         pub date: String,
+        pub headers: Vec<ChessHeader>,
         pub move_tree: ChessMoveTree,
-        pub tags: Vec<String>,
         pub fen: Option<String>,
+        pub variant: String,
         pub pgn: Option<String>,
+        pub tags: Vec<String>,
     }
 }
 
@@ -30,6 +32,7 @@ ts_export! {
 }
 
 ts_export! {
+    #[derive(Default)]
     pub struct ChessTournament {
         pub id: i32,
         pub name: String,
@@ -42,10 +45,21 @@ ts_export! {
 }
 
 ts_export! {
+    #[derive(Default)]
     pub struct ChessOpening {
         pub id: i32,
         pub eco: Option<String>,
         pub name: Option<String>,
         pub variation: Option<String>,
+    }
+}
+
+ts_export! {
+    #[derive(Default)]
+    pub struct ChessHeader {
+        pub id: Option<i32>,
+        pub game_id: i32,
+        pub name: String,
+        pub value: String,
     }
 }

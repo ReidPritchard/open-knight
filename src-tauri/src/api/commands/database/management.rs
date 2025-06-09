@@ -20,7 +20,7 @@ pub async fn empty_db(state: State<'_, AppState>) -> Result<(), AppError> {
 /// Returns the number of successfully parsed games.
 #[tauri::command]
 pub async fn import_pgn_games(pgn: &str, state: State<'_, AppState>) -> Result<String, AppError> {
-    let games = models::ChessGame::save_from_pgn(&state.db, &pgn).await?;
+    let games = models::ChessGame::save_from_pgn(&state.db, pgn).await?;
     Ok(format!("Successfully parsed {} games", games.len()))
 }
 

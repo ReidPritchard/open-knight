@@ -18,6 +18,7 @@ ts_export! {
         pub filter: Option<HashMap<String, String>>,
         pub load_moves: Option<bool>,
         pub load_tags: Option<bool>,
+        pub load_headers: Option<bool>,
     }
 }
 
@@ -30,6 +31,7 @@ impl Default for QueryParams {
             filter: None,
             load_moves: Some(false),
             load_tags: Some(false),
+            load_headers: Some(false),
         }
     }
 }
@@ -322,6 +324,10 @@ pub async fn get_full_game(
         let _ = game.load_tags(db).await;
     }
 
+    if params.load_headers.unwrap_or(false) {
+        let _ = game.load_headers(db).await;
+    }
+
     Ok(Some(game))
 }
 
@@ -347,12 +353,15 @@ pub async fn query_full_games(
     // Then load full games
     let mut games = Vec::new();
     for id in game_ids {
-        if let Some(mut game) = ChessGame::load(db, id).await.ok() {
+        if let Ok(mut game) = ChessGame::load(db, id).await {
             if params.load_moves.unwrap_or(false) {
                 let _ = game.load_moves(db).await;
             }
             if params.load_tags.unwrap_or(false) {
                 let _ = game.load_tags(db).await;
+            }
+            if params.load_headers.unwrap_or(false) {
+                let _ = game.load_headers(db).await;
             }
             games.push(game);
         }

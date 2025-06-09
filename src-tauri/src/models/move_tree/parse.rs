@@ -7,7 +7,7 @@ use slotmap::{DefaultKey, SlotMap};
 
 use crate::entities::{position, r#move};
 use crate::models::{generate_uci, ChessAnnotation, ChessMove, ChessPosition};
-use open_knight_parse::pgn::PgnToken;
+use ok_parse::pgn::PgnToken;
 
 use super::{ChessMoveTree, ChessTreeNode};
 
@@ -18,7 +18,7 @@ use super::{ChessMoveTree, ChessTreeNode};
  * @param root_position - The starting position of the game
  * @returns the parsed ChessMoveTree
  */
-pub fn parse_pgn_tokens(
+pub fn pgn_tokens_to_move_tree(
     game_id: i32,
     root_position: ChessPosition,
     tokens: &[PgnToken],
@@ -89,7 +89,13 @@ fn parse_pgn_tokens_recursive(
                 let new_move_ply = *full_move_count * 2 + if *is_white { -1 } else { 0 };
 
                 // post move position
-                let new_move_position = current_position.make_san_move(&notation)?;
+                let new_move_position_result = current_position.make_san_move(notation);
+                if let Err(e) = new_move_position_result {
+                    eprintln!("Error making move.\nNotation: {}\nError:\n{}", notation, e);
+                    return Err(e);
+                }
+
+                let new_move_position = new_move_position_result.unwrap();
 
                 // UCI
                 let uci = generate_uci(notation, &Chess::from(current_position.clone()))?;
@@ -127,6 +133,17 @@ fn parse_pgn_tokens_recursive(
                 *is_white = !*is_white;
             }
             PgnToken::Variation { moves: var_tokens } => {
+                // Get the parent position
+                // The PGN spec says that variations are alternate to the move they come after
+                // so we need to use the parent position, not the current position
+                let parent_node_id = tree.nodes[current_node_id].parent_id;
+                let parent_position = if let Some(parent_node_id) = parent_node_id {
+                    let parent_node = &tree.nodes[parent_node_id];
+                    parent_node.position.clone()
+                } else {
+                    current_position.clone()
+                };
+
                 // Save the current state before processing the variation
                 let saved_position = current_position.clone();
                 let saved_node_id = current_node_id;
@@ -137,11 +154,17 @@ fn parse_pgn_tokens_recursive(
                 parse_pgn_tokens_recursive(
                     var_tokens,
                     tree,
-                    saved_position,
+                    parent_position,
                     saved_node_id,
                     &mut saved_move_count.clone(),
                     &mut saved_is_white.clone(),
                 )?;
+
+                // Restore the current state after processing the variation
+                current_node_id = saved_node_id;
+                current_position = saved_position;
+                *full_move_count = saved_move_count;
+                *is_white = saved_is_white;
             }
             PgnToken::Comment { text } => {
                 // If we're at a move node (not the root), add the comment to the move
@@ -281,7 +304,7 @@ mod tests {
             },
         ];
 
-        let mut tree = parse_pgn_tokens(1, ChessPosition::default(), &tokens).unwrap();
+        let mut tree = pgn_tokens_to_move_tree(1, ChessPosition::default(), &tokens).unwrap();
         assert_eq!(tree.nodes.len(), 5);
         // let serialized = serde_json::to_string(&tree).unwrap();
         // println!("{}", serialized);
@@ -344,7 +367,7 @@ mod tests {
             },
         ];
 
-        let tree = parse_pgn_tokens(1, ChessPosition::default(), &tokens).unwrap();
+        let tree = pgn_tokens_to_move_tree(1, ChessPosition::default(), &tokens).unwrap();
         assert_eq!(
             tree.nodes.len(),
             4,

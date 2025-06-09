@@ -66,7 +66,7 @@ impl std::fmt::Display for PgnToken {
 /// Represents a complete PGN game with metadata and moves
 #[derive(Debug, Clone, Serialize)]
 pub struct PgnGame {
-    /// Game metadata tags
+    /// Game metadata tags (all PgnToken::Tag tokens)
     pub tags: Vec<PgnToken>,
     /// Game moves and annotations
     pub moves: Vec<PgnToken>,
@@ -113,30 +113,11 @@ impl PgnGame {
             }
         })
     }
-
-    /// Get the event name
-    pub fn event(&self) -> Option<&str> {
-        self.get_tag("Event")
-    }
-
-    /// Get the white player name
-    pub fn white(&self) -> Option<&str> {
-        self.get_tag("White")
-    }
-
-    /// Get the black player name
-    pub fn black(&self) -> Option<&str> {
-        self.get_tag("Black")
-    }
-
-    /// Get the game date
-    pub fn date(&self) -> Option<&str> {
-        self.get_tag("Date")
-    }
 }
 
 /// Error type for PGN parsing failures
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize)]
+#[serde(tag = "error_type")]
 pub enum PgnParseError {
     /// Failed to parse the PGN content
     #[error("Parse failure:\n\tInput: '{input}'\n\tMessage: {message}")]
@@ -167,10 +148,6 @@ pub enum PgnParseError {
     UnknownToken { token: String },
 }
 
-// Re-export the main parsing functions from submodules
-pub use complex::parse_pgn_with_metadata;
-pub use simple::{parse_pgn, parse_pgn_games};
-
 /// Top-level parser for PGN tokens
 fn pgn_parser() -> impl Parser<char, Vec<PgnToken>, Error = Simple<char>> {
     choice((
@@ -178,16 +155,24 @@ fn pgn_parser() -> impl Parser<char, Vec<PgnToken>, Error = Simple<char>> {
         simple::game_result_parser(),
         simple::move_number_parser(),
         simple::chess_move_parser(),
+        simple::nag_parser(),
         simple::comment_parser(),
         complex::variation_parser(),
-        simple::nag_parser(),
     ))
     .padded()
     .repeated()
 }
 
 /// Parse a PGN string into tokens
-pub fn parse_pgn_tokens(pgn: &str) -> Result<Vec<PgnToken>, PgnParseError> {
+///
+/// # Arguments
+/// * `pgn` - A PGN string to parse (can contain multiple games)
+///
+/// # Returns
+/// * `Result<Vec<PgnToken>, PgnParseError>` - A vector of parsed PGN tokens or an error
+fn pgn_string_to_tokens(pgn: &str) -> Result<Vec<PgnToken>, PgnParseError> {
+    // TODO: Improve error recovery and allow for partial parsing
+
     if DEBUG {
         let (tokens, errors) = pgn_parser().parse_recovery_verbose(pgn);
         tokens.ok_or_else(|| PgnParseError::ParseFailure {
@@ -210,4 +195,83 @@ pub fn parse_pgn_tokens(pgn: &str) -> Result<Vec<PgnToken>, PgnParseError> {
                     .join(", "),
             })
     }
+}
+
+/// Parse a PGN string and group tokens by game
+///
+/// # Arguments
+/// * `tokens` - A vector of PGN tokens to parse (can contain multiple games)
+///
+/// # Returns
+/// * `Result<Vec<PgnGame>, PgnParseError>` - A vector of parsed PGN games or an error
+fn pgn_tokens_to_games(tokens: Vec<PgnToken>) -> Result<Vec<PgnGame>, Vec<PgnParseError>> {
+    let mut games = Vec::new();
+    let mut current_game = Vec::new();
+    let mut parse_errors = Vec::new();
+
+    for token in tokens {
+        if let PgnToken::Tag { name, .. } = &token {
+            // Use the "Event" tag to determine the start of a new game
+            // this should always be the first tag in the game (I think)
+            if name == "Event" && !current_game.is_empty() {
+                let game = PgnGame::from_tokens(current_game);
+                match complex::validate_game(&game) {
+                    Ok(_) => games.push(game),
+                    Err(e) => parse_errors.push(e),
+                }
+                current_game = Vec::new();
+            }
+        }
+
+        current_game.push(token);
+    }
+
+    if !current_game.is_empty() {
+        let game = PgnGame::from_tokens(current_game);
+        match complex::validate_game(&game) {
+            Ok(_) => games.push(game),
+            Err(e) => parse_errors.push(e),
+        }
+    }
+
+    if !parse_errors.is_empty() {
+        return Err(parse_errors);
+    }
+
+    Ok(games)
+}
+
+/// Public facade for parsing PGNs
+///
+/// # Arguments
+/// * `pgn` - A PGN string to parse (can contain multiple games)
+///
+/// # Returns
+/// * `Result<Vec<PgnGame>, Vec<PgnParseError>>` - A vector of parsed PGN games or an error
+pub fn parse_pgn_games(pgn: &str) -> Result<Vec<PgnGame>, Vec<PgnParseError>> {
+    if pgn.trim().is_empty() {
+        return Err(vec![PgnParseError::ParseFailure {
+            input: pgn.to_string(),
+            message: "PGN string is empty".to_string(),
+        }]);
+    }
+
+    if DEBUG {
+        println!("Parsing PGN...");
+    }
+
+    let tokens = pgn_string_to_tokens(pgn).map_err(|e| vec![e])?;
+
+    if DEBUG {
+        println!("\tParsed {} tokens", tokens.len());
+    }
+
+    let games = pgn_tokens_to_games(tokens)?;
+
+    if DEBUG {
+        println!("\tParsed {} games", games.len());
+        println!("Parsing complete");
+    }
+
+    Ok(games)
 }

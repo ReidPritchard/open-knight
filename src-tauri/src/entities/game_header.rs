@@ -3,21 +3,26 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "tournament")]
+#[sea_orm(table_name = "game_header")]
 pub struct Model {
+    pub created_at: DateTimeUtc,
+    pub updated_at: DateTimeUtc,
     #[sea_orm(primary_key)]
-    pub tournament_id: i32,
-    pub name: String,
-    pub r#type: Option<String>,
-    pub time_control: Option<String>,
-    pub start_date: Option<String>,
-    pub end_date: Option<String>,
-    pub location: Option<String>,
+    pub header_id: i32,
+    pub game_id: i32,
+    pub header_name: String,
+    pub header_value: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::game::Entity")]
+    #[sea_orm(
+        belongs_to = "super::game::Entity",
+        from = "Column::GameId",
+        to = "super::game::Column::GameId",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
     Game,
 }
 

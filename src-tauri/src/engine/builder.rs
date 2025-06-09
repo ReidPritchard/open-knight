@@ -14,6 +14,12 @@ pub struct EngineProcessBuilder<S: EngineState> {
     state: Option<S>,
 }
 
+impl<S: EngineState> Default for EngineProcessBuilder<S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<S: EngineState> EngineProcessBuilder<S> {
     pub fn new() -> Self {
         Self {

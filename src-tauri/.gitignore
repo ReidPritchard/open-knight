@@ -7,5 +7,4 @@
 /gen/schemas
 
 # Database
-/main.db
-/database.sqlite*
+chess.db*

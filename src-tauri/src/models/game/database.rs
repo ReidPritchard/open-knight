@@ -68,7 +68,7 @@ pub fn create_game_model(
         round_number: Set(game.round),
         date_played: Set(game_date),
         fen: Set(game.fen.clone()),
-        pgn: Set(game.pgn.clone().unwrap_or_else(|| "".to_string())),
+        pgn: Set(game.pgn.clone().unwrap_or_default()),
         ..Default::default()
     };
 
@@ -107,6 +107,8 @@ pub async fn save_game_moves<C>(db: &C, game: &ChessGame, is_update: bool) -> Re
 where
     C: ConnectionTrait,
 {
+    // TODO: Rather than deleting existing moves, we should update them if they already exist
+
     // Delete existing moves if this is an update
     if is_update {
         r#move::Entity::delete_many()
@@ -117,6 +119,8 @@ where
                 AppError::DatabaseError(format!("Failed to delete existing moves: {}", e))
             })?;
     }
+
+    // TODO: Avoid cloning the tree here
 
     // Update game_id for all moves and save them using tree structure
     let mut updated_tree = game.move_tree.clone();
