@@ -1,5 +1,11 @@
 import typia from "typia";
-import type { ChessGame, LegalMove } from "./bindings";
+import type {
+	ChessGame,
+	ChessMove,
+	ChessMoveTree,
+	ChessTreeNode,
+	LegalMove,
+} from "./bindings";
 
 ////////////////////////////////////////////////////////////
 // Application UI Interfaces
@@ -8,6 +14,59 @@ import type { ChessGame, LegalMove } from "./bindings";
 // Moved to `themes.ts` as it was only theme related,
 // generally types/constants could use some better organization
 // but that's a 'todo' for another day
+
+export interface NodeId {
+	idx: number;
+	version: number;
+}
+
+export interface MoveData {
+	nodeId: NodeId;
+	node: ChessTreeNode;
+	move?: ChessMove;
+	san: string;
+	plyNumber: number;
+	moveNumber: number;
+	showNumber: boolean;
+	isWhite: boolean;
+	isMainLine: boolean;
+	isVariation: boolean;
+	depth: number;
+	parentMoveNumber: number | null;
+}
+
+export interface MoveGroup {
+	mainMoves: MoveData[];
+	variations: MoveData[][];
+}
+
+export interface TableMoveRow {
+	type: "move";
+	number: number;
+	white?: MoveData;
+	black?: MoveData;
+}
+
+export interface TableVariationRow {
+	type: "variation";
+	moves: MoveData[];
+}
+
+export type TableRow = TableMoveRow | TableVariationRow;
+
+export type ViewMode = "compact" | "tabular";
+
+export interface MoveDisplayProps {
+	moveTree: ChessMoveTree;
+}
+
+export interface MoveDisplayEmits {
+	"select-move": [move_id: number];
+	"navigate-start": [];
+	"navigate-end": [];
+	"navigate-previous": [];
+	"navigate-next": [variation_idx: number];
+}
 
 export interface AlertToast {
 	key: string;
@@ -182,6 +241,11 @@ export type EngineSettingsPayload = [
  */
 export const parseEngineSettingsPayload =
 	typia.json.createValidateParse<EngineSettingsPayload>();
+
+/**
+ * Parse a chess game
+ */
+export const parseChessGame = typia.json.createValidateParse<ChessGame>();
 
 ////////////////////////////////////////////////////////////
 // Error Types

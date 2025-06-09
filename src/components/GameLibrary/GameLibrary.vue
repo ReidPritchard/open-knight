@@ -536,7 +536,8 @@ const contextMenu = ref({
 
 // Constants
 // const CURRENT_USER_NAME = "You"; // TODO: Get from user store
-const PAGE_SIZE = 20; // Fixed page size - layout container handles overflow
+// TODO: Make this dynamic
+const PAGE_SIZE = 10; // Fixed page size - layout container handles overflow
 
 // Filter function
 function setFilter(filterType: FilterOption, filterTags: string[] = []) {
@@ -561,17 +562,21 @@ const formatDate = (dateString?: string): string => {
 	if (!dateString) return "—";
 
 	try {
-		const date = new Date(dateString);
-		if (Number.isNaN(date.getTime())) return "—";
+		// Date string is in "YYYY.MM.DD" format
+		// with "??" for unknown parts
+		// ex. 2025.05.23, 2025.??.??, 2025.05.??
+		const [year, month, day] = dateString.split(".");
 
-		return date.toLocaleDateString(undefined, {
-			year: "numeric",
-			month: "numeric",
-			day: "numeric",
-		});
+		// TODO: Support other date formats
+		// could be tracked in settings for now,
+		// at some point it should be connected to the user's locale
+
+		dateString = `${year}/${month}/${day}`;
 	} catch {
 		return "—";
 	}
+
+	return dateString;
 };
 
 // Computed property for filtered and sorted games

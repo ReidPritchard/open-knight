@@ -1,9 +1,10 @@
-use crate::db::{connect_db, run_migrations};
+use crate::db::{connect_db, run_migrations, DatabaseConfig};
 use crate::engine::manager::EngineManager;
 use crate::entities::user;
 use crate::models::AppUser;
 use crate::session::GameSessionManager;
 use crate::utils::AppError;
+use log::warn;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait};
 use std::sync::Arc;
 use tauri::AppHandle;
@@ -35,8 +36,15 @@ pub struct AppState {
 impl AppState {
     /// Creates a new AppState instance with initialized database connection and engine manager
     pub async fn new(app_handle: AppHandle) -> Result<Self, AppError> {
-        let db = connect_db().await?;
-        run_migrations(&db).await?;
+        let migration_db = connect_db(Some(DatabaseConfig {
+            max_connections: Some(1),
+            min_connections: Some(1),
+            ..Default::default()
+        }))
+        .await?;
+        run_migrations(&migration_db).await?;
+
+        let db = connect_db(None).await?;
 
         // Get user from database or create default
         let user = match user::Entity::find()
@@ -46,7 +54,7 @@ impl AppState {
         {
             Some(existing_user) => existing_user,
             None => {
-                println!("No user found, creating default user");
+                warn!("No user found, creating default user");
                 // Create and insert default user
                 let default_user = AppUser::default();
                 let default_user_active: user::ActiveModel = default_user.into();

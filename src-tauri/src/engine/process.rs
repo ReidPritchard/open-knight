@@ -1,6 +1,7 @@
 use std::process::Stdio;
 use std::sync::Arc;
 
+use log::{debug, error};
 use tokio::io::BufReader;
 use tokio::process::{Child, Command};
 use tokio::signal::unix::Signal;
@@ -105,11 +106,11 @@ where
         // Start the output handler
         match output_handler.start().await {
             Ok(()) => {
-                println!("Output handler started");
+                debug!("Output handler started");
                 self.output_handler = Some(output_handler);
             }
             Err(e) => {
-                println!("Failed to start output handler: {:?}", e);
+                error!("Failed to start output handler: {:?}", e);
                 // TODO: Handle the error, probably just kill the process and return this error
             }
         }
@@ -129,7 +130,7 @@ where
                 }
                 Err(e) => {
                     // TODO: Handle the error
-                    println!("Failed to send initial command: {:?}", e);
+                    error!("Failed to send initial command: {:?}", e);
                 }
             }
         }

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use log::error;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::ChildStdout;
 use tokio::select;
@@ -145,7 +146,7 @@ async fn process_output<State: EngineState<Event = E>, E>(
                         handle_line::<State, E>(&parser, &state, &event_sender, &buffer).await;
                     }
                     Err(e) => {
-                        println!("Error reading line: {:?}", e);
+                        error!("Error reading line: {:?}", e);
                         // handle_error(&event_sender, e).await;
                         // For generic E, error handling must be done by the caller
                     }
@@ -177,7 +178,7 @@ async fn handle_line<State: EngineState<Event = E>, E>(
                 }
                 Err(_) => {
                     // Error handling for generic E must be done by the caller
-                    println!("Error applying update: {:?}", event);
+                    error!("Error applying update: {:?}", event);
                 }
             }
         }
@@ -187,7 +188,7 @@ async fn handle_line<State: EngineState<Event = E>, E>(
         Ok(ParserOutput::NoUpdate) => {}
         Err(_) => {
             // Error handling for generic E must be done by the caller
-            println!("Error parsing line: {:?}", line);
+            error!("Error parsing line: {:?}", line);
         }
     }
 }

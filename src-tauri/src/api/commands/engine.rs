@@ -1,5 +1,6 @@
 use super::AppState;
 use crate::engine::protocol::OptionValue;
+use log::{debug, error};
 use tauri::State;
 
 /// Gets the state of all loaded chess engines
@@ -25,7 +26,7 @@ pub async fn load_engine(
     path: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    println!("Loading engine: {}", name);
+    debug!("Loading engine: {}", name);
 
     let mut engine_manager = state.engine_manager.lock().await;
     let result = engine_manager
@@ -36,7 +37,7 @@ pub async fn load_engine(
     match result {
         Ok(_) => Ok(()),
         Err(e) => {
-            println!("Error loading engine: {}", e);
+            error!("Error loading engine: {}", e);
             Err(e.to_string())
         }
     }
@@ -69,7 +70,7 @@ pub async fn analyze_position(
     time_ms: Option<usize>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    println!("Analyzing position");
+    debug!("Analyzing position");
     let mut engine_manager = state.engine_manager.lock().await;
 
     engine_manager
@@ -101,7 +102,7 @@ pub async fn analyze_game(_game_id: i32, _state: State<'_, AppState>) -> Result<
 /// Terminates the current engine analysis and returns the engine to idle state.
 #[tauri::command]
 pub async fn stop_analysis(state: State<'_, AppState>) -> Result<(), String> {
-    println!("Stopping analysis");
+    debug!("Stopping analysis");
     let mut engine_manager = state.engine_manager.lock().await;
     let result = engine_manager.stop_analysis().await;
     drop(engine_manager);

@@ -1,7 +1,9 @@
 // Module for parsing PGN files
-use crate::DEBUG;
 use chumsky::prelude::*;
+use log::debug;
 use serde::Serialize;
+
+use crate::DEBUG;
 
 pub mod complex;
 pub mod simple;
@@ -256,22 +258,16 @@ pub fn parse_pgn_games(pgn: &str) -> Result<Vec<PgnGame>, Vec<PgnParseError>> {
         }]);
     }
 
-    if DEBUG {
-        println!("Parsing PGN...");
-    }
+    debug!("Parsing PGN...");
 
     let tokens = pgn_string_to_tokens(pgn).map_err(|e| vec![e])?;
 
-    if DEBUG {
-        println!("\tParsed {} tokens", tokens.len());
-    }
+    debug!("\tParsed {} tokens", tokens.len());
 
     let games = pgn_tokens_to_games(tokens)?;
 
-    if DEBUG {
-        println!("\tParsed {} games", games.len());
-        println!("Parsing complete");
-    }
+    debug!("\tParsed {} games", games.len());
+    debug!("Parsing complete");
 
     Ok(games)
 }

@@ -9,3 +9,5 @@ edition = "2021"
 chumsky = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
+log = { workspace = true }
+pretty_env_logger = { workspace = true }

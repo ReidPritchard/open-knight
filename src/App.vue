@@ -129,7 +129,7 @@
 
 					<template #moveTree>
 
-						<MoveTree
+						<MoveDisplay
 							v-if="globalStore?.activeGame !== null"
 							:move-tree="globalStore.activeGame.move_tree"
 							@select-move="handleMoveSelect"
@@ -191,7 +191,7 @@ import ImportModal from "./components/ImportModal/ImportModal.vue";
 import BoardTabs from "./components/Layout/BoardTabs/BoardTabs.vue";
 import ResizablePanel from "./components/Layout/ResizablePanel/ResizablePanel.vue";
 import { StackedPanel, StackedSection } from "./components/Layout/StackedPanel";
-import MoveTree from "./components/MoveTree/MoveTree.vue";
+import MoveDisplay from "./components/MoveDisplay/MoveDisplay.vue";
 import Navbar from "./components/Navbar/Navbar.vue";
 import SettingsModal from "./components/Settings/SettingsModal.vue";
 import Toasts from "./components/Toast/Toasts.vue";

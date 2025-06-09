@@ -107,6 +107,53 @@ export function validatePGNFormat(pgn: string): {
 }
 
 /**
+ * Compare two date strings
+ * @param dateString1 - First date string
+ * @param dateString2 - Second date string
+ * @param delimiter - Delimiter used in the date string
+ * @returns -1 if dateString1 is before dateString2, 0 if equal, 1 if after
+ */
+function compareDates(dateString1: string, dateString2: string): number {
+	// Date format is "YYYY.MM.DD"
+	// with "??" for unknown parts
+	// ex. 2025.05.23, 2025.??.??, 2025.05.??
+
+	// Handle null/undefined/empty dates
+	if (!dateString1 && !dateString2) return 0;
+	if (!dateString1) return 1; // null dates sort last
+	if (!dateString2) return -1;
+
+	// Replace "-" with "." in date strings
+	dateString1 = dateString1.replace("-", ".");
+	dateString2 = dateString2.replace("-", ".");
+
+	const [year1, month1, day1] = dateString1.split(".");
+	const [year2, month2, day2] = dateString2.split(".");
+
+	// Helper function to compare individual date components
+	// Returns: negative if a < b, 0 if equal, positive if a > b
+	// Unknown ("??") components sort after known components
+	function compareComponent(a: string, b: string): number {
+		if (a === b) return 0;
+		const aIsUnknown = a === "??" || a === "?" || a === "????";
+		const bIsUnknown = b === "??" || b === "?" || b === "????";
+		if (aIsUnknown && bIsUnknown) return 0; // both unknown
+		if (aIsUnknown) return -1; // a is unknown, b is known
+		if (bIsUnknown) return 1; // b is unknown, a is known
+		return parseInt(a) - parseInt(b);
+	}
+
+	// Compare year, then month, then day
+	let result = compareComponent(year1 || "??", year2 || "??");
+	if (result !== 0) return result;
+
+	result = compareComponent(month1 || "??", month2 || "??");
+	if (result !== 0) return result;
+
+	return compareComponent(day1 || "??", day2 || "??");
+}
+
+/**
  * Sort games by specified criteria
  */
 export function sortGames(
@@ -119,7 +166,10 @@ export function sortGames(
 
 		switch (sortBy) {
 			case "date":
-				comparison = (a.date || "").localeCompare(b.date || "");
+				comparison = compareDates(
+					a.date || "????.??.??",
+					b.date || "????.??.??",
+				);
 				break;
 			case "event":
 				comparison = (a.tournament?.name || "").localeCompare(

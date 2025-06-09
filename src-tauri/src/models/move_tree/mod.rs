@@ -5,6 +5,7 @@ use slotmap::{DefaultKey, SlotMap};
 use ts_rs::TS;
 
 use super::{ChessMove, ChessPosition};
+use log::{debug, error, info, warn};
 
 mod mutation;
 mod navigation;
@@ -83,7 +84,7 @@ impl ChessMoveTree {
         use sea_orm::ActiveValue::Set;
         use std::collections::{HashMap, VecDeque};
 
-        println!("    → Starting move tree save (game_id: {})", self.game_id);
+        info!("    → Starting move tree save (game_id: {})", self.game_id);
 
         if let Some(root_id) = self.root_id {
             // Map from tree node IDs to database move IDs
@@ -98,13 +99,13 @@ impl ChessMoveTree {
             let total_nodes = self.nodes.len();
             let mut processed_nodes = 0;
 
-            println!("    → Tree has {} nodes total", total_nodes);
+            debug!("    → Tree has {} nodes total", total_nodes);
 
             // Process nodes iteratively
             while let Some((node_id, parent_move_id)) = queue.pop_front() {
                 // Safety check
                 if !self.nodes.contains_key(node_id) {
-                    eprintln!("    ✗ Warning: Node {:?} not found in tree", node_id);
+                    warn!("    ✗ Warning: Node {:?} not found in tree", node_id);
                     continue;
                 }
 
@@ -113,7 +114,7 @@ impl ChessMoveTree {
 
                 // Log progress every 50 nodes for large trees
                 if processed_nodes % 50 == 0 {
-                    println!(
+                    debug!(
                         "    → Progress: {}/{} nodes processed",
                         processed_nodes, total_nodes
                     );
@@ -153,6 +154,14 @@ impl ChessMoveTree {
                         None
                     };
 
+                    // FIXME: check if this is a variation move (if the parent node has multiple children ids)
+                    // if so, we need to increment the variation number
+                    let variation_order: i32 = if node.children_ids.len() > 1 {
+                        node.children_ids.len() as i32
+                    } else {
+                        0
+                    };
+
                     // Save the move with correct parent_move_id
                     let move_model = r#move::ActiveModel {
                         game_id: Set(chess_move.game_id),
@@ -161,6 +170,7 @@ impl ChessMoveTree {
                         uci: Set(chess_move.uci.clone()),
                         position_id: Set(position_id.unwrap_or(0)),
                         parent_move_id: Set(parent_move_id),
+                        variation_order: Set(variation_order),
                         created_at: Set(Some(sea_orm::sqlx::types::chrono::Utc::now())),
                         ..Default::default()
                     };
@@ -168,7 +178,7 @@ impl ChessMoveTree {
                     let result = match r#move::Entity::insert(move_model).exec(db).await {
                         Ok(res) => res,
                         Err(e) => {
-                            eprintln!(
+                            error!(
                                 "    ✗ Error saving move at ply {}: {}",
                                 chess_move.ply_number, e
                             );
@@ -197,7 +207,7 @@ impl ChessMoveTree {
                             };
 
                             if let Err(e) = annotation::Entity::insert(anno_model).exec(db).await {
-                                eprintln!("    ✗ Warning: Failed to save annotation: {}", e);
+                                warn!("    ✗ Warning: Failed to save annotation: {}", e);
                                 // Continue processing, annotations are not critical
                             }
                         }
@@ -215,12 +225,12 @@ impl ChessMoveTree {
                 }
             }
 
-            println!(
+            debug!(
                 "    → Move tree saved successfully ({} moves processed)",
                 node_to_move_id.len()
             );
         } else {
-            println!("    → No root node found, skipping move tree save");
+            debug!("    → No root node found, skipping move tree save");
         }
 
         Ok(())

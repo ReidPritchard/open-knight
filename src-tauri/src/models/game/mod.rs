@@ -6,6 +6,7 @@ pub mod player_ops;
 
 pub mod structs;
 
+use log::{debug, error, info, warn};
 use ok_parse::pgn::parse_pgn_games;
 use sea_orm::prelude::*;
 use sea_orm::sqlx::types::chrono;
@@ -25,7 +26,7 @@ impl ChessGame {
     pub async fn new(variant: &str, db: &DatabaseConnection) -> Result<Self, AppError> {
         if variant != "standard" {
             // Display warning message
-            eprintln!(
+            warn!(
                 "Warning: Non-standard chess variant ({}) support is in progress and may not work as expected.",
                 variant
             );
@@ -36,7 +37,11 @@ impl ChessGame {
         let black_player_id = player_ops::create_default_player(db, "Black Player").await?;
 
         let starting_position = ChessPosition::default();
-        let current_date = chrono::Utc::now().to_rfc3339();
+        let current_date = {
+            let now = chrono::Utc::now();
+            let formatted = format!("{}", now.format("%Y.%m.%d"));
+            formatted
+        };
 
         // Create a new game struct
         let mut game = ChessGame {
@@ -100,7 +105,7 @@ impl ChessGame {
             opening: None,
             result: "*".to_string(),
             round: None,
-            date: chrono::Utc::now().to_rfc3339(),
+            date: "????-??-??".to_string(),
             headers: vec![],
             move_tree: ChessMoveTree::default(),
             tags: vec![],
@@ -168,6 +173,27 @@ impl ChessGame {
             None
         };
 
+        // Fix date strings imported with "-" delimiter and only one "?"
+        // in place of the missing part.
+        // FIXME: Not really needed, just made it easier to fix my local database
+        // that was using timestamp instead of date.
+        let date = {
+            let date = game.date_played.unwrap_or_else(|| "????.??.?".to_string());
+            let date = date.replace("-", ".");
+            let parts = date
+                .split(".")
+                .map(|part| {
+                    if part == "" || part == "?" {
+                        "??"
+                    } else {
+                        part
+                    }
+                })
+                .collect::<Vec<&str>>();
+            let date = parts.join(".");
+            date.to_string()
+        };
+
         // Create the game object
         Ok(ChessGame {
             id: game.game_id,
@@ -187,7 +213,7 @@ impl ChessGame {
             opening,
             result: game.result.unwrap_or_else(|| "*".to_string()),
             round: game.round_number,
-            date: game.date_played.unwrap_or_else(|| "????-??-??".to_string()),
+            date,
             headers,
             move_tree: ChessMoveTree::default(),
             tags: Vec::new(),
@@ -251,7 +277,7 @@ impl ChessGame {
             return Err(AppError::GeneralError("No games found in PGN".to_string()));
         }
 
-        println!(
+        info!(
             "Parsed {} games from PGN, starting import process...",
             chess_games.len()
         );
@@ -260,7 +286,7 @@ impl ChessGame {
         // Process games individually to prevent batch failures from crashing everything
         // This also helps identify which specific game is causing issues
         for (game_index, chess_game) in chess_games.iter().enumerate() {
-            println!(
+            info!(
                 "Processing game {} of {} (White: {} vs Black: {})",
                 game_index + 1,
                 chess_games.len(),
@@ -271,7 +297,7 @@ impl ChessGame {
             // Pre-validate the game before attempting to save
             let move_count = chess_game.move_tree.nodes.len();
             if move_count > 2000 {
-                eprintln!(
+                warn!(
                     "⚠ Skipping game {} - too many moves ({}) might cause issues",
                     game_index + 1,
                     move_count
@@ -283,10 +309,10 @@ impl ChessGame {
             match Self::save_single_game_with_retries(db, chess_game, 3).await {
                 Ok(game) => {
                     saved_games.push(game);
-                    println!("✓ Successfully saved game {}", game_index + 1);
+                    info!("✓ Successfully saved game {}", game_index + 1);
                 }
                 Err(e) => {
-                    eprintln!(
+                    error!(
                         "✗ Error saving game {} (White: {} vs Black: {}): {}",
                         game_index + 1,
                         chess_game.white_player.name,
@@ -302,7 +328,7 @@ impl ChessGame {
 
             // Force garbage collection every 5 games to prevent memory buildup
             if (game_index + 1) % 5 == 0 {
-                println!(
+                info!(
                     "  → Processed {} games, allowing cleanup...",
                     game_index + 1
                 );
@@ -310,7 +336,7 @@ impl ChessGame {
             }
         }
 
-        println!(
+        info!(
             "Import completed: Successfully saved {} out of {} games",
             saved_games.len(),
             chess_games.len()
@@ -332,7 +358,7 @@ impl ChessGame {
                 Err(e) => {
                     last_error_msg = e.to_string();
                     if attempt < max_retries {
-                        eprintln!("  Attempt {} failed, retrying: {}", attempt, e);
+                        error!("  Attempt {} failed, retrying: {}", attempt, e);
                         // Wait before retrying
                         tokio::time::sleep(tokio::time::Duration::from_millis(
                             100 * attempt as u64,
@@ -354,45 +380,45 @@ impl ChessGame {
         db: &DatabaseConnection,
         chess_game: &ChessGame,
     ) -> Result<Self, AppError> {
-        println!(
+        debug!(
             "  → Starting transaction for game: {} vs {}",
             chess_game.white_player.name, chess_game.black_player.name
         );
 
         let txn = database::begin_transaction(db).await?;
-        println!("  → Transaction started successfully");
+        debug!("  → Transaction started successfully");
 
         let result = async {
             let mut game = chess_game.clone();
-            println!("  → Game cloned, starting metadata save");
+            debug!("  → Game cloned, starting metadata save");
 
             // Save metadata (players, tournament, opening)
             let metadata = database::save_game_metadata(&txn, &game).await?;
             game.white_player.id = metadata.white_player_id;
             game.black_player.id = metadata.black_player_id;
-            println!(
+            debug!(
                 "  → Metadata saved (white_id: {}, black_id: {})",
                 metadata.white_player_id, metadata.black_player_id
             );
 
             // Save game
             let game_model = database::create_game_model(&game, &metadata, None);
-            println!("  → Game model created, inserting into database");
+            debug!("  → Game model created, inserting into database");
 
             let result = game::Entity::insert(game_model)
                 .exec(&txn)
                 .await
                 .map_err(|e| AppError::DatabaseError(format!("Failed to save game: {}", e)))?;
             game.id = result.last_insert_id;
-            println!("  → Game inserted with ID: {}", game.id);
+            debug!("  → Game inserted with ID: {}", game.id);
 
             // Validate move tree before saving
             let move_count = game.move_tree.nodes.len();
-            println!("  → Move tree has {} nodes, starting move save", move_count);
+            debug!("  → Move tree has {} nodes, starting move save", move_count);
 
             // Add safety check for move tree complexity
             if move_count > 1000 {
-                eprintln!(
+                warn!(
                     "  ⚠ Warning: Game has {} moves, this might be very complex",
                     move_count
                 );
@@ -401,15 +427,15 @@ impl ChessGame {
             // Save moves
             match database::save_game_moves(&txn, &game, false).await {
                 Ok(_) => {
-                    println!("  → Moves saved successfully");
+                    debug!("  → Moves saved successfully");
                 }
                 Err(e) => {
-                    println!("  ✗ Error saving moves: {}", e);
+                    error!("  ✗ Error saving moves: {}", e);
                     return Err(e);
                 }
             }
 
-            println!("  → Starting header save ({} headers)", game.headers.len());
+            debug!("  → Starting header save ({} headers)", game.headers.len());
             // Save headers (and update their game ID)
             for (i, header) in game.headers.iter_mut().enumerate() {
                 // Set the game ID for the header
@@ -417,14 +443,14 @@ impl ChessGame {
 
                 // Save the header
                 match header_ops::save_header(&txn, header).await {
-                    Ok(_) => println!("  → Header {} saved", i + 1),
+                    Ok(_) => debug!("  → Header {} saved", i + 1),
                     Err(e) => {
-                        println!("  ✗ Error saving header {}: {}", i + 1, e);
+                        error!("  ✗ Error saving header {}: {}", i + 1, e);
                         return Err(e);
                     }
                 }
             }
-            println!("  → All headers saved successfully");
+            debug!("  → All headers saved successfully");
 
             Ok::<_, AppError>(game)
         }
@@ -432,13 +458,13 @@ impl ChessGame {
 
         match result {
             Ok(game) => {
-                println!("  → Committing transaction");
+                debug!("  → Committing transaction");
                 database::commit_transaction(txn).await?;
-                println!("  → Transaction committed successfully");
+                debug!("  → Transaction committed successfully");
                 Ok(game)
             }
             Err(e) => {
-                println!("  → Rolling back transaction due to error: {}", e);
+                error!("  → Rolling back transaction due to error: {}", e);
                 database::rollback_transaction(txn).await;
                 Err(e)
             }

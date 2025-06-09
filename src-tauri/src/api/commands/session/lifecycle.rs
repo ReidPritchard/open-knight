@@ -41,6 +41,7 @@ pub async fn load_game_into_session(
     let mut params = QueryParams::default();
     params.load_moves = Some(true);
     params.load_tags = Some(true);
+    params.load_headers = Some(true);
 
     let game = crate::api::database::get_full_game(game_id, params, &state.db).await;
 

@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use log::error;
 use sea_orm::*;
 use sea_orm_migration::*;
 
@@ -9,13 +10,12 @@ use crate::{migrations::Migrator, models, utils::AppError};
 const DATABASE_URL: &str = "sqlite://chess.db?mode=rwc";
 
 pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), AppError> {
-    Migrator::up(db, Some(2))
-        .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to run migrations: {}", e)))?;
-
-    Migrator::up(db, None)
-        .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to run migrations: {}", e)))?;
+    // If it fails, try to reset the database
+    if let Err(e) = Migrator::up(db, None).await {
+        error!("Failed to run migrations: {}", e);
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        reset_database(db).await?;
+    }
 
     Ok(())
 }
@@ -24,6 +24,10 @@ pub async fn reset_database(db: &DatabaseConnection) -> Result<(), AppError> {
     Migrator::down(db, None)
         .await
         .map_err(|e| AppError::DatabaseError(format!("Failed to reset database: {}", e)))?;
+
+    // delay for 1 second
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
     Migrator::up(db, None).await.map_err(|e| {
         AppError::DatabaseError(format!("Failed to run migrations after reset: {}", e))
     })?;
@@ -39,13 +43,19 @@ pub async fn load_pgn_file(
     models::ChessGame::save_from_pgn(db, &pgn_content).await
 }
 
-pub async fn connect_db() -> Result<DatabaseConnection, AppError> {
-    let mut options = ConnectOptions::new(DATABASE_URL);
-    options.max_connections(20); // Increased for better concurrency handling
-    options.min_connections(5); // Higher minimum to avoid connection establishment delays
-    options.idle_timeout(Duration::from_secs(60)); // Longer idle timeout
-    options.acquire_timeout(Duration::from_secs(10)); // Add explicit acquire timeout
-    options.connect_timeout(Duration::from_secs(10)); // Add explicit connect timeout
+#[derive(Debug, Clone, Default)]
+pub struct DatabaseConfig {
+    pub url: Option<String>,
+    pub max_connections: Option<u32>,
+    pub min_connections: Option<u32>,
+}
+
+pub async fn connect_db(config: Option<DatabaseConfig>) -> Result<DatabaseConnection, AppError> {
+    let config = config.unwrap_or_default();
+
+    let mut options = ConnectOptions::new(config.url.unwrap_or(DATABASE_URL.to_string()));
+    options.max_connections(config.max_connections.unwrap_or(5));
+    options.min_connections(config.min_connections.unwrap_or(1));
 
     Database::connect(options)
         .await

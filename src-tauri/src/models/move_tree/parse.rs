@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 use std::error::Error;
 
+use itertools::izip;
+use log::{debug, info};
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, LoaderTrait, QueryFilter};
 use shakmaty::Chess;
 use slotmap::{DefaultKey, SlotMap};
 
-use crate::entities::{position, r#move};
+use crate::entities::{annotation, move_time_tracking, position, r#move};
 use crate::models::{generate_uci, ChessAnnotation, ChessMove, ChessPosition};
 use ok_parse::pgn::PgnToken;
 
@@ -195,11 +197,16 @@ pub async fn load_moves_from_db(
     game_id: i32,
     root_position: ChessPosition,
 ) -> Result<ChessMoveTree, Box<dyn Error>> {
+    info!("Loading moves from database for game {}", game_id);
+
     let all_db_moves = r#move::Entity::find()
         .filter(r#move::Column::GameId.eq(game_id))
         .all(db)
         .await?;
     let move_positions = all_db_moves.load_one(position::Entity, db).await?;
+    let annotations = all_db_moves.load_many(annotation::Entity, db).await?;
+
+    debug!("Found {} moves in database", all_db_moves.len());
 
     let mut nodes = SlotMap::new();
     let mut db_id_to_key: HashMap<i32, DefaultKey> = HashMap::new();
@@ -214,8 +221,12 @@ pub async fn load_moves_from_db(
 
     let root_id = nodes.insert(root_node);
 
+    let data = izip!(all_db_moves.clone(), move_positions, annotations);
+
+    debug!("Starting first pass to create move nodes");
+
     // First pass: Create all move nodes and build the ID mapping
-    for (move_entity, position_entity) in all_db_moves.iter().zip(move_positions.iter()) {
+    for (move_entity, position_entity, annotation_entities) in data {
         let move_position = position_entity.as_ref().map_or(
             ChessPosition {
                 id: 0,
@@ -231,6 +242,16 @@ pub async fn load_moves_from_db(
             },
         );
 
+        let annotations = annotation_entities
+            .iter()
+            .map(|a| ChessAnnotation {
+                id: a.annotation_id,
+                comment: a.comment.clone(),
+                arrows: a.arrows.clone(),
+                highlights: a.highlights.clone(),
+            })
+            .collect::<Vec<_>>();
+
         let new_move_node = ChessTreeNode {
             position: move_position.clone(),
             game_move: Some(ChessMove {
@@ -240,7 +261,7 @@ pub async fn load_moves_from_db(
                 san: move_entity.san.clone(),
                 uci: move_entity.uci.clone(),
                 position: Some(move_position),
-                annotations: Vec::new(),
+                annotations,
                 time_info: None,
                 parent_move_id: move_entity.parent_move_id,
             }),
@@ -252,10 +273,14 @@ pub async fn load_moves_from_db(
         db_id_to_key.insert(move_entity.move_id, new_id);
     }
 
+    debug!("Finished first pass to create move nodes");
+    debug!("Starting second pass to establish parent-child relationships");
+
     // Second pass: Establish parent-child relationships
     for move_entity in &all_db_moves {
         let current_key = db_id_to_key[&move_entity.move_id];
 
+        // Set the parent_id for the current node
         let parent_key = match move_entity.parent_move_id {
             None => root_id, // Move has no parent, so it's a child of root
             Some(parent_db_id) => {
@@ -265,13 +290,17 @@ pub async fn load_moves_from_db(
                     .ok_or("Parent move not found")?
             }
         };
-
-        // Set the parent_id for the current node
         nodes[current_key].parent_id = Some(parent_key);
 
         // Add current node to parent's children
         nodes[parent_key].children_ids.push(current_key);
     }
+
+    info!(
+        "Loaded {} moves from database for game {}",
+        all_db_moves.len(),
+        game_id
+    );
 
     Ok(ChessMoveTree {
         game_id,

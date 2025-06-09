@@ -1,3 +1,4 @@
+use log::{error, info};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
@@ -70,7 +71,7 @@ impl EngineManager {
         // Wait for the engine to initialize
         match engine.wait_until_ready(EngineReadyState::Initialized).await {
             Ok(_) => {
-                println!("Engine has been initialized");
+                info!("Engine has been initialized");
 
                 // Emit the engine options
                 let options = engine.query_state(|state| state.capabilities.clone()).await;
@@ -79,7 +80,7 @@ impl EngineManager {
                 }
             }
             Err(e) => {
-                println!("Engine initialization failed: {:?}", e);
+                error!("Engine initialization failed: {:?}", e);
                 return Err(Box::new(e));
             }
         }
@@ -89,7 +90,7 @@ impl EngineManager {
         if let Ok(event_bus) = event_bus {
             Self::spawn_debounced_event_emitter(name.to_string(), event_bus, app_handle.clone());
         } else {
-            println!("Failed to get event bus for engine: {}", name);
+            error!("Failed to get event bus for engine: {}", name);
         }
 
         self.engines.insert(name.to_string(), engine);
@@ -105,7 +106,7 @@ impl EngineManager {
     ) {
         let mut rx = event_bus.subscribe::<EngineStateInfoEvent>();
         tokio::spawn(async move {
-            println!("Spawned event emitter for engine: {}", engine_name);
+            info!("Spawned event emitter for engine: {}", engine_name);
             // let mut last_event: Option<EngineStateInfoEvent> = None;
             // let mut ticker = interval(Duration::from_millis(100));
             loop {
@@ -144,7 +145,7 @@ impl EngineManager {
             let kill_result = engine.kill(None).await;
             match kill_result {
                 Ok(_) => {
-                    println!("Engine killed: {}", name);
+                    info!("Engine killed: {}", name);
                     // Clean up the engine state
                     let _ = self.engines.remove(name);
                     let _ = self
@@ -152,7 +153,7 @@ impl EngineManager {
                         .remove(self.engine_names.iter().position(|x| x == name).unwrap());
                 }
                 Err(e) => {
-                    println!("Failed to kill engine: {:?}", e);
+                    error!("Failed to kill engine: {:?}", e);
                     return Err(Box::new(e));
                 }
             }
@@ -205,7 +206,7 @@ impl EngineManager {
         let set_option_result = match engine.input_handler() {
             Ok(handler) => handler.set_option(option, value).await,
             Err(e) => {
-                println!("Failed to get input handler: {:?}", e);
+                error!("Failed to get input handler: {:?}", e);
                 return Err(Box::new(e));
             }
         };
@@ -213,7 +214,7 @@ impl EngineManager {
         match set_option_result {
             Ok(_) => Ok(()),
             Err(e) => {
-                println!("Failed to set option: {:?}", e);
+                error!("Failed to set option: {:?}", e);
                 Err(Box::new(e))
             }
         }
@@ -225,7 +226,7 @@ impl EngineManager {
         fen: Option<&str>,
         moves: Option<&[&str]>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        println!("Setting position for engines");
+        info!("Setting position for engines");
         let engine_names: Vec<_> = self.engine_names.clone();
         for engine_name in engine_names.iter() {
             let result = self.set_engine_position(engine_name, fen, moves).await;
@@ -243,7 +244,7 @@ impl EngineManager {
         depth: Option<u32>,
         time_ms: Option<u32>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        println!("Starting analysis for engines");
+        info!("Starting analysis for engines");
         let engine_names: Vec<_> = self.engine_names.clone();
         for engine_name in engine_names.iter() {
             let result = self
@@ -285,7 +286,7 @@ impl EngineManager {
         let set_pos_result = match engine.input_handler() {
             Ok(handler) => handler.set_position(fen, moves).await,
             Err(e) => {
-                println!("Failed to get input handler: {:?}", e);
+                error!("Failed to get input handler: {:?}", e);
                 return Err(Box::new(e));
             }
         };
@@ -293,7 +294,7 @@ impl EngineManager {
         match set_pos_result {
             Ok(_) => Ok(()),
             Err(e) => {
-                println!("Failed to set position: {:?}", e);
+                error!("Failed to set position: {:?}", e);
                 Err(Box::new(e))
             }
         }
@@ -310,18 +311,18 @@ impl EngineManager {
         let start_analysis_result = match engine.input_handler() {
             Ok(handler) => handler.start_analysis(depth, time_ms).await,
             Err(e) => {
-                println!("Failed to get input handler: {:?}", e);
+                error!("Failed to get input handler: {:?}", e);
                 return Err(Box::new(e));
             }
         };
 
         match start_analysis_result {
             Ok(_) => {
-                println!("Started analysis for engine: {}", name);
+                info!("Started analysis for engine: {}", name);
                 Ok(())
             }
             Err(e) => {
-                println!("Failed to start analysis: {:?}", e);
+                error!("Failed to start analysis: {:?}", e);
                 Err(Box::new(e))
             }
         }
@@ -336,18 +337,18 @@ impl EngineManager {
         let stop_analysis_result = match engine.input_handler() {
             Ok(handler) => handler.stop_analysis().await,
             Err(e) => {
-                println!("Failed to get input handler: {:?}", e);
+                error!("Failed to get input handler: {:?}", e);
                 return Err(Box::new(e));
             }
         };
 
         match stop_analysis_result {
             Ok(_) => {
-                println!("Stopped analysis for engine: {}", name);
+                info!("Stopped analysis for engine: {}", name);
                 Ok(())
             }
             Err(e) => {
-                println!("Failed to stop analysis: {:?}", e);
+                error!("Failed to stop analysis: {:?}", e);
                 Err(Box::new(e))
             }
         }

@@ -1,4 +1,3 @@
-use sea_orm::Statement;
 use sea_orm_migration::{prelude::*, schema::*};
 
 #[derive(DeriveMigrationName)]

@@ -3,6 +3,7 @@ use crate::api::database::QueryParams;
 use crate::models;
 use crate::utils::AppError;
 use sea_orm::sqlx::types::chrono;
+use log::{error, info};
 use tauri::State;
 
 /// Queries chess games from the database based on provided parameters
@@ -15,17 +16,17 @@ pub async fn query_games(
 ) -> Result<String, AppError> {
     match crate::api::database::query_full_games(params, &state.db).await {
         Ok(games) => {
-            println!("Successfully retrieved {} games from database", games.len());
+            info!("Successfully retrieved {} games from database", games.len());
             match serde_json::to_string(&games) {
                 Ok(json) => Ok(json),
                 Err(e) => {
-                    eprintln!("Error serializing games to JSON: {}", e);
+                    error!("Error serializing games to JSON: {}", e);
                     Err(AppError::SerializationError(e.to_string()))
                 }
             }
         }
         Err(e) => {
-            eprintln!("Error querying games from database: {}", e);
+            error!("Error querying games from database: {}", e);
             Err(AppError::DatabaseError(format!(
                 "Failed to query games: {}",
                 e
@@ -96,7 +97,7 @@ pub async fn update_game_property(
 
     match property {
         "date" => {
-            println!("Updating date for game {} to {}", game_id, value);
+            info!("Updating date for game {} to {}", game_id, value);
             
             // Create an ActiveModel for the update
             let mut game_active: game::ActiveModel = game_record.into();
@@ -106,10 +107,10 @@ pub async fn update_game_property(
             game_active.update(&state.db).await
                 .map_err(|e| AppError::DatabaseError(format!("Failed to update game date: {}", e)))?;
                 
-            println!("Game date updated successfully!");
+            info!("Game date updated successfully!");
         }
         "result" => {
-            println!("Updating result for game {} to {}", game_id, value);
+            info!("Updating result for game {} to {}", game_id, value);
             
             // Create an ActiveModel for the update
             let mut game_active: game::ActiveModel = game_record.into();
@@ -119,10 +120,10 @@ pub async fn update_game_property(
             game_active.update(&state.db).await
                 .map_err(|e| AppError::DatabaseError(format!("Failed to update game result: {}", e)))?;
                 
-            println!("Game result updated successfully!");
+            info!("Game result updated successfully!");
         }
         "white_player_name" => {
-            println!("Updating white player name for game {} to {}", game_id, value);
+            info!("Updating white player name for game {} to {}", game_id, value);
             
             // Get the white player record
             let white_player = player::Entity::find_by_id(game_record.white_player_id)
@@ -140,10 +141,10 @@ pub async fn update_game_property(
             player_active.update(&state.db).await
                 .map_err(|e| AppError::DatabaseError(format!("Failed to update white player name: {}", e)))?;
                 
-            println!("White player name updated successfully!");
+            info!("White player name updated successfully!");
         }
         "black_player_name" => {
-            println!("Updating black player name for game {} to {}", game_id, value);
+            info!("Updating black player name for game {} to {}", game_id, value);
             
             // Get the black player record
             let black_player = player::Entity::find_by_id(game_record.black_player_id)
@@ -161,7 +162,7 @@ pub async fn update_game_property(
             player_active.update(&state.db).await
                 .map_err(|e| AppError::DatabaseError(format!("Failed to update black player name: {}", e)))?;
                 
-            println!("Black player name updated successfully!");
+            info!("Black player name updated successfully!");
         }
         _ => {
             return Err(AppError::DatabaseError(format!(

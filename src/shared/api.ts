@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ChessGame, LegalMove, QueryParams } from "./bindings";
+import { parseChessGame } from "./types";
 
 /**
  * Wraps an API call in error handling
@@ -60,22 +61,6 @@ export const API = {
 				return JSON.parse(response);
 			}, "list games"),
 
-		get: (gameId: number, params?: QueryParams) =>
-			wrapAPICall(async () => {
-				const response = await invoke<string>("get_game_by_id", {
-					id: gameId,
-					params: params || {
-						fields: null,
-						limit: 1,
-						offset: 0,
-						filter: {},
-						load_moves: true,
-						load_tags: true,
-					},
-				});
-				return JSON.parse(response);
-			}, `get game ${gameId}`),
-
 		create: (
 			boardId: number,
 			variant: "standard" | "puzzle" | "960" = "standard",
@@ -126,7 +111,12 @@ export const API = {
 		getState: (boardId: number) =>
 			wrapAPICall(async () => {
 				const response = await invoke<string>("get_session", { boardId });
-				return JSON.parse(response) as ChessGame;
+				const game_result = parseChessGame(response);
+				if (game_result.success) {
+					return game_result.data;
+				} else {
+					throw new Error(game_result.errors.join(", "));
+				}
 			}, `get board ${boardId} state`),
 
 		getAllStates: () =>
