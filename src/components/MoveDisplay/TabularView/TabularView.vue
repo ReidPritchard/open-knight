@@ -11,29 +11,33 @@
 					:key="index"
 				>
 
-					<!-- Main move row (9 + 9 = 18 columns) -->
-
 					<tr v-if="row.type === 'move'">
 
-						<td colspan="9">
+						<td
+							colspan="9"
+							class="w-1/2"
+						>
 
 							<MoveButton
 								v-if="row.white"
 								:move-data="row.white"
 								:is-current="isCurrentMove(row.white.nodeId)"
-								class="w-full text-left"
+								class="w-full"
 								@click="handleMoveClick"
 							/>
 
 						</td>
 
-						<td colspan="9">
+						<td
+							colspan="9"
+							class="w-1/2"
+						>
 
 							<MoveButton
 								v-if="row.black"
 								:move-data="row.black"
 								:is-current="isCurrentMove(row.black.nodeId)"
-								class="w-full text-left"
+								class="w-full"
 								@click="handleMoveClick"
 							/>
 
@@ -47,7 +51,7 @@
 						v-else-if="row.type === 'variation' && showVariations"
 						:moves="row.moves"
 						:is-current-move="isCurrentMove"
-						:max-depth="12"
+						:max-depth="10"
 						:row-size="18"
 						@move-click="handleMoveClick"
 					/>
@@ -67,13 +71,11 @@ import MoveButton from "../MoveButton/MoveButton.vue";
 import VariationRow from "../VariationRow/VariationRow.vue";
 import type { TableRow, NodeId } from "../../../shared/types";
 
-interface Props {
+defineProps<{
 	tableRows: TableRow[];
 	showVariations: boolean;
 	isCurrentMove: (nodeId: NodeId) => boolean;
-}
-
-defineProps<Props>();
+}>();
 
 const emit = defineEmits<{
 	"move-select": [moveId: number | undefined];

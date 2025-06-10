@@ -2,19 +2,35 @@
 
 	<button
 		@click="handleClick"
-		class="px-2 py-1 rounded text-sm font-mono transition-colors cursor-pointer flex items-center gap-2"
-		:class="buttonClass"
+		:class="{
+			'btn btn-ghost': true,
+			'btn-accent btn-soft': props.isCurrent,
+			'btn-neutral': !props.isCurrent,
+			'btn-sm': props.size === 'xs',
+			'btn-md': props.size === 'sm',
+		}"
 	>
 
 		<span
 			v-if="props.moveData.showNumber"
 			class="font-bold"
-			:class="props.isCurrent ? 'text-primary-content' : 'text-base-content/60'"
+			:class="{
+				'text-accent': props.isCurrent,
+				'text-neutral-content/80': !props.isCurrent,
+			}"
 		>
 			 {{ moveNumber }}
 		</span>
 
-		<span class="font-mono"> {{ props.moveData.san }} </span>
+		<span
+			class="font-mono"
+			:class="{
+				'text-accent': props.isCurrent,
+				'text-neutral-content': !props.isCurrent,
+			}"
+		>
+			 {{ props.moveData.san }}
+		</span>
 
 	</button>
 
@@ -41,24 +57,6 @@ const props = withDefaults(
 const emit = defineEmits<{
 	click: [moveId: number | undefined];
 }>();
-
-const buttonClass = computed(() => {
-	const baseClasses =
-		props.size === "xs" ? "px-1.5 py-0.5 text-xs" : "px-2 py-1 text-sm";
-
-	if (props.isCurrent) {
-		if (props.variant === "variation") {
-			return `${baseClasses} bg-secondary text-secondary-content border border-secondary`;
-		}
-		return `${baseClasses} bg-primary text-primary-content`;
-	}
-
-	if (props.variant === "variation") {
-		return `${baseClasses} bg-base-100 border border-base-300 hover:bg-base-300`;
-	}
-
-	return `${baseClasses} hover:bg-base-300`;
-});
 
 const moveNumber = computed(() => {
 	// Display "2." and "2.." for white and black moves respectively

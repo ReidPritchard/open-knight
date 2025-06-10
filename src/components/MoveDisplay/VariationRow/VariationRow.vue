@@ -29,6 +29,12 @@
 					 (
 				</span>
 
+				<!-- 
+					FIXME: The first move of the variation is not being rendered
+					Unsure if this the bug is in the moveSegments logic or the
+					TabularView's TableVariationRow generation logic. 
+				  -->
+
 				<template
 					v-for="move in nonNestedMoves"
 					:key="move.nodeId.idx"
@@ -111,8 +117,6 @@
 
 				</template>
 
-				<!-- Close the parenthesis for the variation -->
-
 				<span class="text-xs text-base-content/60">)</span>
 
 			</div>
@@ -167,6 +171,7 @@ const isNestedVariation = (move: VariationMove): move is TableVariationRow => {
 	return "type" in move && move.type === "variation";
 };
 
+// TODO: support multiple nested variations in a single line/variation/set of moves
 // This creates a more sophisticated structure to show where variations start and end
 // by splitting regular moves around nested variation points
 //

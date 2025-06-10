@@ -1,344 +1,330 @@
 import { computed, type ComputedRef } from "vue";
 import type { ChessMoveTree, ChessTreeNode } from "../shared/bindings";
-import type { MoveData, MoveGroup, TableRow, TableVariationRow, VariationMove, NodeId } from "../shared/types";
+import type {
+	MoveData,
+	MoveGroup,
+	TableRow,
+	VariationMove,
+	NodeId,
+} from "../shared/types";
 
 export function useMoveData(moveTree: ComputedRef<ChessMoveTree>) {
-	const rootNode = computed((): ChessTreeNode | null => {
-		if (!moveTree.value.root_id) return null;
-		return moveTree.value.nodes[moveTree.value.root_id.idx]?.value || null;
-	});
+	// Helper to get node by ID
+	const getNode = (nodeId: NodeId | undefined): ChessTreeNode | null => {
+		if (!nodeId) return null;
+		return moveTree.value.nodes[nodeId.idx]?.value || null;
+	};
 
+	// Helper to find node ID from node
+	const findNodeId = (node: ChessTreeNode): NodeId | null => {
+		const index = moveTree.value.nodes.findIndex((n) => n.value === node);
+		if (index === -1) return null;
+		const wrapper = moveTree.value.nodes[index];
+		return { idx: index, version: wrapper.version };
+	};
+
+	// Core computed properties
+	const rootNode = computed(() => getNode(moveTree.value.root_id));
 	const currentNodeId = computed(() => moveTree.value.current_node_id);
+	const currentNode = computed(() => getNode(currentNodeId.value));
 
-	const currentNode = computed((): ChessTreeNode | null => {
-		if (!currentNodeId.value) return null;
-		return moveTree.value.nodes[currentNodeId.value.idx]?.value || null;
-	});
+	// Helper to create MoveData from node
+	const createMoveData = (
+		node: ChessTreeNode,
+		nodeId: NodeId,
+		isMainLine: boolean,
+		depth: number,
+		parentMoveNumber: number | null,
+	): MoveData | null => {
+		if (!node.game_move) return null;
 
-	// Enhanced move tree flattening that preserves variation structure
+		const move = node.game_move;
+		return {
+			nodeId,
+			node,
+			move,
+			san: move.san,
+			plyNumber: move.ply_number,
+			moveNumber: Math.ceil(move.ply_number / 2),
+			showNumber: move.ply_number % 2 === 1,
+			isWhite: move.ply_number % 2 === 1,
+			isMainLine,
+			isVariation: !isMainLine,
+			depth,
+			parentMoveNumber,
+		};
+	};
+
+	// Simplified tree traversal
 	const structuredMoves = computed((): MoveData[] => {
 		if (!rootNode.value) return [];
 
+		const moves: MoveData[] = [];
 		const visited = new Set<string>();
 
-		function traverse(
+		const traverse = (
 			node: ChessTreeNode,
 			isMainLine = true,
 			depth = 0,
 			parentMoveNumber: number | null = null,
-		): MoveData[] {
-			const nodeWrapper = moveTree.value.nodes.find((n) => n.value === node);
-			if (!nodeWrapper) return [];
+		): void => {
+			const nodeId = findNodeId(node);
+			if (!nodeId) return;
 
-			const nodeId: NodeId = {
-				idx: moveTree.value.nodes.indexOf(nodeWrapper),
-				version: nodeWrapper.version,
-			};
+			// Cycle detection
+			const key = `${nodeId.idx}-${nodeId.version}`;
+			if (visited.has(key)) return;
+			visited.add(key);
 
-			// Avoid cycles
-			const nodeKey = `${nodeId.idx}-${nodeId.version}`;
-			if (visited.has(nodeKey)) return [];
-			visited.add(nodeKey);
-
-			const moves: MoveData[] = [];
-
-			if (node.game_move) {
-				const moveData: MoveData = {
-					nodeId,
-					node,
-					move: node.game_move,
-					san: node.game_move.san,
-					plyNumber: node.game_move.ply_number,
-					moveNumber: Math.ceil(node.game_move.ply_number / 2),
-					showNumber: node.game_move.ply_number % 2 === 1,
-					isWhite: node.game_move.ply_number % 2 === 1,
-					isMainLine,
-					isVariation: !isMainLine,
-					depth,
-					parentMoveNumber,
-				};
+			// Add current move
+			const moveData = createMoveData(
+				node,
+				nodeId,
+				isMainLine,
+				depth,
+				parentMoveNumber,
+			);
+			if (moveData) {
 				moves.push(moveData);
+				parentMoveNumber = moveData.moveNumber;
 			}
 
 			// Process children
 			const children = (node.children_ids || [])
-				.map((childId) => moveTree.value.nodes[childId.idx]?.value)
-				.filter(Boolean);
+				.map((id) => getNode(id))
+				.filter((n): n is ChessTreeNode => n !== null);
 
-			if (children.length > 0) {
-				// First child continues main line or current variation
-				const firstChild = children[0];
-				if (firstChild) {
-					const mainChild = traverse(
-						firstChild,
-						isMainLine,
-						depth,
-						node.game_move
-							? Math.ceil(node.game_move.ply_number / 2)
-							: parentMoveNumber,
-					);
-					moves.push(...mainChild);
-				}
-
-				// Other children are variations
-				for (let i = 1; i < children.length; i++) {
-					const child = children[i];
-					if (child) {
-						const variation = traverse(
-							child,
-							false,
-							depth + 1,
-							node.game_move
-								? Math.ceil(node.game_move.ply_number / 2)
-								: parentMoveNumber,
-						);
-						moves.push(...variation);
-					}
-				}
+			// First child continues the current line
+			if (children[0]) {
+				traverse(children[0], isMainLine, depth, parentMoveNumber);
 			}
 
-			return moves;
-		}
+			// Other children are variations
+			for (let i = 1; i < children.length; i++) {
+				traverse(children[i], false, depth + 1, parentMoveNumber);
+			}
+		};
 
-		return traverse(rootNode.value);
+		traverse(rootNode.value);
+		return moves;
 	});
 
-	// Group moves for compact view with variations
+	// Simplified move grouping
 	const moveGroups = computed((): MoveGroup[] => {
-		const mainLineMoves = structuredMoves.value.filter((m) => m.isMainLine);
+		const mainLine = structuredMoves.value.filter((m) => m.isMainLine);
 		const variations = structuredMoves.value.filter((m) => m.isVariation);
 
 		const groups: MoveGroup[] = [];
-		const movesPerGroup = 6; // Reduced to leave space for variations
+		const movesPerGroup = 6;
 
-		for (let i = 0; i < mainLineMoves.length; i += movesPerGroup) {
-			const mainMoves = mainLineMoves.slice(i, i + movesPerGroup);
-			const lastMoveNumber = mainMoves[mainMoves.length - 1]?.moveNumber;
+		for (let i = 0; i < mainLine.length; i += movesPerGroup) {
+			const mainMoves = mainLine.slice(i, i + movesPerGroup);
+			const firstMove = mainMoves[0];
+			const lastMove = mainMoves[mainMoves.length - 1];
 
-			// Find variations that branch from moves in this group
-			const groupVariations: MoveData[][] = [];
-			if (lastMoveNumber) {
-				const variationsByParent: Record<number, MoveData[]> = {};
-				for (const v of variations) {
-					if (
-						v.parentMoveNumber &&
-						v.parentMoveNumber <= lastMoveNumber &&
-						v.parentMoveNumber >= (mainMoves[0]?.moveNumber || 1)
-					) {
-						if (!variationsByParent[v.parentMoveNumber]) {
-							variationsByParent[v.parentMoveNumber] = [];
-						}
-						variationsByParent[v.parentMoveNumber].push(v);
-					}
+			if (!firstMove || !lastMove) continue;
+
+			// Find variations in this range
+			const groupVariations = variations.filter(
+				(v) =>
+					v.parentMoveNumber !== null &&
+					v.parentMoveNumber >= firstMove.moveNumber &&
+					v.parentMoveNumber <= lastMove.moveNumber,
+			);
+
+			// Group consecutive variations by parent and continuity
+			const variationChains: MoveData[][] = [];
+			const processed = new Set<string>();
+
+			for (const variation of groupVariations) {
+				const key = `${variation.nodeId.idx}-${variation.nodeId.version}`;
+				if (processed.has(key)) continue;
+
+				const chain: MoveData[] = [variation];
+				processed.add(key);
+
+				// Collect consecutive moves in this variation
+				let current = variation;
+				while (true) {
+					const nextMove = groupVariations.find(
+						(v) =>
+							v.plyNumber === current.plyNumber + 1 &&
+							v.depth === current.depth &&
+							!processed.has(`${v.nodeId.idx}-${v.nodeId.version}`),
+					);
+
+					if (!nextMove) break;
+
+					chain.push(nextMove);
+					processed.add(`${nextMove.nodeId.idx}-${nextMove.nodeId.version}`);
+					current = nextMove;
 				}
 
-				// Group consecutive variation moves
-				for (const parentVars of Object.values(variationsByParent)) {
-					const variationChains: MoveData[][] = [];
-					let currentChain: MoveData[] = [];
-
-					for (const v of parentVars) {
-						if (
-							currentChain.length === 0 ||
-							v.plyNumber ===
-								currentChain[currentChain.length - 1].plyNumber + 1
-						) {
-							currentChain.push(v);
-						} else {
-							if (currentChain.length > 0)
-								variationChains.push([...currentChain]);
-							currentChain = [v];
-						}
-					}
-
-					if (currentChain.length > 0) variationChains.push(currentChain);
-					groupVariations.push(...variationChains);
-				}
+				variationChains.push(chain);
 			}
 
 			groups.push({
 				mainMoves,
-				variations: groupVariations,
+				variations: variationChains,
 			});
 		}
 
 		return groups;
 	});
 
-	// Enhanced table rows that include variations
+	// Helper to collect a complete variation line
+	const collectVariationLine = (
+		startMove: MoveData,
+		allVariations: MoveData[],
+	): VariationMove[] => {
+		const line: VariationMove[] = [startMove];
+		const processedIds = new Set<string>([
+			`${startMove.nodeId.idx}-${startMove.nodeId.version}`,
+		]);
+
+		let currentNode = startMove.node;
+		let currentDepth = startMove.depth;
+
+		while (currentNode.children_ids && currentNode.children_ids.length > 0) {
+			const children = currentNode.children_ids
+				.map((id) => ({ id, node: getNode(id) }))
+				.filter(
+					(c): c is { id: NodeId; node: ChessTreeNode } => c.node !== null,
+				);
+
+			if (children.length === 0) break;
+
+			// First child continues the variation
+			const [firstChild, ...otherChildren] = children;
+
+			if (firstChild.node.game_move) {
+				const firstChildMove = createMoveData(
+					firstChild.node,
+					firstChild.id,
+					false,
+					currentDepth,
+					Math.ceil(firstChild.node.game_move.ply_number / 2) - 1,
+				);
+
+				if (firstChildMove) {
+					line.push(firstChildMove);
+					processedIds.add(
+						`${firstChildMove.nodeId.idx}-${firstChildMove.nodeId.version}`,
+					);
+				}
+			}
+
+			// Other children are nested variations
+			for (const { id, node } of otherChildren) {
+				if (!node.game_move) continue;
+
+				const nestedMove = createMoveData(
+					node,
+					id,
+					false,
+					currentDepth + 1,
+					firstChild.node.game_move
+						? Math.ceil(firstChild.node.game_move.ply_number / 2)
+						: currentNode.game_move
+							? Math.ceil(currentNode.game_move.ply_number / 2)
+							: null,
+				);
+
+				if (nestedMove) {
+					const nestedLine = collectVariationLine(nestedMove, allVariations);
+					line.push({
+						type: "variation",
+						moves: nestedLine,
+						depth: currentDepth + 1,
+						collapsible: nestedLine.length > 3,
+					});
+				}
+			}
+
+			currentNode = firstChild.node;
+		}
+
+		return line;
+	};
+
+	// Simplified table rows generation
 	const tableRows = computed((): TableRow[] => {
-		const mainLineMoves = structuredMoves.value.filter((m) => m.isMainLine);
+		const mainLine = structuredMoves.value.filter((m) => m.isMainLine);
 		const variations = structuredMoves.value.filter((m) => m.isVariation);
 		const rows: TableRow[] = [];
 
-		// Group main moves by move number (1 move = 2 plys)
-		const movesByNumber: Record<
+		// Group main line by move number
+		const movesByNumber = new Map<
 			number,
-			{ white: MoveData | null; black: MoveData | null }
-		> = {};
-		for (const move of mainLineMoves) {
-			if (!movesByNumber[move.moveNumber]) {
-				movesByNumber[move.moveNumber] = { white: null, black: null };
-			}
+			{ white?: MoveData; black?: MoveData }
+		>();
+
+		for (const move of mainLine) {
+			const entry = movesByNumber.get(move.moveNumber) || {};
 			if (move.isWhite) {
-				movesByNumber[move.moveNumber].white = move;
+				entry.white = move;
 			} else {
-				movesByNumber[move.moveNumber].black = move;
+				entry.black = move;
 			}
+			movesByNumber.set(move.moveNumber, entry);
 		}
 
-		// Handle variations within variations (nested variations)
-		// Nested variations are displayed as indented rows after their parent move.
-		// Variation rows that span multiple lines can be marked as collapsible.
+		// Process each move number
+		const processedVariations = new Set<string>();
 
-		// Create table rows with variations
-		for (const [number, moves] of Object.entries(movesByNumber)) {
-			const moveNumber = Number.parseInt(number);
+		for (const [moveNumber, moves] of movesByNumber) {
+			// Add the main line row
 			rows.push({
 				type: "move",
 				number: moveNumber,
-				white: moves.white || undefined,
-				black: moves.black || undefined,
+				white: moves.white,
+				black: moves.black,
 			});
 
-			// Add variations that branch from this move
-			const moveRowVariations = variations.filter(
-				(v) => v.parentMoveNumber === moveNumber,
+			// Find variations branching from this move
+			const branchingVariations = variations.filter(
+				(v) =>
+					v.parentMoveNumber === moveNumber &&
+					v.depth === 1 &&
+					!processedVariations.has(`${v.nodeId.idx}-${v.nodeId.version}`),
 			);
 
-			if (moveRowVariations.length > 0) {
-				// Helper function to collect complete variation chains with nested variations
-				const collectVariationChain = (
-					startMove: MoveData,
-					depth: number = 1
-				): VariationMove[] => {
-					const chain: VariationMove[] = [startMove];
+			// Process each variation line
+			for (const variation of branchingVariations) {
+				const variationLine = collectVariationLine(variation, variations);
 
-					// Traverse children to collect the complete variation line
-					let currentNode = startMove.node;
-					while (
-						currentNode.children_ids &&
-						currentNode.children_ids.length > 0
-					) {
-						const childIds = currentNode.children_ids;
-						
-						// Follow the first child to continue the main variation line
-						const firstChildId = childIds[0];
-						const firstChildWrapper = moveTree.value.nodes[firstChildId.idx];
-
-						if (!firstChildWrapper?.value) break;
-
-						const firstChild = firstChildWrapper.value;
-						if (!firstChild.game_move) break;
-
-						// Create MoveData for the first child move
-						const firstChildMoveData: MoveData = {
-							nodeId: { idx: firstChildId.idx, version: firstChildWrapper.version },
-							node: firstChild,
-							move: firstChild.game_move,
-							san: firstChild.game_move.san,
-							plyNumber: firstChild.game_move.ply_number,
-							moveNumber: Math.ceil(firstChild.game_move.ply_number / 2),
-							showNumber: firstChild.game_move.ply_number % 2 === 1,
-							isWhite: firstChild.game_move.ply_number % 2 === 1,
-							isMainLine: false,
-							isVariation: true,
-							depth: startMove.depth,
-							parentMoveNumber: startMove.parentMoveNumber,
-						};
-
-						chain.push(firstChildMoveData);
-
-						// Handle additional children as nested variations
-						if (childIds.length > 1) {
-							for (let i = 1; i < childIds.length; i++) {
-								const nestedChildId = childIds[i];
-								const nestedChildWrapper = moveTree.value.nodes[nestedChildId.idx];
-								
-								if (!nestedChildWrapper?.value?.game_move) continue;
-
-								const nestedChild = nestedChildWrapper.value;
-								if (!nestedChild.game_move) continue;
-								
-								const nestedMoveData: MoveData = {
-									nodeId: { idx: nestedChildId.idx, version: nestedChildWrapper.version },
-									node: nestedChild,
-									move: nestedChild.game_move,
-									san: nestedChild.game_move.san,
-									plyNumber: nestedChild.game_move.ply_number,
-									moveNumber: Math.ceil(nestedChild.game_move.ply_number / 2),
-									showNumber: nestedChild.game_move.ply_number % 2 === 1,
-									isWhite: nestedChild.game_move.ply_number % 2 === 1,
-									isMainLine: false,
-									isVariation: true,
-									depth: depth + 1,
-									parentMoveNumber: firstChildMoveData.moveNumber,
-								};
-
-								// Recursively collect the nested variation chain
-								const nestedChain = collectVariationChain(nestedMoveData, depth + 1);
-								
-								// Create nested variation row
-								const nestedVariation: TableVariationRow = {
-									type: "variation",
-									moves: nestedChain,
-									depth: depth + 1,
-									collapsible: nestedChain.length > 3, // Mark as collapsible if more than 3 moves
-								};
-
-								chain.push(nestedVariation);
-							}
+				// Mark all moves in this line as processed
+				const markProcessed = (moves: VariationMove[]) => {
+					for (const move of moves) {
+						if ("nodeId" in move) {
+							processedVariations.add(
+								`${move.nodeId.idx}-${move.nodeId.version}`,
+							);
+						} else {
+							markProcessed(move.moves);
 						}
-
-						currentNode = firstChild;
 					}
-
-					return chain;
 				};
+				markProcessed(variationLine);
 
-				// Group variations into complete chains
-				const processedNodes = new Set<string>();
-
-				// For each variation starting move, collect its complete chain
-				for (const v of moveRowVariations) {
-					const nodeKey = `${v.nodeId.idx}-${v.nodeId.version}`;
-					if (processedNodes.has(nodeKey)) continue;
-
-					const completeChain = collectVariationChain(v, 1);
-
-					// Mark all nodes in this chain as processed (recursively)
-					const markProcessed = (moves: VariationMove[]) => {
-						for (const move of moves) {
-							if ('nodeId' in move) {
-								// It's a MoveData
-								const key = `${move.nodeId.idx}-${move.nodeId.version}`;
-								processedNodes.add(key);
-							} else {
-								// It's a nested TableVariationRow
-								markProcessed(move.moves);
-							}
-						}
-					};
-					markProcessed(completeChain);
-
-					rows.push({
-						type: "variation",
-						moves: completeChain,
-						depth: 1,
-						collapsible: completeChain.length > 5, // Mark as collapsible if more than 5 moves/sub-variations
-					});
-				}
+				rows.push({
+					type: "variation",
+					moves: variationLine,
+					depth: 1,
+					collapsible: variationLine.length > 5,
+				});
 			}
 		}
 
 		return rows;
 	});
 
+	// Helper to check if a move is current
 	const isCurrentMove = (nodeId: NodeId): boolean => {
-		return (
-			currentNodeId.value !== undefined &&
-			currentNodeId.value.idx === nodeId.idx &&
-			currentNodeId.value.version === nodeId.version
+		return Boolean(
+			currentNodeId.value &&
+				currentNodeId.value.idx === nodeId.idx &&
+				currentNodeId.value.version === nodeId.version,
 		);
 	};
 
