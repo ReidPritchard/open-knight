@@ -8,6 +8,7 @@
 			'btn-neutral': !props.isCurrent,
 			'btn-sm': props.size === 'xs',
 			'btn-md': props.size === 'sm',
+			'btn-disabled': props.disabled,
 		}"
 	>
 
@@ -44,11 +45,13 @@ const props = withDefaults(
 	defineProps<{
 		moveData: MoveData;
 		isCurrent?: boolean;
+		disabled?: boolean;
 		variant?: "main" | "variation";
 		size?: "sm" | "xs";
 	}>(),
 	{
 		isCurrent: false,
+		disabled: false,
 		variant: "main",
 		size: "sm",
 	},

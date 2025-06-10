@@ -2,65 +2,50 @@
 
 	<div class="overflow-x-auto">
 
-		<table class="table table-xs">
+		<ul class="menu menu-sm w-full">
 
-			<tbody>
+			<template
+				v-for="(row, index) in tableRows"
+				:key="index"
+			>
 
-				<template
-					v-for="(row, index) in tableRows"
-					:key="index"
-				>
+				<li v-if="row.type === 'move'">
 
-					<tr v-if="row.type === 'move'">
+					<div class="flex flex-row justify-evenly w-full">
 
-						<td
-							colspan="9"
-							class="w-1/2"
-						>
+						<MoveButton
+							v-if="row.white"
+							:move-data="row.white"
+							:is-current="isCurrentMove(row.white.nodeId)"
+							@click="handleMoveClick"
+							size="xs"
+						/>
 
-							<MoveButton
-								v-if="row.white"
-								:move-data="row.white"
-								:is-current="isCurrentMove(row.white.nodeId)"
-								class="w-full"
-								@click="handleMoveClick"
-							/>
+						<MoveButton
+							v-if="row.black"
+							:move-data="row.black"
+							:is-current="isCurrentMove(row.black.nodeId)"
+							@click="handleMoveClick"
+							size="xs"
+						/>
 
-						</td>
+					</div>
 
-						<td
-							colspan="9"
-							class="w-1/2"
-						>
+				</li>
 
-							<MoveButton
-								v-if="row.black"
-								:move-data="row.black"
-								:is-current="isCurrentMove(row.black.nodeId)"
-								class="w-full"
-								@click="handleMoveClick"
-							/>
-
-						</td>
-
-					</tr>
-
-					<!-- Variation row(s) (18 columns) -->
+				<li v-else-if="row.type === 'variation' && showVariations">
 
 					<VariationRow
-						v-else-if="row.type === 'variation' && showVariations"
 						:moves="row.moves"
 						:is-current-move="isCurrentMove"
-						:max-depth="10"
-						:row-size="18"
 						@move-click="handleMoveClick"
 					/>
 
-				</template>
+				</li>
 
-			</tbody>
+			</template>
 
-		</table>
+		</ul>
 
 	</div>
 

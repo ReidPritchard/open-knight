@@ -148,7 +148,6 @@ export const useGamesStore = defineStore("games", {
 
 			const result = await loadGameSession(gameId, boardId);
 			if (result.success && result.data) {
-				console.log("Loaded game", result.data);
 				const newGameState: ActiveGameState = {
 					id: result.data.id,
 					game: result.data.game,

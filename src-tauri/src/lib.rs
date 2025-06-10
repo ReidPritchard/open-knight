@@ -1,5 +1,7 @@
 use api::AppState;
+use log::LevelFilter;
 use tauri::Manager;
+use tauri_plugin_log::{Target, TargetKind};
 
 pub mod api;
 pub mod db;
@@ -14,6 +16,16 @@ pub mod utils;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .target(Target::new(TargetKind::Stdout))
+                .level(LevelFilter::max())
+                .level_for("sea_orm", LevelFilter::Off)
+                .level_for("sqlx", LevelFilter::Off)
+                .level_for("tracing", LevelFilter::Off)
+                .level_for("tao", LevelFilter::Off)
+                .build(),
+        )
         .setup(|app| {
             let app_handle = app.handle();
             app.manage(

@@ -7,6 +7,46 @@ import App from "./App.vue";
 import { ErrorHandler, ErrorSeverity } from "./services/ErrorService";
 import { useGlobalStore } from "./stores";
 import { useSettingsStore } from "./stores/settings";
+import {
+	warn,
+	debug,
+	trace,
+	info,
+	error,
+	attachConsole,
+} from "@tauri-apps/plugin-log";
+
+// Setup logging
+// TODO: Remove this and use the log functions directly
+function forwardConsole(
+	fnName: "log" | "debug" | "info" | "warn" | "error",
+	logger: (message: string) => Promise<void>,
+) {
+	// eslint-disable-next-line no-console
+	const original = console[fnName];
+	// eslint-disable-next-line no-console
+	console[fnName] = (...data: unknown[]) => {
+		original(...data);
+		// convert data series into a string
+		const message = data
+			.map((item) => {
+				if (typeof item === "object" && item !== null) {
+					return JSON.stringify(item);
+				}
+				return item;
+			})
+			.join(" ");
+		logger(message);
+	};
+}
+
+forwardConsole("log", trace);
+forwardConsole("debug", debug);
+forwardConsole("info", info);
+forwardConsole("warn", warn);
+forwardConsole("error", error);
+
+await attachConsole();
 
 const app = createApp(App);
 const pinia = createPinia();

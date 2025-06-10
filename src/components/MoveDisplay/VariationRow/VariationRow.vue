@@ -1,134 +1,155 @@
 <template>
 
-	<tr>
+	<!-- TODO: Only create a collapse if there are nested variations or >5 moves -->
 
-		<td
-			v-for="i in indentationSpan"
-			:key="i"
-			:colspan="1"
-			class="relative"
-		>
-
-			<span :class="indentationStyle"> </span>
-
-		</td>
-
-		<td :colspan="columnSpan">
-
-			<div class="flex flex-wrap gap-1 items-center">
-
-				<PhGitBranch
-					:size="12"
-					class="text-base-content/60"
-				/>
-
-				<span
-					v-if="showOpenParen"
-					class="text-xs text-base-content/60"
-				>
-					 (
-				</span>
-
-				<!-- 
-					FIXME: The first move of the variation is not being rendered
-					Unsure if this the bug is in the moveSegments logic or the
-					TabularView's TableVariationRow generation logic. 
-				  -->
-
-				<template
-					v-for="move in nonNestedMoves"
-					:key="move.nodeId.idx"
-				>
-
-					<MoveButton
-						:move-data="move"
-						:is-current="isCurrentMove(move.nodeId)"
-						variant="variation"
-						:size="size"
-						@click="handleMoveClick"
-					/>
-
-				</template>
-
-				<span
-					v-if="showCloseParen"
-					class="text-xs text-base-content/60"
-				>
-					 )
-				</span>
-
-			</div>
-
-		</td>
-
-	</tr>
-
-	<template
-		v-for="nestedVariation in nestedVariations"
-		:key="`nested-${nestedVariation.depth}`"
+	<details
+		class="collapse w-full"
+		:open="detailsOpen"
+		@toggle="handleToggle"
 	>
 
-		<VariationRow
-			:moves="nestedVariation.moves"
-			:is-current-move="isCurrentMove"
-			:size="size"
-			:depth="nestedVariation.depth + 1"
-			:row-size="rowSize"
-			:max-depth="maxDepth"
-			@move-click="handleMoveClick"
-		/>
+		<summary class="collapse-title font-semibold w-full after:hidden">
 
-	</template>
+			<!-- TODO: add variation preview here -->
 
-	<tr v-if="afterMoves.length > 0">
-
-		<td
-			v-for="i in indentationSpan"
-			:key="i"
-			:colspan="1"
-			class="relative"
-		>
-
-			<span
-				class="h-full"
-				:class="indentationStyle"
+			<div
+				class="flex flex-row flex-nowrap justify-center items-center w-full"
+				:class="{
+					'bg-base-100': !detailsOpen,
+					'bg-success': detailsOpen,
+				}"
 			>
 
-			</span>
+				<div
+					class="text-sm"
+					:class="{
+						'text-base-content/60': !detailsOpen,
+						'text-success-content': detailsOpen,
+					}"
+				>
 
-		</td>
+					<PhGitBranch :size="12" />
 
-		<td :colspan="columnSpan">
+				</div>
 
-			<div class="flex flex-wrap gap-1 items-center">
+				<!-- First move of variation -->
 
-				<template
-					v-for="move in afterMoves"
-					:key="move.nodeId.idx"
+				<div
+					class="w-1/4"
+					:class="{
+						'hidden': !detailsOpen,
+					}"
 				>
 
 					<MoveButton
-						:move-data="move"
-						:is-current="isCurrentMove(move.nodeId)"
+						:move-data="nonNestedMoves[0]"
+						:is-current="isCurrentMove(nonNestedMoves[0].nodeId)"
 						variant="variation"
 						:size="size"
-						@click="handleMoveClick"
+						:disabled="true"
 					/>
 
-				</template>
-
-				<span class="text-xs text-base-content/60">)</span>
+				</div>
 
 			</div>
 
-		</td>
+		</summary>
 
-	</tr>
+		<div class="collapse-content">
+
+			<ul class="w-full">
+
+				<li>
+
+					<div class="flex flex-wrap gap-1 items-center">
+
+						<span
+							v-if="showOpenParen"
+							class="text-xs text-base-content/60"
+						>
+							 (
+						</span>
+
+						<template
+							v-for="move in nonNestedMoves"
+							:key="move.nodeId.idx"
+						>
+
+							<MoveButton
+								:move-data="move"
+								:is-current="isCurrentMove(move.nodeId)"
+								variant="variation"
+								:size="size"
+								@click="handleMoveClick"
+							/>
+
+						</template>
+
+						<span
+							v-if="showCloseParen"
+							class="text-xs text-base-content/60"
+						>
+							 )
+						</span>
+
+					</div>
+
+				</li>
+
+				<li v-if="nestedVariations.length > 0">
+
+					<template
+						v-for="nestedVariation in nestedVariations"
+						:key="`nested-${nestedVariation.depth}`"
+					>
+
+						<VariationRow
+							:moves="nestedVariation.moves"
+							:is-current-move="isCurrentMove"
+							:size="size"
+							:depth="nestedVariation.depth + 1"
+							@move-click="handleMoveClick"
+						/>
+
+					</template>
+
+				</li>
+
+				<li v-if="afterMoves.length > 0">
+
+					<div class="flex flex-wrap gap-1 items-center">
+
+						<template
+							v-for="move in afterMoves"
+							:key="move.nodeId.idx"
+						>
+
+							<MoveButton
+								:move-data="move"
+								:is-current="isCurrentMove(move.nodeId)"
+								variant="variation"
+								:size="size"
+								@click="handleMoveClick"
+							/>
+
+						</template>
+
+						<span class="text-xs text-base-content/60">)</span>
+
+					</div>
+
+				</li>
+
+			</ul>
+
+		</div>
+
+	</details>
 
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { PhGitBranch } from "@phosphor-icons/vue";
 import MoveButton from "../MoveButton/MoveButton.vue";
 import type {
@@ -143,15 +164,11 @@ interface Props {
 	isCurrentMove: (nodeId: NodeId) => boolean;
 	size?: "sm" | "xs";
 	depth?: number;
-	rowSize?: number;
-	maxDepth?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	size: "xs",
 	depth: 0,
-	rowSize: 18, // The total number of columns in the row
-	maxDepth: 4, // Max number of columns to indent when rendering nested variations
 });
 
 const emit = defineEmits<{
@@ -269,35 +286,11 @@ const showCloseParen = computed(() => {
 	return !segment || segment.nestedVariations.length === 0;
 });
 
-const indentationSpan = computed(() => {
-	return Math.max(0, Math.min(props.maxDepth, props.depth - 1));
-});
+// State tracking if the variation row is open
+const detailsOpen = ref(false);
 
-// Calculate the number of columns to span for the main row
-// rowSize - columnSpan = indentation/padding span
-const columnSpan = computed(() => {
-	return props.rowSize - indentationSpan.value;
-});
-
-const indentationStyle = computed(() => {
-	// Calculate the percentage of the row that is indented
-	// If we are at depth 2, we want to find the percentage out of the max depth
-	// TODO: Get dynamic colors/opacity working for before:border-accent
-	// const indentPercent = (indentationSpan.value / props.maxDepth) * 100;
-	// const roundedIndentPercent = Math.round(indentPercent / 10) * 10;
-	// 		before:opacity-${roundedIndentPercent}
-
-	const beforeIndentGuideline = `
-		before:opacity-25
-		before:border-r-2 
-		before:border-accent
-		before:absolute 
-		before:top-0 
-		before:left-0 
-		before:h-full 
-		before:w-full`;
-
-	return `${beforeIndentGuideline}`;
-});
+const handleToggle = () => {
+	detailsOpen.value = !detailsOpen.value;
+};
 </script>
 

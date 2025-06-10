@@ -16,7 +16,6 @@ tauri-build = { version = "2.0.0", features = [] }
 tauri = { version = "2.0.0", features = ["macos-private-api"] }
 tauri-plugin-shell = "2.2.1"
 log = "0.4.27"
-pretty_env_logger = "0.5.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 shakmaty = "0.27.2"
@@ -38,6 +37,7 @@ thiserror = "2"
 slotmap = { version = "1.0", features = ["serde"] }
 itertools = "0.14.0"
 ok-parse = { path = "./src/lib/ok-parse" }
+tauri-plugin-log = "2"
 
 [workspace]
 members = ["./src/lib/*"]

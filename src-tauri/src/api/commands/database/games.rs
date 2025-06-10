@@ -2,8 +2,8 @@ use crate::api::commands::AppState;
 use crate::api::database::QueryParams;
 use crate::models;
 use crate::utils::AppError;
-use sea_orm::sqlx::types::chrono;
 use log::{error, info};
+use sea_orm::sqlx::types::chrono;
 use tauri::State;
 
 /// Queries chess games from the database based on provided parameters
@@ -173,4 +173,4 @@ pub async fn update_game_property(
     }
 
     Ok(())
-} 
+}

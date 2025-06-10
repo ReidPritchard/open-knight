@@ -2,7 +2,6 @@ import { defineStore } from "pinia";
 import { useError } from "../composables/useError";
 import * as EngineService from "../services/EngineService";
 import * as ImportExportService from "../services/ImportExportService";
-import api from "../shared/api";
 import type { ExplorerGame } from "../shared/types";
 import { useEngineAnalysisStore } from "./engineAnalysis";
 import { useGamesStore } from "./games";
@@ -29,10 +28,6 @@ export const useGlobalStore = defineStore("global", {
 			const activeBoardId = state.internalUiStore.getActiveBoardId;
 			const gameState = state.internalGamesStore.getBoardState(activeBoardId);
 			return gameState?.game || null;
-		},
-		api: () => {
-			console.warn("For development purposes only! Use at your own risk!");
-			return api;
 		},
 	},
 	actions: {

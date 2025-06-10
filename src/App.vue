@@ -298,14 +298,6 @@ onMounted(() => {
 
 	// Load saved layout preferences
 	uiStore.loadLayoutPreferences();
-
-	// Development mode exposure
-	if (import.meta.env.DEV) {
-		const globalWindow = window as unknown as {
-			$$: { store: typeof globalStore; api: typeof globalStore.api };
-		};
-		globalWindow.$$ = { store: globalStore, api: globalStore.api };
-	}
 });
 
 // Setup default styles for Phosphor icons

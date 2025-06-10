@@ -130,10 +130,7 @@ impl EventBus {
         let type_id = TypeId::of::<T>();
         let mut subscribers = self.subscribers.lock().unwrap();
 
-        subscribers
-            .entry(type_id)
-            .or_default()
-            .push(boxed_sender);
+        subscribers.entry(type_id).or_default().push(boxed_sender);
 
         receiver
     }
@@ -154,10 +151,7 @@ impl EventBus {
         let type_id = TypeId::of::<T>();
         let mut subscribers = self.subscribers.lock().unwrap();
 
-        subscribers
-            .entry(type_id)
-            .or_default()
-            .push(boxed_sender);
+        subscribers.entry(type_id).or_default().push(boxed_sender);
 
         receiver
     }

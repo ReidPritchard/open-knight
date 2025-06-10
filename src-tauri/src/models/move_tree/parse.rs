@@ -135,16 +135,28 @@ fn parse_pgn_tokens_recursive(
                 *is_white = !*is_white;
             }
             PgnToken::Variation { moves: var_tokens } => {
-                // Get the parent position
-                // The PGN spec says that variations are alternate to the move they come after
-                // so we need to use the parent position, not the current position
+                // Per PGN spec: RAV is played by "first unplaying the move that appears immediately prior to the RAV"
+                // This means variations branch from the parent position, not the current position
                 let parent_node_id = tree.nodes[current_node_id].parent_id;
-                let parent_position = if let Some(parent_node_id) = parent_node_id {
-                    let parent_node = &tree.nodes[parent_node_id];
-                    parent_node.position.clone()
-                } else {
-                    current_position.clone()
-                };
+                let (parent_position, parent_move_count, parent_is_white) =
+                    if let Some(parent_id) = parent_node_id {
+                        let parent_node = &tree.nodes[parent_id];
+                        let parent_position = parent_node.position.clone();
+
+                        // Calculate the move count and turn at the parent position
+                        if let Some(ref parent_move) = parent_node.game_move {
+                            // Parent has a move, so calculate state after that move
+                            let move_count = (parent_move.ply_number + 1) / 2;
+                            let is_white = parent_move.ply_number % 2 == 0; // Next turn after this ply
+                            (parent_position, move_count, is_white)
+                        } else {
+                            // Parent is root node
+                            (parent_position, 1, true)
+                        }
+                    } else {
+                        // Current node is root, use current state
+                        (current_position.clone(), *full_move_count, *is_white)
+                    };
 
                 // Save the current state before processing the variation
                 let saved_position = current_position.clone();
@@ -152,14 +164,14 @@ fn parse_pgn_tokens_recursive(
                 let saved_move_count = *full_move_count;
                 let saved_is_white = *is_white;
 
-                // Process the variation recursively
+                // Process the variation recursively from the parent position
                 parse_pgn_tokens_recursive(
                     var_tokens,
                     tree,
                     parent_position,
-                    saved_node_id,
-                    &mut saved_move_count.clone(),
-                    &mut saved_is_white.clone(),
+                    parent_node_id.unwrap_or(current_node_id),
+                    &mut parent_move_count.clone(),
+                    &mut parent_is_white.clone(),
                 )?;
 
                 // Restore the current state after processing the variation
@@ -379,20 +391,23 @@ mod tests {
     #[test]
     fn parse_pgn_tokens_game_with_variations() {
         // Tests a game with a move with a variation
-        // 1. a4 (a5) b4
+        // Per PGN spec: RAV represents "unplaying" the immediately prior move
+        // 1. e4 (d4) e5 means:
+        // - White plays e4, then Black plays e5 (main line)
+        // - Variation: White plays d4 instead of e4 from starting position
 
         let tokens = vec![
             PgnToken::MoveNumber { number: 1 },
             PgnToken::Move {
-                notation: "a4".to_string(),
+                notation: "e4".to_string(),
             },
             PgnToken::Variation {
                 moves: vec![PgnToken::Move {
-                    notation: "a5".to_string(),
+                    notation: "d4".to_string(),
                 }],
             },
             PgnToken::Move {
-                notation: "b5".to_string(),
+                notation: "e5".to_string(),
             },
         ];
 
@@ -406,24 +421,26 @@ mod tests {
         // Root node
         let first_node = &tree.nodes[tree.current_node_id.unwrap()];
         assert!(first_node.game_move.is_none());
+        assert_eq!(first_node.children_ids.len(), 2); // Root has 2 children: e4 and d4 (variation)
 
-        // First move (a4)
+        // First move (e4) - main line
         let second_node = &tree.nodes[first_node.children_ids[0]];
-        assert_eq!(second_node.game_move.as_ref().unwrap().san, "a4");
-        assert_eq!(second_node.game_move.as_ref().unwrap().uci, "a2a4");
+        assert_eq!(second_node.game_move.as_ref().unwrap().san, "e4");
+        assert_eq!(second_node.game_move.as_ref().unwrap().uci, "e2e4");
         assert_eq!(second_node.game_move.as_ref().unwrap().ply_number, 1);
-        assert_eq!(second_node.children_ids.len(), 2); // a4 has 2 variations/next moves
+        assert_eq!(second_node.children_ids.len(), 1); // e4 has 1 child: e5
 
-        // First variation (a5)
-        let third_node = &tree.nodes[second_node.children_ids[0]];
-        assert_eq!(third_node.game_move.as_ref().unwrap().san, "a5");
-        assert_eq!(third_node.game_move.as_ref().unwrap().uci, "a7a5");
-        assert_eq!(third_node.game_move.as_ref().unwrap().ply_number, 2);
+        // Variation move (d4) - alternative to e4
+        let third_node = &tree.nodes[first_node.children_ids[1]];
+        assert_eq!(third_node.game_move.as_ref().unwrap().san, "d4");
+        assert_eq!(third_node.game_move.as_ref().unwrap().uci, "d2d4");
+        assert_eq!(third_node.game_move.as_ref().unwrap().ply_number, 1);
+        assert_eq!(third_node.children_ids.len(), 0); // d4 has no children in this test
 
-        // Second variation (b4)
-        let fourth_node = &tree.nodes[second_node.children_ids[1]];
-        assert_eq!(fourth_node.game_move.as_ref().unwrap().san, "b5");
-        assert_eq!(fourth_node.game_move.as_ref().unwrap().uci, "b7b5");
+        // Main line continuation (e5) - response to e4
+        let fourth_node = &tree.nodes[second_node.children_ids[0]];
+        assert_eq!(fourth_node.game_move.as_ref().unwrap().san, "e5");
+        assert_eq!(fourth_node.game_move.as_ref().unwrap().uci, "e7e5");
         assert_eq!(fourth_node.game_move.as_ref().unwrap().ply_number, 2);
     }
 }

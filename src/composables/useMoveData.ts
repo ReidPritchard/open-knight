@@ -144,19 +144,36 @@ export function useMoveData(moveTree: ComputedRef<ChessMoveTree>) {
 				processed.add(key);
 
 				// Collect consecutive moves in this variation
+				// Note: With the fix, variations branch from parent positions,
+				// so we need to follow the tree structure rather than assume consecutive ply numbers
 				let current = variation;
-				while (true) {
+				while (
+					current.node.children_ids &&
+					current.node.children_ids.length > 0
+				) {
+					// Get the first child (main continuation of this variation)
+					const firstChildId = current.node.children_ids[0];
+					const nextNode = getNode(firstChildId);
+
+					if (!nextNode || !nextNode.game_move) break;
+
+					const nextNodeId = findNodeId(nextNode);
+					if (!nextNodeId) break;
+
+					const nextMoveKey = `${nextNodeId.idx}-${nextNodeId.version}`;
+					if (processed.has(nextMoveKey)) break;
+
+					// Check if this move is in our current group's variations
 					const nextMove = groupVariations.find(
 						(v) =>
-							v.plyNumber === current.plyNumber + 1 &&
-							v.depth === current.depth &&
-							!processed.has(`${v.nodeId.idx}-${v.nodeId.version}`),
+							v.nodeId.idx === nextNodeId.idx &&
+							v.nodeId.version === nextNodeId.version,
 					);
 
-					if (!nextMove) break;
+					if (!nextMove || nextMove.depth !== current.depth) break;
 
 					chain.push(nextMove);
-					processed.add(`${nextMove.nodeId.idx}-${nextMove.nodeId.version}`);
+					processed.add(nextMoveKey);
 					current = nextMove;
 				}
 
@@ -183,7 +200,7 @@ export function useMoveData(moveTree: ComputedRef<ChessMoveTree>) {
 		]);
 
 		let currentNode = startMove.node;
-		let currentDepth = startMove.depth;
+		const currentDepth = startMove.depth;
 
 		while (currentNode.children_ids && currentNode.children_ids.length > 0) {
 			const children = currentNode.children_ids
@@ -203,7 +220,7 @@ export function useMoveData(moveTree: ComputedRef<ChessMoveTree>) {
 					firstChild.id,
 					false,
 					currentDepth,
-					Math.ceil(firstChild.node.game_move.ply_number / 2) - 1,
+					startMove.parentMoveNumber,
 				);
 
 				if (firstChildMove) {
@@ -227,7 +244,7 @@ export function useMoveData(moveTree: ComputedRef<ChessMoveTree>) {
 						? Math.ceil(firstChild.node.game_move.ply_number / 2)
 						: currentNode.game_move
 							? Math.ceil(currentNode.game_move.ply_number / 2)
-							: null,
+							: startMove.parentMoveNumber,
 				);
 
 				if (nestedMove) {

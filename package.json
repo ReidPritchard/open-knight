@@ -26,6 +26,7 @@
 	"dependencies": {
 		"@phosphor-icons/vue": "^2.2.1",
 		"@tauri-apps/api": ">=2.0.0",
+		"@tauri-apps/plugin-log": "^2.4.0",
 		"@tauri-apps/plugin-shell": ">=2.2.1",
 		"@tauri-apps/plugin-sql": "^2.2.0",
 		"pinia": "^2.2.6",
