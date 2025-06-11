@@ -136,24 +136,44 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
-import { useGlobalStore } from "../../stores";
+import { computed, inject, ref, watch } from "vue";
 import Modal from "../Layout/Modal/Modal.vue";
-import { validatePGNFormat } from "../../services/ImportExportService";
+import {
+	GlobalStoreKey,
+	ImportExportServiceKey,
+	type IGlobalStore,
+	type IImportExportService,
+} from "../../composables/useInjection";
 
 const props = defineProps<{
 	isOpen: boolean;
 	onClose: () => void;
 }>();
 
-const globalStore = useGlobalStore();
+// Inject dependencies instead of importing them directly
+const globalStore = inject(GlobalStoreKey) as IGlobalStore;
+const importExportService = inject(
+	ImportExportServiceKey,
+) as IImportExportService;
+
+// Fallback error handling if dependencies aren't provided
+if (!globalStore) {
+	throw new Error(
+		"GlobalStore not provided. Make sure to call useProviders() in your app setup.",
+	);
+}
+if (!importExportService) {
+	throw new Error(
+		"ImportExportService not provided. Make sure to call useProviders() in your app setup.",
+	);
+}
 
 const loading = ref(false);
 
 const inputType = ref<"file" | "raw">("file");
 const pgn = ref<string>("");
 const pgnValid = computed(() => {
-	return validatePGNFormat(pgn.value).isValid;
+	return importExportService.validatePGNFormat(pgn.value).isValid;
 });
 
 const pgnTextarea = ref<HTMLTextAreaElement | null>(null);
