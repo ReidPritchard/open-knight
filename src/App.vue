@@ -37,11 +37,19 @@
 						title="Game Library"
 						:icon="PhBooks"
 						:collapsed="isLeftPanelSectionCollapsed('gameLibrary')"
-						@toggle="toggleLeftPanelSection('gameLibrary', $event)"
+						@toggle="toggleLeftPanelSection('gameLibrary')"
 						:min-height="400"
 					>
 
-						<GameLibrary />
+						<GameLibrary
+							:games="explorerGames"
+							:is-loading="isLoading"
+							:error="error"
+							@open-game="handleOpenGame"
+							@delete-game="handleDeleteGame"
+							@update-game-property="handleUpdateGameProperty"
+							@refresh-games="refreshGamesClick"
+						/>
 
 					</StackedSection>
 
@@ -75,24 +83,35 @@
 
 						<div class="flex flex-row">
 
-							<!-- TODO: We need to invalidate the evaluation when the board changes
-							 currently it re-uses the evaluation from the previous position
-							  -->
-
 							<EvaluationBar
 								class="min-h-full max-w-10"
-								:evaluation="engineAnalysisStore.boardEvaluation"
-								:evaluation-side="
-									globalStore.gamesStore.getCurrentTurn(activeBoardId) ??
-									'white'
+								:evaluation="
+									analysis?.score ?? { value: 0, type: 'centipawns' }
 								"
-								:orientation="uiStore.whiteOnSide === 'top' ? 'black' : 'white'"
+								:evaluation-side="
+									gamesStore.getCurrentTurn(activeBoardId) ?? 'white'
+								"
+								:orientation="
+									uiStore.whiteOnSide === 'bottom' ? 'white' : 'black'
+								"
 								direction="vertical"
 							/>
 
 							<div class="flex flex-col">
 
-								<ChessBoard :board-id="activeBoardId" />
+								<ChessBoard
+									:board-id="activeBoardId"
+									:theme="uiStore.boardTheme"
+									:show-coordinates="uiStore.showCoordinates"
+									:show-legal-moves="uiStore.showLegalMoves"
+									:is-flipped="uiStore.whiteOnSide === 'top'"
+									:position="gamesStore.getCurrentPosition(activeBoardId)"
+									:move="currentMove?.game_move ?? null"
+									:valid-moves="validMoves"
+									@make-move="handleMakeMove"
+									@rotate-board="uiStore.setWhiteOnSide()"
+									@resize-board="uiStore.updateBoardSquareSize($event)"
+								/>
 
 							</div>
 
@@ -130,13 +149,13 @@
 					<template #moveTree>
 
 						<MoveDisplay
-							v-if="globalStore?.activeGame !== null"
-							:move-tree="globalStore.activeGame.move_tree"
+							v-if="boardState?.game"
+							:move-tree="boardState.game.move_tree"
 							@select-move="handleMoveSelect"
-							@navigate-start="navigateToStart"
-							@navigate-end="navigateToEnd"
-							@navigate-previous="navigateToPrevious"
-							@navigate-next="navigateToNext"
+							@navigate-start="gamesStore.navigateToStart(activeBoardId)"
+							@navigate-end="gamesStore.navigateToEnd(activeBoardId)"
+							@navigate-previous="gamesStore.previousMove(activeBoardId)"
+							@navigate-next="gamesStore.nextMove(activeBoardId)"
 						/>
 
 						<div
@@ -152,7 +171,33 @@
 
 					<template #engine>
 
-						<EngineAnalysisPanel :board-id="activeBoardId" />
+						<EngineAnalysisPanel
+							:board-id="activeBoardId"
+							:current-position-fen="
+								gamesStore.getCurrentPosition(activeBoardId)?.fen ?? null
+							"
+							:current-game-id="boardState?.game.id ?? null"
+							:engine-settings="
+								Object.entries(
+									engineAnalysisStore.getEngineSettings(selectedEngine),
+								)
+							"
+							:latest-analysis-result="analysis ?? null"
+							:latest-best-move="bestMove ?? null"
+							:is-analyzing="engineAnalysisStore.isAnalyzing(selectedEngine)"
+							:is-game-analysis-in-progress="
+								engineAnalysisStore.gameAnalysisInProgress
+							"
+							:available-engines="availableEngines"
+							:selected-engine="selectedEngine"
+							@update:selected-engine="selectedEngine = $event"
+							@load-engine="handleLoadEngine"
+							@unload-engine="engineAnalysisStore.unloadEngine($event)"
+							@start-analysis="handleStartAnalysis"
+							@stop-analysis="engineAnalysisStore.stopAnalysis(selectedEngine)"
+							@start-game-analysis="handleStartGameAnalysis"
+							@update:engine-settings="handleUpdateEngineSettings"
+						/>
 
 					</template>
 
@@ -167,7 +212,7 @@
 	<!-- Modals -->
 
 	<SettingsModal
-		:is-open="settingsModalOpen"
+		:is-open="uiStore.settingsModalOpen"
 		@close="uiStore.updateSettingsModalOpen(false)"
 	/>
 
@@ -182,7 +227,7 @@
 
 <script setup lang="ts">
 import { PhBooks, PhEngine, PhTree } from "@phosphor-icons/vue";
-import { computed, onMounted, provide, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import ChessBoard from "./components/ChessBoard/ChessBoard.vue";
 import EngineAnalysisPanel from "./components/EngineAnalysis/EngineAnalysisPanel.vue";
 import EvaluationBar from "./components/EvaluationBar/EvaluationBar.vue";
@@ -195,146 +240,214 @@ import MoveDisplay from "./components/MoveDisplay/MoveDisplay.vue";
 import Navbar from "./components/Navbar/Navbar.vue";
 import SettingsModal from "./components/Settings/SettingsModal.vue";
 import Toasts from "./components/Toast/Toasts.vue";
-import { useGlobalStore } from "./stores";
+import { API } from "./shared/api";
+import type { EngineSettings, ExplorerGame } from "./shared/types";
+import type { LegalMove } from "./shared/bindings";
+import { useEngineAnalysisStore } from "./stores/engineAnalysis";
+import { useGamesStore } from "./stores/games";
+import { useUIStore } from "./stores/ui";
+import { resetDatabase } from "./services/ImportExportService";
+
+const gamesStore = useGamesStore();
+const engineAnalysisStore = useEngineAnalysisStore();
+const uiStore = useUIStore();
 
 const importModalOpen = ref(false);
-const globalStore = useGlobalStore();
-const engineAnalysisStore = globalStore.engineAnalysisStore;
-const uiStore = globalStore.uiStore;
+const isLoading = ref(false);
+const error = ref<string | null>(null);
+async function execute<T>(promise: Promise<T>): Promise<T | undefined> {
+	isLoading.value = true;
+	error.value = null;
+	try {
+		return await promise;
+	} catch (e: any) {
+		error.value = e.message;
+	} finally {
+		isLoading.value = false;
+	}
+}
 
-// Layout state
-const layout = computed(() => uiStore.layout);
-const settingsModalOpen = computed(() => uiStore.getSettingsModalOpen);
-const displayLeftPanel = computed(() => uiStore.getLeftPanelOpen);
-const displayRightPanel = computed(() => uiStore.getRightPanelOpen);
+const explorerGames = ref<ExplorerGame[]>([]);
+async function refreshGamesClick() {
+	const result = await execute(API.games.list());
+	if (result) explorerGames.value = result;
+}
 
-// Multi-board support
-const activeBoardIds = computed(() => uiStore.getActiveBoardIds);
-const activeBoardId = computed(() => uiStore.getActiveBoardId);
-
-// Right panel tabs configuration
-const rightPanelSections = computed(() => [
-	{
-		id: "moveTree",
-		title: "Move Tree",
-		icon: PhTree,
-	},
-	{
-		id: "engine",
-		title: "Engine",
-		icon: PhEngine,
-	},
-]);
-
-const rightPanelActiveTab = computed(() => {
-	const panelState = uiStore.getStackedPanelState("rightPanel");
-	return panelState.activeTab || "moveTree";
+onMounted(async () => {
+	await refreshGamesClick();
+	engineAnalysisStore.initAnalysisService();
 });
 
-// Layout resize handlers
-const updateLeftPanelWidth = (width: number) => {
-	uiStore.updateLayoutDimension("leftPanelWidth", width);
-};
+// =================================================================================================
+// Board State
+// =================================================================================================
 
-const updateRightPanelWidth = (width: number) => {
-	uiStore.updateLayoutDimension("rightPanelWidth", width);
-};
+const activeBoardId = computed(() => uiStore.activeBoardId);
+const activeBoardIds = computed(() => uiStore.activeBoardIds);
+const boardState = computed(() =>
+	gamesStore.getBoardState(activeBoardId.value),
+);
+const currentPosition = computed(() =>
+	gamesStore.getCurrentPosition(activeBoardId.value),
+);
+const currentMove = computed(() =>
+	gamesStore.getCurrentMove(activeBoardId.value),
+);
 
-// Board management
-const setActiveBoardId = (boardId: number) => {
-	uiStore.setActiveBoardId(boardId);
-};
+const validMoves = ref<LegalMove[] | null>(null);
+watch(currentPosition, async (newPosition) => {
+	if (!newPosition) {
+		validMoves.value = null;
+		return;
+	}
+	validMoves.value = await gamesStore.getValidMoves(activeBoardId.value);
+});
 
-const closeBoardTab = (boardId: number) => {
-	uiStore.closeBoardTab(boardId);
-	globalStore.gamesStore.closeGame(boardId);
-};
+function handleMakeMove(move: LegalMove) {
+	gamesStore.makeMove(activeBoardId.value, move.uci);
+}
 
-const createNewBoard = () => {
+function handleMoveSelect(moveId: number) {
+	gamesStore.jumpToMove(activeBoardId.value, moveId);
+}
+
+function newGameClick() {
+	gamesStore.newGame(activeBoardId.value);
+}
+
+async function handleOpenGame(payload: { gameId: number; newBoard: boolean }) {
+	await gamesStore.openGame(payload.gameId, activeBoardId.value);
+}
+
+async function handleDeleteGame(gameId: number) {
+	const deleted = await gamesStore.deleteGame(gameId);
+	if (deleted) await refreshGamesClick();
+}
+
+async function handleUpdateGameProperty(payload: {
+	gameId: number;
+	field: string;
+	value: any;
+}) {
+	await API.games.update(payload.gameId, payload.field, payload.value);
+	await refreshGamesClick();
+}
+
+async function resetDatabaseClick() {
+	await resetDatabase();
+	await refreshGamesClick();
+	await gamesStore.newGame(activeBoardId.value);
+}
+
+// =================================================================================================
+// Board Tabs
+// =================================================================================================
+
+function createNewBoard() {
 	uiStore.createNewBoard();
-};
+}
 
-const renameBoard = (boardId: number, newName: string) => {
-	uiStore.renameBoard(boardId, newName);
-};
+function setActiveBoardId(boardId: number) {
+	uiStore.setActiveBoardId(boardId);
+}
 
-const saveBoard = (boardId: number) => {
-	globalStore.gamesStore.saveGame(boardId);
-	uiStore.updateBoardMetadata(boardId, { hasUnsavedChanges: false });
-};
+function closeBoardTab(boardId: number) {
+	gamesStore.closeGame(boardId);
+	uiStore.closeBoardTab(boardId);
+}
 
-// Existing handlers
-const refreshGamesClick = async () => {
-	await globalStore.fetchExplorerGames();
-};
+function renameBoard(boardId: number, name: string) {
+	uiStore.renameBoard(boardId, name);
+}
 
-const resetDatabaseClick = async () => {
-	await globalStore.resetDatabase();
-};
+async function saveBoard(boardId: number) {
+	await gamesStore.saveGame(boardId);
+}
 
-// Stacked panel handlers
-const handleLeftPanelSectionToggle = (
-	sectionId: string,
-	_collapsed: boolean,
-) => {
+// =================================================================================================
+// Panel Layout
+// =================================================================================================
+
+const layout = computed(() => uiStore.layout);
+const displayLeftPanel = computed(() => uiStore.leftPanelOpen);
+const displayRightPanel = computed(() => uiStore.rightPanelOpen);
+const isLeftPanelSectionCollapsed = (section: string) =>
+	uiStore
+		.getStackedPanelState("leftPanel")
+		?.collapsedSections?.includes(section) ?? false;
+const rightPanelActiveTab = computed(
+	() => uiStore.getStackedPanelState("rightPanel")?.activeTab,
+);
+
+const rightPanelSections = [
+	{ id: "moveTree", title: "Move Tree", icon: PhTree },
+	{ id: "engine", title: "Engine", icon: PhEngine },
+];
+
+function updateLeftPanelWidth(width: number) {
+	uiStore.updateLayoutDimension("leftPanelWidth", width);
+}
+
+function updateRightPanelWidth(width: number) {
+	uiStore.updateLayoutDimension("rightPanelWidth", width);
+}
+
+function toggleLeftPanelSection(sectionId: string) {
 	uiStore.toggleStackedPanelSection("leftPanel", sectionId);
-};
+}
 
-const toggleLeftPanelSection = (sectionId: string, _collapsed: boolean) => {
-	uiStore.toggleStackedPanelSection("leftPanel", sectionId);
-};
+function handleLeftPanelSectionToggle(sectionId: string, collapsed: boolean) {
+	if (
+		(isLeftPanelSectionCollapsed(sectionId) && !collapsed) ||
+		(!isLeftPanelSectionCollapsed(sectionId) && collapsed)
+	) {
+		uiStore.toggleStackedPanelSection("leftPanel", sectionId);
+	}
+}
 
-const isLeftPanelSectionCollapsed = (sectionId: string) => {
-	const panelState = uiStore.getStackedPanelState("leftPanel");
-	return panelState.collapsedSections?.includes(sectionId) ?? false;
-};
-
-const handleRightPanelTabChange = (tabId: string) => {
+function handleRightPanelTabChange(tabId: string) {
 	uiStore.setStackedPanelActiveTab("rightPanel", tabId);
-};
+}
 
-onMounted(() => {
-	globalStore.fetchExplorerGames();
+// =================================================================================================
+// Engine Analysis
+// =================================================================================================
 
-	// Load saved layout preferences
-	uiStore.loadLayoutPreferences();
-});
+const availableEngines = computed(() =>
+	Array.from(engineAnalysisStore.engines.keys()),
+);
+const selectedEngine = ref("Stockfish NNUE");
+const analysis = computed(() =>
+	engineAnalysisStore.getLatestAnalysisUpdate(selectedEngine.value),
+);
+const bestMove = computed(() =>
+	engineAnalysisStore.getLatestBestMove(selectedEngine.value),
+);
 
-// Setup default styles for Phosphor icons
-provide("color", "currentColor");
-provide("size", 30);
-provide("weight", "bold");
-provide("mirrored", false);
+function handleUpdateEngineSettings(payload: {
+	engine: string;
+	settings: EngineSettings;
+}) {
+	engineAnalysisStore.updateEngineSettings(payload.engine, payload.settings);
+}
 
-// Navigation event handlers for MoveTree
-const handleMoveSelect = async (moveId: number) => {
-	await globalStore.gamesStore.jumpToMove(activeBoardId.value, moveId);
-};
+async function handleLoadEngine(payload: { name: string; path: string }) {
+	await engineAnalysisStore.loadEngine(payload.name, payload.path);
+}
 
-const navigateToStart = async () => {
-	await globalStore.gamesStore.navigateToStart(activeBoardId.value);
-};
+async function handleStartAnalysis() {
+	const fen = gamesStore.getCurrentPosition(activeBoardId.value)?.fen;
+	if (fen) {
+		await engineAnalysisStore.analyzePosition(selectedEngine.value, fen);
+	}
+}
 
-const navigateToEnd = async () => {
-	await globalStore.gamesStore.navigateToEnd(activeBoardId.value);
-};
-
-const navigateToPrevious = async () => {
-	await globalStore.gamesStore.previousMove(activeBoardId.value);
-};
-
-const navigateToNext = async () => {
-	await globalStore.gamesStore.nextMove(activeBoardId.value);
-};
-
-const newGameClick = async () => {
-	// TODO: Add UI for selecting variant
-
-	const boardId = uiStore.createNewBoard();
-	await globalStore.gamesStore.newGame(boardId, "standard");
-
-	console.log("New game created:", globalStore.activeGame);
-};
+async function handleStartGameAnalysis() {
+	const gameId = boardState.value?.game.id;
+	if (gameId) {
+		await engineAnalysisStore.analyzeGame(selectedEngine.value, gameId);
+	}
+}
 </script>
 
 <style>

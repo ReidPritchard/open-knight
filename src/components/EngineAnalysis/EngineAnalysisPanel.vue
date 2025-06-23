@@ -11,12 +11,18 @@
 			<div class="flex gap-2 items-center flex-wrap">
 
 				<select
-					v-model="selectedEngine"
+					v-model="currentEngine"
 					class="select select-sm w-auto"
+					@change="
+						$emit(
+							'update:selectedEngine',
+							($event.target as HTMLSelectElement).value,
+						)
+					"
 				>
 
 					<option
-						v-for="engine in availableEngines"
+						v-for="engine in allEngines"
 						:key="engine"
 						:value="engine"
 					>
@@ -28,9 +34,9 @@
 				<!-- Load engine -->
 
 				<button
-					v-if="selectedEngine === 'New Engine'"
+					v-if="currentEngine === 'New Engine'"
 					class="btn btn-sm btn-primary"
-					@click="loadEngine()"
+					@click="loadEngine"
 				>
 					 Load
 				</button>
@@ -38,7 +44,7 @@
 				<button
 					v-else
 					class="btn btn-sm btn-primary"
-					@click="unloadEngine()"
+					@click="$emit('unload-engine', currentEngine)"
 				>
 					 Unload
 				</button>
@@ -46,14 +52,14 @@
 				<!-- Depth input -->
 
 				<input
-					v-if="selectedEngine !== 'New Engine'"
+					v-if="currentEngine !== 'New Engine'"
 					type="number"
 					v-model="depth"
 					class="input input-sm"
 				/>
 
 				<button
-					v-if="selectedEngine !== 'New Engine'"
+					v-if="currentEngine !== 'New Engine'"
 					class="btn btn-sm"
 					@click="isAnalyzing ? stopAnalysis() : startAnalysis()"
 					:class="{ 'btn-primary': !isAnalyzing, 'btn-warning': isAnalyzing }"
@@ -62,9 +68,9 @@
 				</button>
 
 				<button
-					v-if="selectedEngine !== 'New Engine'"
+					v-if="currentEngine !== 'New Engine'"
 					class="btn btn-sm btn-primary"
-					@click="startGameAnalysis()"
+					@click="startGameAnalysis"
 					:disabled="isGameAnalysisInProgress"
 				>
 					 Analyze Game
@@ -177,7 +183,7 @@
 			<!-- New Engine Form -->
 
 			<div
-				v-if="selectedEngine === 'New Engine'"
+				v-if="currentEngine === 'New Engine'"
 				class="flex flex-col gap-2 mb-4"
 			>
 
@@ -246,7 +252,7 @@
 			<!-- Engine settings -->
 
 			<EngineSettings
-				v-if="selectedEngine !== 'New Engine'"
+				v-if="currentEngine !== 'New Engine'"
 				:engine-settings="engineSettings"
 				@update:engine-settings="onEngineSettingsUpdate"
 				class="flex-1 min-h-0"
@@ -261,62 +267,46 @@
 <script setup lang="ts">
 import { PhBinary, PhIdentificationCard } from "@phosphor-icons/vue";
 import { computed, onMounted, ref, watch } from "vue";
-import type { EngineOption } from "../../shared/types";
-import { useGlobalStore } from "../../stores";
-import { useEngineAnalysisStore } from "../../stores/engineAnalysis";
+import type {
+	AnalysisUpdate,
+	BestMove,
+	EngineOption,
+	EngineSettings as TEngineSettings,
+} from "../../shared/types";
 import EngineSettings from "./EngineSettings.vue";
 
 const props = defineProps<{
 	boardId: number;
+	currentPositionFen: string | null;
+	currentGameId: number | null;
+	engineSettings: [string, EngineOption][];
+	latestAnalysisResult: AnalysisUpdate | null;
+	latestBestMove: BestMove | null;
+	isAnalyzing: boolean;
+	isGameAnalysisInProgress: boolean;
+	availableEngines: string[];
+	selectedEngine: string;
 }>();
 
-const globalStore = useGlobalStore();
-const gamesStore = globalStore.gamesStore;
+const emit = defineEmits<{
+	"load-engine": [payload: { name: string; path: string }];
+	"unload-engine": [engine: string];
+	"start-analysis": [payload: { engine: string; fen: string; depth: number }];
+	"stop-analysis": [engine: string];
+	"start-game-analysis": [payload: { engine: string; gameId: number }];
+	"update:engine-settings": [
+		payload: { engine: string; settings: TEngineSettings },
+	];
+	"update:selectedEngine": [engine: string];
+}>();
 
-const selectedEngine = ref<string>("New Engine");
-const availableEngines = ref<string[]>(["New Engine"]);
+const currentEngine = ref(props.selectedEngine);
 const newEngineName = ref<string>("");
 const newEnginePath = ref<string>("");
 const depth = ref<number>(20);
 const gameAnalysisProgress = ref({ current: 0, total: 0 });
 
-const engineAnalysisStore = useEngineAnalysisStore();
-
-const engineSettings = computed(() => {
-	// convert the engine settings from a map to a list of key-value pairs
-	return Object.entries(
-		engineAnalysisStore.getEngineSettings(selectedEngine.value) ?? {},
-	)
-		.filter(
-			([key, value]) =>
-				key !== undefined && value !== undefined && !key.includes("UCI"),
-		)
-		.map(
-			([key, value]) => [key, value as EngineOption] as [string, EngineOption],
-		)
-		.sort((a, b) => a[0].localeCompare(b[0]));
-});
-const currentPosition = computed(() => {
-	return gamesStore.getCurrentPosition(props.boardId);
-});
-const currentGame = computed(() => {
-	return gamesStore.getBoardState(props.boardId)?.game;
-});
-const latestAnalysisResult = computed(() => {
-	return engineAnalysisStore.getLatestAnalysisUpdate(selectedEngine.value);
-});
-const latestBestMove = computed(() => {
-	return engineAnalysisStore.getLatestBestMove(selectedEngine.value);
-});
-
-const isAnalyzing = computed(() => {
-	const engine = engineAnalysisStore.engines.get(selectedEngine.value);
-	return engine ? engine.isAnalyzing : false;
-});
-
-const isGameAnalysisInProgress = computed(
-	() => engineAnalysisStore.gameAnalysisInProgress,
-);
+const allEngines = computed(() => ["New Engine", ...props.availableEngines]);
 
 // Local storage key for saved engines
 const SAVED_ENGINES_KEY = "open-knight-saved-engines";
@@ -356,16 +346,6 @@ function getSavedEngines(): SavedEngine[] {
 	}
 }
 
-// Load saved engines into availableEngines
-function loadSavedEngines() {
-	const savedEngines = getSavedEngines();
-	for (const engine of savedEngines) {
-		if (!availableEngines.value.includes(engine.name)) {
-			availableEngines.value.push(engine.name);
-		}
-	}
-}
-
 // Get saved engine path by name
 function getSavedEnginePath(name: string): string | undefined {
 	const savedEngines = getSavedEngines();
@@ -373,14 +353,17 @@ function getSavedEnginePath(name: string): string | undefined {
 }
 
 // Watch for position changes to update analysis
-watch(currentPosition, (newPosition) => {
-	if (isAnalyzing.value && newPosition?.fen) {
-		startAnalysis();
-	}
-});
+watch(
+	() => props.currentPositionFen,
+	(newFen) => {
+		if (props.isAnalyzing && newFen) {
+			startAnalysis();
+		}
+	},
+);
 
 // Watch for engine selection changes to auto-populate saved engine paths
-watch(selectedEngine, (newEngine) => {
+watch(currentEngine, (newEngine) => {
 	if (newEngine !== "New Engine") {
 		const savedPath = getSavedEnginePath(newEngine);
 		if (savedPath) {
@@ -390,67 +373,47 @@ watch(selectedEngine, (newEngine) => {
 	}
 });
 
+watch(
+	() => props.selectedEngine,
+	(newEngine) => {
+		currentEngine.value = newEngine;
+	},
+);
+
 onMounted(async () => {
-	engineAnalysisStore.initAnalysisService();
-	loadSavedEngines();
+	// The parent component will be responsible for initializing the service
 });
 
-async function loadEngine() {
-	await engineAnalysisStore.loadEngine(
-		newEngineName.value,
-		newEnginePath.value,
-	);
+function loadEngine() {
+	emit("load-engine", {
+		name: newEngineName.value,
+		path: newEnginePath.value,
+	});
 
 	// Save engine configuration to localStorage
 	saveEngineToStorage(newEngineName.value, newEnginePath.value);
-
-	if (!availableEngines.value.includes(newEngineName.value)) {
-		availableEngines.value.push(newEngineName.value);
-	}
-	selectedEngine.value = newEngineName.value;
 }
 
-async function unloadEngine() {
-	await engineAnalysisStore.unloadEngine(selectedEngine.value);
-	selectedEngine.value = "New Engine";
+function startAnalysis() {
+	if (!props.currentPositionFen) return;
+	emit("start-analysis", {
+		engine: currentEngine.value,
+		fen: props.currentPositionFen,
+		depth: depth.value,
+	});
 }
 
-async function startAnalysis() {
-	if (!currentPosition.value?.fen) return;
-	try {
-		await engineAnalysisStore.analyzePosition(
-			selectedEngine.value,
-			currentPosition.value.fen,
-			depth.value,
-		);
-	} catch (error) {
-		console.error("Analysis error:", error);
-		engineAnalysisStore.setEngineAnalyzing(selectedEngine.value, false);
-	}
+function stopAnalysis() {
+	emit("stop-analysis", currentEngine.value);
 }
 
-async function stopAnalysis() {
-	try {
-		await engineAnalysisStore.stopAnalysis(selectedEngine.value);
-	} catch (error) {
-		console.error("Failed to stop analysis:", error);
-	}
-}
-
-async function startGameAnalysis() {
-	if (!currentGame.value) return;
-	try {
-		engineAnalysisStore.setGameAnalysisInProgress(true);
-		gameAnalysisProgress.value = { current: 0, total: 100 };
-		await engineAnalysisStore.analyzeGame(
-			selectedEngine.value,
-			currentGame.value.id,
-		);
-		engineAnalysisStore.setGameAnalysisInProgress(false);
-	} catch (error) {
-		console.error("Game analysis error:", error);
-		engineAnalysisStore.setGameAnalysisInProgress(false);
-	}
+function startGameAnalysis() {
+	if (!props.currentGameId) return;
+	gameAnalysisProgress.value = { current: 0, total: 100 };
+	emit("start-game-analysis", {
+		engine: currentEngine.value,
+		gameId: props.currentGameId,
+	});
 }
 
 function formatNodes(nodes: number): string {
@@ -482,10 +445,11 @@ function onEngineSettingsUpdate(updatedSettings: [string, EngineOption][]) {
 	// Update the engine settings in the store
 	const settingsObj: Record<string, EngineOption> =
 		Object.fromEntries(updatedSettings);
-	engineAnalysisStore.setEngineSettings(selectedEngine.value, settingsObj);
-}
 
-// TODO: At some point we should save them to the database, but that's a low priority for now.
-// NOTE: Basic localStorage saving is now implemented for engine name and path.
+	emit("update:engine-settings", {
+		engine: currentEngine.value,
+		settings: settingsObj,
+	});
+}
 </script>
 

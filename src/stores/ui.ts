@@ -62,11 +62,13 @@ export const useUIStore = defineStore("ui", {
 		defaultDarkTheme: (localStorage.getItem(defaultDarkThemeKey) ??
 			"dark") as DarkUITheme,
 		boardTheme: getDefaultBoardTheme(),
+		showCoordinates: true,
+		showLegalMoves: true,
 
 		boardSquareSize: 64,
 		_whiteOnSide: "top" as "top" | "bottom",
 
-		// Enhanced layout state
+		// Layout state
 		layout: {
 			leftPanelWidth: 300,
 			rightPanelWidth: 250,
@@ -127,6 +129,8 @@ export const useUIStore = defineStore("ui", {
 		getTheme: (state) => state.theme,
 		isDarkMode: (state) => darkUIThemes.includes(state.theme as DarkUITheme),
 		getBoardTheme: (state) => state.boardTheme,
+		getShowCoordinates: (state) => state.showCoordinates,
+		getShowLegalMoves: (state) => state.showLegalMoves,
 		getBoardSquareSize: (state) => state.boardSquareSize,
 		whiteOnSide: (state) => state._whiteOnSide,
 
@@ -220,6 +224,14 @@ export const useUIStore = defineStore("ui", {
 
 		updateBoardTheme(theme: BoardTheme) {
 			this.boardTheme = theme;
+		},
+
+		updateShowCoordinates(show: boolean) {
+			this.showCoordinates = show;
+		},
+
+		updateShowLegalMoves(show: boolean) {
+			this.showLegalMoves = show;
 		},
 
 		updateBoardSquareSize(size: number) {

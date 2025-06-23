@@ -7,6 +7,7 @@ import App from "./App.vue";
 import { ErrorHandler, ErrorSeverity } from "./services/ErrorService";
 import { useGlobalStore } from "./stores";
 import { useSettingsStore } from "./stores/settings";
+import { useAppProviders } from "./composables/useProviders";
 import {
 	warn,
 	debug,
@@ -53,12 +54,15 @@ const pinia = createPinia();
 
 app.use(pinia);
 
-// Initialize the app
-app.mount("#app");
-
-// Setup hotkeys after app is mounted to ensure stores are ready
+// Setup stores and dependency injection before mounting
 const settingsStore = useSettingsStore();
 const globalStore = useGlobalStore();
+
+// Provide real implementations for dependency injection
+await useAppProviders(app);
+
+// Initialize the app
+app.mount("#app");
 
 // Initialize error service after stores are ready
 // Set up error listener to show alerts to users
