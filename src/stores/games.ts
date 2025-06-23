@@ -19,21 +19,7 @@ import {
 	refreshGameState,
 	saveGameSession,
 } from "../services/GameService";
-import type { ChessGame } from "../shared/bindings";
-
-interface ActiveGameState {
-	id: number;
-	game: ChessGame;
-
-	// UI state
-	hideEvaluationBar: boolean;
-	hideBestMove: boolean;
-	hideThreats: boolean;
-
-	// Loading states
-	isLoading: boolean;
-	error: string | null;
-}
+import type { ActiveGameState } from "../shared/types";
 
 /**
  * A store for managing the states of ALL open games using session-focused API

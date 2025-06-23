@@ -218,7 +218,8 @@ const toggleCollapse = () => {
 const onEnter = (el: Element) => {
 	const element = el as HTMLElement;
 	element.style.height = "0";
-	element.offsetHeight; // Force reflow
+	// element.offsetHeight; // Force reflow
+	element.style.height = "auto";
 	element.style.height = `${element.scrollHeight}px`;
 };
 
@@ -230,7 +231,8 @@ const onAfterEnter = (el: Element) => {
 const onLeave = (el: Element) => {
 	const element = el as HTMLElement;
 	element.style.height = `${element.scrollHeight}px`;
-	element.offsetHeight; // Force reflow
+	// element.offsetHeight; // Force reflow
+	element.style.height = "auto";
 	element.style.height = "0";
 };
 

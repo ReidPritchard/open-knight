@@ -141,9 +141,12 @@ export const useSettingsStore = defineStore("settings", {
 
 		saveHotkeys() {
 			// Save hotkey configuration without the callbacks
-			const hotkeyConfig = this.hotkeys.map(
-				({ callback, ...config }) => config,
-			);
+			const hotkeyConfig = this.hotkeys.map(({ ...config }) => {
+				return {
+					...config,
+					callback: undefined,
+				};
+			});
 			localStorage.setItem("hotkeys", JSON.stringify(hotkeyConfig));
 		},
 

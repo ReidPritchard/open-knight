@@ -7,7 +7,7 @@ export default defineConfig({
 	storyMatch: ["**/*.story.vue"],
 	setupFile: "/src/histoire.setup.ts",
 	tree: {
-		file: "path",
+		file: "title",
 	},
 	collectMaxThreads: 4,
 	vite: {
@@ -31,5 +31,8 @@ export default defineConfig({
 				util: "util",
 			},
 		},
+	},
+	theme: {
+		title: "Open Knight",
 	},
 });

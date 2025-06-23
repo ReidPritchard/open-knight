@@ -2,34 +2,53 @@ import { App, provide } from "vue";
 import {
 	GlobalStoreKey,
 	ImportExportServiceKey,
+	createMockGlobalStore,
+	createMockImportExportService,
 	type IGlobalStore,
 	type IImportExportService,
 } from "./useInjection";
+
+// Helper to build real implementations for stores and services
+async function buildRealImplementations() {
+	const { useGlobalStore } = await import("../stores");
+	const ImportExportService = await import("../services/ImportExportService");
+	const globalStore = useGlobalStore();
+
+	const globalStoreImpl: IGlobalStore = {
+		importPGNGames: (pgn: string) => globalStore.importPGNGames(pgn),
+		updateGameProperty: (gameId, property, value) =>
+			globalStore.updateGameProperty(gameId, property, value),
+		fetchExplorerGames: async () => {
+			const result = await globalStore.fetchExplorerGames();
+			return Array.isArray(result) ? result : globalStore.explorerGames;
+		},
+		explorerGames: globalStore.explorerGames,
+	};
+
+	const importExportServiceImpl: IImportExportService = {
+		validatePGNFormat: ImportExportService.validatePGNFormat,
+		importPGNGames: ImportExportService.importPGNGames,
+		fetchExplorerGames: async () => {
+			const result = await ImportExportService.fetchExplorerGames();
+			return result && result.success && Array.isArray(result.data)
+				? result.data
+				: [];
+		},
+		searchGames: ImportExportService.searchGames,
+		filterGames: ImportExportService.filterGames,
+		sortGames: ImportExportService.sortGames,
+	};
+
+	return { globalStoreImpl, importExportServiceImpl };
+}
 
 /**
  * Provides the real implementations of stores and services
  * Call this in your main app setup
  */
 export const useProviders = async () => {
-	// Dynamically import to avoid loading issues in test environments
-	const { useGlobalStore } = await import("../stores");
-	const ImportExportService = await import("../services/ImportExportService");
-
-	const globalStore = useGlobalStore();
-
-	// Provide the real global store
-	const globalStoreImpl: IGlobalStore = {
-		importPGNGames: (pgn: string) => globalStore.importPGNGames(pgn),
-		// Add other methods as needed
-	};
-
-	// Provide the real import/export service
-	const importExportServiceImpl: IImportExportService = {
-		validatePGNFormat: ImportExportService.validatePGNFormat,
-		importPGNGames: ImportExportService.importPGNGames,
-		// Add other methods as needed
-	};
-
+	const { globalStoreImpl, importExportServiceImpl } =
+		await buildRealImplementations();
 	provide(GlobalStoreKey, globalStoreImpl);
 	provide(ImportExportServiceKey, importExportServiceImpl);
 };
@@ -39,23 +58,8 @@ export const useProviders = async () => {
  * Call this in your main app setup with the app instance
  */
 export const useAppProviders = async (app: App) => {
-	// Dynamically import to avoid loading issues in test environments
-	const { useGlobalStore } = await import("../stores");
-	const ImportExportService = await import("../services/ImportExportService");
-
-	const globalStore = useGlobalStore();
-
-	// Provide the real global store
-	const globalStoreImpl: IGlobalStore = {
-		importPGNGames: (pgn: string) => globalStore.importPGNGames(pgn),
-	};
-
-	// Provide the real import/export service
-	const importExportServiceImpl: IImportExportService = {
-		validatePGNFormat: ImportExportService.validatePGNFormat,
-		importPGNGames: ImportExportService.importPGNGames,
-	};
-
+	const { globalStoreImpl, importExportServiceImpl } =
+		await buildRealImplementations();
 	app.provide(GlobalStoreKey, globalStoreImpl);
 	app.provide(ImportExportServiceKey, importExportServiceImpl);
 };
@@ -65,47 +69,8 @@ export const useAppProviders = async (app: App) => {
  * Call this in your test setup or Histoire setup
  */
 export const useMockProviders = () => {
-	const mockGlobalStore: IGlobalStore = {
-		importPGNGames: async (pgn: string) => {
-			console.log("Mock: Would import PGN:", pgn);
-			await new Promise((resolve) => setTimeout(resolve, 1000));
-		},
-	};
-
-	const mockImportExportService: IImportExportService = {
-		validatePGNFormat: (pgn: string) => {
-			if (!pgn || pgn.trim().length === 0) {
-				return { isValid: false, error: "PGN content is empty" };
-			}
-
-			// Basic PGN validation
-			const lines = pgn.split("\n");
-			let hasGameMoves = false;
-			let hasHeaders = false;
-
-			for (const line of lines) {
-				const trimmedLine = line.trim();
-				if (trimmedLine.startsWith("[") && trimmedLine.endsWith("]")) {
-					hasHeaders = true;
-				}
-				if (trimmedLine.match(/^\d+\.?\s+[a-zA-Z]/)) {
-					hasGameMoves = true;
-				}
-			}
-
-			if (!hasHeaders && !hasGameMoves) {
-				return { isValid: false, error: "No valid PGN headers or moves found" };
-			}
-
-			return { isValid: true };
-		},
-		importPGNGames: async (pgn: string) => {
-			console.log("Mock service: Would import PGN:", pgn);
-			await new Promise((resolve) => setTimeout(resolve, 500));
-			return { success: true, data: undefined, error: undefined };
-		},
-	};
-
+	const mockGlobalStore = createMockGlobalStore();
+	const mockImportExportService = createMockImportExportService();
 	provide(GlobalStoreKey, mockGlobalStore);
 	provide(ImportExportServiceKey, mockImportExportService);
 };

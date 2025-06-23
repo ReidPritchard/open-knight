@@ -489,25 +489,39 @@ import {
 	PhSortDescending,
 	PhTrash,
 } from "@phosphor-icons/vue";
-import { computed, ref, watch } from "vue";
-import { useError } from "../../composables/useError";
+import { computed, inject, ref, watch } from "vue";
 import {
 	ExplorerGame,
 	FilterOption,
 	SortConfig,
 	SortOption,
 } from "../../shared/types";
-import { useGlobalStore } from "../../stores";
 import { ContextMenu, type MenuItem } from "../Layout/ContextMenu";
 import {
-	filterGames,
-	searchGames,
-	sortGames,
-} from "../../services/ImportExportService";
+	IImportExportService,
+	ImportExportServiceKey,
+} from "../../composables/useInjection";
 
-const globalStore = useGlobalStore();
-const uiStore = globalStore.uiStore;
-const gamesStore = globalStore.gamesStore;
+const props = defineProps<{
+	games: ExplorerGame[];
+	isLoading: boolean;
+	error: string | null;
+}>();
+
+const emit = defineEmits<{
+	"open-game": [payload: { gameId: number; newBoard: boolean }];
+	"delete-game": [gameId: number];
+	"update-game-property": [
+		payload: { gameId: number; field: string; value: string },
+	];
+	"refresh-games": [];
+}>();
+
+const importExportService = inject(
+	ImportExportServiceKey,
+) as IImportExportService;
+
+const { searchGames, filterGames, sortGames } = importExportService;
 
 // Reactive state
 const currentSort = ref<SortConfig>({
@@ -523,8 +537,6 @@ const editingField = ref<{
 	inputValue: string;
 } | null>(null);
 const page = ref(1);
-const isLoading = ref(false);
-const error = ref<string | null>(null);
 
 // Context menu state
 const contextMenu = ref({
@@ -581,7 +593,14 @@ const formatDate = (dateString?: string): string => {
 
 // Computed property for filtered and sorted games
 const gameList = computed(() => {
-	let games: ExplorerGame[] = [...(globalStore.explorerGames || [])];
+	let games: ExplorerGame[] = [...(props.games || [])];
+
+	if (!importExportService || !searchGames || !filterGames || !sortGames) {
+		console.warn(
+			"ImportExportService not provided correctly. Some features will not be available.",
+		);
+		return games;
+	}
 
 	games = searchGames(games, searchQuery.value);
 
@@ -673,18 +692,17 @@ const startEdit = (gameId: number, field: string, inputValue: string) => {
 const stopEdit = async () => {
 	// Save the value to the game
 	if (editingField.value) {
-		await globalStore.updateGameProperty(
-			editingField.value.gameId,
-			editingField.value.field,
-			editingField.value.inputValue,
-		);
+		emit("update-game-property", {
+			gameId: editingField.value.gameId,
+			field: editingField.value.field,
+			value: editingField.value.inputValue,
+		});
 	}
 	editingField.value = null;
 };
 
 const openGame = (gameId: number) => {
-	const activeBoardId = uiStore.activeBoardId;
-	gamesStore.openGame(gameId, activeBoardId);
+	emit("open-game", { gameId, newBoard: false });
 };
 
 const showContextMenu = (event: MouseEvent, gameId: number) => {
@@ -721,7 +739,7 @@ const handleContextMenuClick = async (itemId: string) => {
 			break;
 		case "open-new-board":
 			// Create new active board
-			gamesStore.openGame(gameId, uiStore.createNewBoard());
+			emit("open-game", { gameId, newBoard: true });
 			break;
 		case "edit":
 			break;
@@ -730,19 +748,9 @@ const handleContextMenuClick = async (itemId: string) => {
 			console.log("Export game:", gameId);
 			break;
 		case "delete":
-			if (await gamesStore.deleteGame(gameId)) {
-				uiStore.addAlert({
-					type: "success",
-					title: "Game deleted",
-					message: "Successfully deleted game",
-					timeout: 3000,
-				});
-			} else {
-				const { handleAPIError } = useError();
-				handleAPIError(error, "delete game", { gameId });
-			}
+			emit("delete-game", gameId);
 			// refresh the game list
-			globalStore.fetchExplorerGames();
+			emit("refresh-games");
 			break;
 	}
 };

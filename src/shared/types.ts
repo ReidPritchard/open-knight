@@ -15,6 +15,20 @@ import type {
 // generally types/constants could use some better organization
 // but that's a 'todo' for another day
 
+export interface ActiveGameState {
+	id: number;
+	game: ChessGame;
+
+	// UI state
+	hideEvaluationBar: boolean;
+	hideBestMove: boolean;
+	hideThreats: boolean;
+
+	// Loading states
+	isLoading: boolean;
+	error: string | null;
+}
+
 export interface NodeId {
 	idx: number;
 	version: number;

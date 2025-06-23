@@ -13,14 +13,20 @@
 
 		<Variant title="Default">
 
-			<div class="flex flex-col gap-4 w-full h-full">
+			<button
+				class="btn btn-primary mb-4"
+				@click="isOpen = true"
+			>
+				 Open Modal
+			</button>
 
-				<ImportModal
-					:is-open="isOpen"
-					@close="logEvent('close', $event)"
-				/>
-
-			</div>
+			<ImportModal
+				:is-open="isOpen"
+				@close="
+					logEvent('close', $event);
+					isOpen = false;
+				"
+			/>
 
 		</Variant>
 

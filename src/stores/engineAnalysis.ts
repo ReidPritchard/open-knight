@@ -29,6 +29,9 @@ export const useEngineAnalysisStore = defineStore("engineAnalysis", {
 			if (!engine) return undefined;
 			return EngineService.getLatestBestMove(engine);
 		},
+		isAnalyzing: (state) => (engineName: string) => {
+			return state.engines.get(engineName)?.isAnalyzing ?? false;
+		},
 		boardEvaluation: (state): Score => {
 			return EngineService.calculateBoardEvaluation(state.engines);
 		},
