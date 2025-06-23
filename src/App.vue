@@ -108,11 +108,7 @@
 									:position="gamesStore.getCurrentPosition(activeBoardId)"
 									:move="currentMove?.game_move ?? null"
 									:valid-moves="validMoves"
-									:has-next-move="hasNextMove"
-									:has-previous-move="hasPreviousMove"
 									@make-move="handleMakeMove"
-									@previous-move="gamesStore.previousMove(activeBoardId)"
-									@next-move="gamesStore.nextMove(activeBoardId)"
 									@rotate-board="uiStore.setWhiteOnSide()"
 									@resize-board="uiStore.updateBoardSquareSize($event)"
 								/>
@@ -297,10 +293,6 @@ const currentPosition = computed(() =>
 const currentMove = computed(() =>
 	gamesStore.getCurrentMove(activeBoardId.value),
 );
-const hasNextMove = computed(
-	() => (currentMove.value?.children_ids.length ?? 0) > 0,
-);
-const hasPreviousMove = computed(() => !!currentMove.value?.parent_id);
 
 const validMoves = ref<LegalMove[] | null>(null);
 watch(currentPosition, async (newPosition) => {
