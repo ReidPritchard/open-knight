@@ -45,15 +45,6 @@
 
 		</div>
 
-		<div
-			v-else
-			class="flex items-center gap-2 text-sm"
-		>
-
-			<span class="text-base-content/60">No evaluation</span>
-
-		</div>
-
 		<!-- Time info -->
 
 		<div
@@ -74,21 +65,9 @@
 
 		</div>
 
-		<div
-			v-else
-			class="flex items-center gap-2 text-sm"
-		>
-
-			<span class="text-base-content/60">No time info</span>
-
-		</div>
-
 		<!-- Annotations -->
 
-		<div
-			v-if="currentAnnotations.length > 0"
-			class="space-y-2"
-		>
+		<div class="space-y-2">
 
 			<div
 				v-for="annotation in currentAnnotations"
@@ -131,15 +110,6 @@
 
 		</div>
 
-		<div
-			v-else
-			class="flex items-center gap-2 text-sm"
-		>
-
-			<span class="text-base-content/60">No annotations</span>
-
-		</div>
-
 	</div>
 
 </template>
@@ -169,6 +139,10 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+
+const emit = defineEmits<{
+	(e: "update-move-comment", value: string): void;
+}>();
 
 const { formatEvaluation, formatTime } = useFormatting();
 
@@ -255,7 +229,19 @@ const currentAnnotations = computed((): ChessAnnotation[] => {
 
 const handleCommentInput = (event: Event) => {
 	const textarea = event.target as HTMLTextAreaElement;
-	textarea.value = textarea.value.replace(/[^a-zA-Z0-9\s]/g, "");
+	// TODO: Tweak the regex to allow more characters
+	// eventually we want to extract any references to squares, moves, etc.
+	// and replace them with interactive elements (e.g. hovering over a square
+	// should temporarily highlight the square on the board)
+	const comment = textarea.value.replace(/[^a-zA-Z0-9.,!?\s]/g, "");
+	emit("update-move-comment", comment);
+
+	// FIXME: The parent component should handle the update of the comment
+	// in the currentNode which is then passed back to the MoveInfo component
+	// to update the comment in the currentNode.
+	// However, this isn't implemented yet, so we need to update the
+	// element's comment/value directly.
+	textarea.value = comment;
 };
 </script>
 
