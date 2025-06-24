@@ -74,6 +74,7 @@ pub fn run() {
             // Engine commands
             api::commands::engine::load_engine,
             api::commands::engine::unload_engine,
+            api::commands::engine::analyze_move,
             api::commands::engine::analyze_position,
             api::commands::engine::stop_analysis,
             api::commands::engine::set_engine_option,
