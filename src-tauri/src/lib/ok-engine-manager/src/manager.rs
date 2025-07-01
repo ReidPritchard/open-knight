@@ -1,10 +1,12 @@
 use log::{error, info};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter};
 use tokio::process::Command;
 
 use ok_parse::uci::OptionDefinition;
+
+use crate::events::EventEmitter;
 
 use super::events::{EngineStateInfoEvent, EventBus};
 use super::utils::EngineError;
@@ -17,28 +19,94 @@ use super::{
     state::engine_state::{EngineReadyState, EngineStateInfo},
 };
 
+/// Time management strategies for analysis
+///
+/// For a single position analysis, total and fixed result in the same behavior.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TimeStrategy {
+    /// Total time budget distributed across all moves
+    TotalBudget {
+        total_seconds: u64,
+    },
+    // Fixed time per move
+    FixedPerMove {
+        seconds_per_move: u64,
+    },
+    /// Fixed depth per move
+    FixedDepth {
+        depth: u32,
+    },
+}
+
+impl Default for TimeStrategy {
+    fn default() -> Self {
+        TimeStrategy::TotalBudget { total_seconds: 60 }
+    }
+}
+
+/// Engine analysis configuration for a game
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EngineAnalysisConfig {
+    /// Time management strategy
+    pub time_strategy: TimeStrategy,
+    /// Include variations in the analysis
+    pub include_variations: bool,
+    /// The name of the engine to use
+    pub engine_name: String,
+}
+
+impl Default for EngineAnalysisConfig {
+    fn default() -> Self {
+        Self {
+            time_strategy: TimeStrategy::default(),
+            include_variations: false,
+            engine_name: "stockfish".to_string(),
+        }
+    }
+}
+
 /// A struct for managing multiple engine processes
 ///
 /// An interface for easily managing multiple engine processes
 /// Currently the manager only uses EngineStateInfo as the engine state
 /// It's possible this will change in the future to support more complex
 /// or unique engine states
-pub struct EngineManager {
+pub struct EngineManager<Emitter>
+where
+    Emitter: EventEmitter + Send + Sync + 'static,
+{
     engines: HashMap<String, EngineProcess<EngineStateInfo>>,
     engine_names: Vec<String>,
+    event_emitter: Option<Arc<Emitter>>,
 }
 
-impl Default for EngineManager {
+impl<Emitter> Default for EngineManager<Emitter>
+where
+    Emitter: EventEmitter + Send + Sync + 'static,
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl EngineManager {
+impl<Emitter> EngineManager<Emitter>
+where
+    Emitter: EventEmitter + Send + Sync + 'static,
+{
     pub fn new() -> Self {
         Self {
             engines: HashMap::new(),
             engine_names: Vec::new(),
+            event_emitter: None,
+        }
+    }
+
+    /// Create a new EngineManager with an event emitter
+    pub fn with_emitter(event_emitter: Arc<Emitter>) -> Self {
+        Self {
+            engines: HashMap::new(),
+            engine_names: Vec::new(),
+            event_emitter: Some(event_emitter),
         }
     }
 
@@ -49,7 +117,6 @@ impl EngineManager {
         &mut self,
         name: &str,
         path: &str,
-        app_handle: Arc<AppHandle>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // TODO: Improve check if the exact engine is already loaded
         // If it is, return an error
@@ -74,9 +141,15 @@ impl EngineManager {
                 info!("Engine has been initialized");
 
                 // Emit the engine options
-                let options = engine.query_state(|state| state.capabilities.clone()).await;
-                if let Ok(options_payload) = serde_json::to_string(&(name.to_string(), options)) {
-                    let _ = app_handle.emit("engine-options", options_payload);
+                let options = engine
+                    .query_state(|state| state.capabilities.clone())
+                    .await;
+                if let Ok(options_payload) =
+                    serde_json::to_string(&(name.to_string(), options))
+                {
+                    if let Some(ref emitter) = self.event_emitter {
+                        emitter.emit_event("engine-options", options_payload);
+                    }
                 }
             }
             Err(e) => {
@@ -85,10 +158,16 @@ impl EngineManager {
             }
         }
 
-        // Start debounced event emission to frontend
+        // Start debounced event emission
         let event_bus = engine.event_bus();
         if let Ok(event_bus) = event_bus {
-            Self::spawn_debounced_event_emitter(name.to_string(), event_bus, app_handle.clone());
+            if let Some(ref emitter) = self.event_emitter {
+                Self::spawn_debounced_event_emitter(
+                    name.to_string(),
+                    event_bus,
+                    emitter.clone(),
+                );
+            }
         } else {
             error!("Failed to get event bus for engine: {}", name);
         }
@@ -102,7 +181,7 @@ impl EngineManager {
     fn spawn_debounced_event_emitter(
         engine_name: String,
         event_bus: &EventBus,
-        app_handle: Arc<AppHandle>,
+        event_emitter: Arc<Emitter>,
     ) {
         let mut rx = event_bus.subscribe::<EngineStateInfoEvent>();
         tokio::spawn(async move {
@@ -119,7 +198,7 @@ impl EngineManager {
                 //     _ = ticker.tick() => {
                 //         if let Some(event) = last_event.take() {
                 //             if let Ok(payload) = serde_json::to_string(&(engine_name.clone(), event)) {
-                //                 let _ = app_handle.emit("engine-output", payload);
+                //                 event_emitter.emit("engine-output", payload);
                 //             }
                 //         }
                 //     }
@@ -128,8 +207,10 @@ impl EngineManager {
                 // For now just emit every event
                 let event = rx.recv().await;
                 if let Some(event) = event {
-                    if let Ok(payload) = serde_json::to_string(&(engine_name.clone(), event)) {
-                        let _ = app_handle.emit("engine-output", payload);
+                    if let Ok(payload) =
+                        serde_json::to_string(&(engine_name.clone(), event))
+                    {
+                        event_emitter.emit_event("engine-output", payload);
                     }
                 }
             }
@@ -148,9 +229,12 @@ impl EngineManager {
                     info!("Engine killed: {}", name);
                     // Clean up the engine state
                     let _ = self.engines.remove(name);
-                    let _ = self
-                        .engine_names
-                        .remove(self.engine_names.iter().position(|x| x == name).unwrap());
+                    let _ = self.engine_names.remove(
+                        self.engine_names
+                            .iter()
+                            .position(|x| x == name)
+                            .unwrap(),
+                    );
                 }
                 Err(e) => {
                     error!("Failed to kill engine: {:?}", e);
@@ -163,9 +247,15 @@ impl EngineManager {
 }
 
 /// Engine Manager - Public engine management interface
-impl EngineManager {
+impl<Emitter> EngineManager<Emitter>
+where
+    Emitter: EventEmitter + Send + Sync + 'static,
+{
     /// Get a specific engine by name
-    pub fn get_engine(&self, name: &str) -> Option<&EngineProcess<EngineStateInfo>> {
+    pub fn get_engine(
+        &self,
+        name: &str,
+    ) -> Option<&EngineProcess<EngineStateInfo>> {
         self.engines.get(name)
     }
 
@@ -188,7 +278,8 @@ impl EngineManager {
         name: &str,
     ) -> Option<HashMap<String, OptionDefinition>> {
         if let Some(engine) = self.engines.get(name) {
-            let capabilities = engine.query_state(|state| state.capabilities.clone()).await;
+            let capabilities =
+                engine.query_state(|state| state.capabilities.clone()).await;
             Some(capabilities)
         } else {
             None
@@ -229,7 +320,8 @@ impl EngineManager {
         info!("Setting position for engines");
         let engine_names: Vec<_> = self.engine_names.clone();
         for engine_name in engine_names.iter() {
-            let result = self.set_engine_position(engine_name, fen, moves).await;
+            let result =
+                self.set_engine_position(engine_name, fen, moves).await;
             if result.is_err() {
                 return Err(result.unwrap_err());
             }
@@ -239,16 +331,17 @@ impl EngineManager {
     }
 
     /// Start analysis for all engines
-    pub async fn start_analysis(
+    pub async fn start_position_analysis(
         &mut self,
         depth: Option<u32>,
         time_ms: Option<u32>,
+        multipv: Option<u32>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         info!("Starting analysis for engines");
         let engine_names: Vec<_> = self.engine_names.clone();
         for engine_name in engine_names.iter() {
             let result = self
-                .start_engine_analysis(engine_name, depth, time_ms)
+                .start_engine_analysis(engine_name, depth, time_ms, multipv)
                 .await;
             if result.is_err() {
                 return Err(result.unwrap_err());
@@ -258,8 +351,34 @@ impl EngineManager {
         Ok(())
     }
 
+    /// Set and start position analysis for a specific engine
+    pub async fn quick_start_position_analysis_for(
+        &mut self,
+        engine_name: &str,
+        position_fen: &str,
+        depth: Option<u32>,
+        time_ms: Option<u32>,
+        multipv: Option<u32>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Ensure the engine exists
+        let engine = self.engines.get_mut(engine_name);
+        if engine.is_none() {
+            return Err("Engine not found".into());
+        }
+
+        // Set the position
+        self.set_engine_position(engine_name, Some(position_fen), None)
+            .await?;
+
+        // Start analysis
+        self.start_engine_analysis(engine_name, depth, time_ms, multipv)
+            .await
+    }
+
     /// Stop analysis for all engines
-    pub async fn stop_analysis(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn stop_analysis(
+        &mut self
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let engine_names: Vec<_> = self.engine_names.clone();
         for engine_name in engine_names.iter() {
             let result = self.stop_engine_analysis(engine_name).await;
@@ -273,7 +392,10 @@ impl EngineManager {
 }
 
 /// Engine Manager - Internal engine management interface
-impl EngineManager {
+impl<Emitter> EngineManager<Emitter>
+where
+    Emitter: EventEmitter + Send + Sync,
+{
     /// Set the position for a specific engine
     async fn set_engine_position(
         &mut self,
@@ -306,10 +428,13 @@ impl EngineManager {
         name: &str,
         depth: Option<u32>,
         time_ms: Option<u32>,
+        multipv: Option<u32>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let engine = self.engines.get_mut(name).unwrap();
         let start_analysis_result = match engine.input_handler() {
-            Ok(handler) => handler.start_analysis(depth, time_ms).await,
+            Ok(handler) => {
+                handler.start_analysis(depth, time_ms, multipv).await
+            }
             Err(e) => {
                 error!("Failed to get input handler: {:?}", e);
                 return Err(Box::new(e));

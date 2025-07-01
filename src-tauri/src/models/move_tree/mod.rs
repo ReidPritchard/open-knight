@@ -10,6 +10,7 @@ use log::{debug, error, info, warn};
 mod mutation;
 mod navigation;
 pub mod parse;
+pub mod util;
 
 ts_export! {
     pub struct ChessMoveTree {
@@ -34,10 +35,19 @@ ts_export! {
     }
 }
 
-/**
- * Implement Constructors
- */
+impl Default for ChessMoveTree {
+    fn default() -> Self {
+        Self {
+            game_id: 0,
+            nodes: SlotMap::new(),
+            root_id: None,
+            current_node_id: None,
+        }
+    }
+}
+
 impl ChessMoveTree {
+    /// Create a new move tree with a root node at the given position
     pub fn new(game_id: i32, root_position: ChessPosition) -> Self {
         let mut tree = ChessMoveTree {
             game_id: game_id,
@@ -56,22 +66,9 @@ impl ChessMoveTree {
 
         tree
     }
-}
 
-impl Default for ChessMoveTree {
-    fn default() -> Self {
-        Self {
-            game_id: 0,
-            nodes: SlotMap::new(),
-            root_id: None,
-            current_node_id: None,
-        }
-    }
-}
-
-impl ChessMoveTree {
     /// Save all moves in the tree to the database, preserving the tree structure
-    /// This method uses an iterative approach to avoid stack overflow with deep trees
+    /// This method uses an iterative approach to avoid stack overflows with deep trees
     pub async fn save_moves_to_db<C>(
         &self,
         db: &C,
@@ -235,6 +232,7 @@ impl ChessMoveTree {
 
         Ok(())
     }
+
     /// Hash a FEN string for position deduplication
     fn hash_fen(fen: &str) -> String {
         use std::hash::{DefaultHasher, Hasher};

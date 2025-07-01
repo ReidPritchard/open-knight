@@ -1,6 +1,6 @@
-use crate::engine::events::EngineStateInfoEvent;
-use crate::engine::state::engine_state::{EngineReadyState, EngineStateInfo};
-use crate::engine::utils::EngineError;
+use crate::events::EngineStateInfoEvent;
+use crate::state::engine_state::{EngineReadyState, EngineStateInfo};
+use crate::utils::EngineError;
 use ok_parse::uci::{parse_engine_response, EngineResponse};
 
 use super::{EngineCommand, ParserOutput, ProtocolComposer, ProtocolParser};
@@ -12,30 +12,48 @@ impl ProtocolParser for UciProtocolParser {
     type State = EngineStateInfo;
     type Output = ParserOutput<EngineStateInfo>;
 
-    fn parse_line(&self, line: &str) -> Result<ParserOutput<EngineStateInfo>, EngineError> {
+    fn parse_line(
+        &self,
+        line: &str,
+    ) -> Result<ParserOutput<EngineStateInfo>, EngineError> {
         match parse_engine_response(line) {
             Ok(tokens) => match tokens {
                 EngineResponse::UciOk => Ok(ParserOutput::StateUpdate(
-                    EngineStateInfoEvent::ReadyStateChanged(EngineReadyState::Initialized),
+                    EngineStateInfoEvent::ReadyStateChanged(
+                        EngineReadyState::Initialized,
+                    ),
                 )),
                 EngineResponse::ReadyOk => Ok(ParserOutput::StateUpdate(
-                    EngineStateInfoEvent::ReadyStateChanged(EngineReadyState::Ready),
+                    EngineStateInfoEvent::ReadyStateChanged(
+                        EngineReadyState::Ready,
+                    ),
                 )),
                 EngineResponse::Id(id) => Ok(ParserOutput::StateUpdate(
                     EngineStateInfoEvent::InfoUpdate(id),
                 )),
-                EngineResponse::Option(option) => Ok(ParserOutput::StateUpdate(
-                    EngineStateInfoEvent::CapabilityAdded(option.name.clone(), option),
-                )),
+                EngineResponse::Option(option) => {
+                    Ok(ParserOutput::StateUpdate(
+                        EngineStateInfoEvent::CapabilityAdded(
+                            option.name.clone(),
+                            option,
+                        ),
+                    ))
+                }
                 EngineResponse::Info(info) => Ok(ParserOutput::StateUpdate(
                     EngineStateInfoEvent::AnalysisUpdate(info),
                 )),
-                EngineResponse::BestMove { best_move, ponder } => Ok(ParserOutput::StateUpdate(
-                    EngineStateInfoEvent::BestMove(best_move, ponder),
+                EngineResponse::BestMove { best_move, ponder } => {
+                    Ok(ParserOutput::StateUpdate(
+                        EngineStateInfoEvent::BestMove(best_move, ponder),
+                    ))
+                }
+                _ => Err(EngineError::ProtocolFailedToParseLine(
+                    line.to_string(),
                 )),
-                _ => Err(EngineError::ProtocolFailedToParseLine(line.to_string())),
             },
-            Err(_e) => Err(EngineError::ProtocolFailedToParseLine(line.to_string())),
+            Err(_e) => {
+                Err(EngineError::ProtocolFailedToParseLine(line.to_string()))
+            }
         }
     }
 
@@ -48,7 +66,10 @@ impl ProtocolParser for UciProtocolParser {
 pub struct UciProtocolComposer;
 
 impl ProtocolComposer for UciProtocolComposer {
-    fn compose(&self, command: EngineCommand) -> Result<String, EngineError> {
+    fn compose(
+        &self,
+        command: EngineCommand,
+    ) -> Result<String, EngineError> {
         match command {
             EngineCommand::Raw(cmd) => Ok(cmd),
             EngineCommand::IsReady => Ok("isready".to_string()),
@@ -121,7 +142,10 @@ impl ProtocolComposer for UciProtocolComposer {
         "UCI"
     }
 
-    fn supports_feature(&self, feature: &str) -> bool {
+    fn supports_feature(
+        &self,
+        feature: &str,
+    ) -> bool {
         match feature {
             "multipv" | "searchmoves" | "depth" | "movetime" | "nodes" => true,
             _ => false,

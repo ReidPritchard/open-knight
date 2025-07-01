@@ -14,6 +14,9 @@ tauri-build = { version = "2.0.0", features = [] }
 
 [dependencies]
 tauri = { version = "2.0.0", features = ["macos-private-api"] }
+ok-parse = { path = "./src/lib/ok-parse" }
+ok-analysis = { path = "./src/lib/ok-analysis" }
+ok-engine-manager = { path = "./src/lib/ok-engine-manager" }
 tauri-plugin-shell = "2.2.1"
 log = "0.4.27"
 serde = { version = "1", features = ["derive"] }
@@ -36,15 +39,18 @@ anyhow = "1.0"
 thiserror = "2"
 slotmap = { version = "1.0", features = ["serde"] }
 itertools = "0.14.0"
-ok-parse = { path = "./src/lib/ok-parse" }
 tauri-plugin-log = "2"
 
 [workspace]
 members = ["./src/lib/*"]
 
 [workspace.dependencies]
+ok-parse = { path = "./src/lib/ok-parse" }
 chumsky = "0.9.0"
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 log = "0.4.27"
 pretty_env_logger = "0.5.0"
+shakmaty = "0.27.2"
+tokio = { version = "1", features = ["full"] }

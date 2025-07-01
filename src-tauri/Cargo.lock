@@ -2976,6 +2976,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "ok-analysis"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "pretty_env_logger",
+ "serde",
+ "shakmaty",
+ "thiserror 2.0.11",
+]
+
+[[package]]
+name = "ok-engine-manager"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "ok-parse",
+ "pretty_env_logger",
+ "serde",
+ "serde_json",
+ "shakmaty",
+ "thiserror 2.0.11",
+ "tokio",
+]
+
+[[package]]
 name = "ok-parse"
 version = "0.1.0"
 dependencies = [
@@ -3011,6 +3036,8 @@ dependencies = [
  "anyhow",
  "itertools 0.14.0",
  "log",
+ "ok-analysis",
+ "ok-engine-manager",
  "ok-parse",
  "rustls",
  "sea-orm",

@@ -5,7 +5,6 @@ use tauri_plugin_log::{Target, TargetKind};
 
 pub mod api;
 pub mod db;
-pub mod engine;
 pub mod entities;
 pub mod macros;
 pub mod migrations;

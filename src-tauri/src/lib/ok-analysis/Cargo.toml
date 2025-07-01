@@ -1,0 +1,13 @@
+[package]
+name = "ok-analysis"
+version = "0.1.0"
+description = "An Open Knight library for chess analysis logic"
+authors = ["Reid Pritchard"]
+edition = "2021"
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true }
+log = { workspace = true }
+pretty_env_logger = { workspace = true }
+shakmaty = { workspace = true }

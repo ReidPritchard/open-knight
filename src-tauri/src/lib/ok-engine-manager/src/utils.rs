@@ -2,6 +2,8 @@
 
 use serde::Serialize;
 
+use super::manager::TimeStrategy;
+
 /// Comprehensive error types
 #[derive(Debug, Clone, Serialize, thiserror::Error)]
 pub enum EngineError {
@@ -57,4 +59,25 @@ pub enum EngineError {
     /// Output handler already started
     #[error("Output handler already started: {0}")]
     OutputHandlerAlreadyStarted(String),
+}
+
+/// Calculate analysis time per position based on strategy
+pub fn calculate_analysis_time(
+    time_strategy: &TimeStrategy,
+    total_positions: usize,
+) -> (Option<u32>, Option<u32>) {
+    match time_strategy {
+        TimeStrategy::TotalBudget { total_seconds } => {
+            let time_per_position = if total_positions > 0 {
+                total_seconds / total_positions as u64
+            } else {
+                10 // Default fallback
+            };
+            (None, Some(time_per_position as u32 * 1000)) // Convert to milliseconds
+        }
+        TimeStrategy::FixedPerMove { seconds_per_move } => {
+            (None, Some(*seconds_per_move as u32 * 1000))
+        }
+        TimeStrategy::FixedDepth { depth } => (Some(*depth), None),
+    }
 }

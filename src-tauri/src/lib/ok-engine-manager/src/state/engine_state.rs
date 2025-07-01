@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::engine::events::EngineStateInfoEvent;
-use crate::engine::utils::EngineError;
+use crate::events::EngineStateInfoEvent;
+use crate::utils::EngineError;
 use ok_parse::uci::{IdInfo, InfoParams, OptionDefinition, ProtectionStatus};
 use serde::Serialize;
 
@@ -80,23 +80,35 @@ impl Default for EngineStateInfo {
 
 impl EngineStateInfo {
     /// Set the engine's readiness state
-    pub fn set_ready_state(&mut self, ready_state: EngineReadyState) {
+    pub fn set_ready_state(
+        &mut self,
+        ready_state: EngineReadyState,
+    ) {
         self.ready_state = ready_state;
     }
 
     /// Add a capability to the engine
-    pub fn add_capability(&mut self, capability: OptionDefinition) {
+    pub fn add_capability(
+        &mut self,
+        capability: OptionDefinition,
+    ) {
         self.capabilities
             .insert(capability.name.clone(), capability);
     }
 
     /// Set the current position
-    pub fn set_current_position(&mut self, position: String) {
+    pub fn set_current_position(
+        &mut self,
+        position: String,
+    ) {
         self.current_position = Some(position);
     }
 
     /// Set the ongoing analysis
-    pub fn set_analysis(&mut self, analysis: Analysis) {
+    pub fn set_analysis(
+        &mut self,
+        analysis: Analysis,
+    ) {
         self.analysis = Some(analysis);
     }
 
@@ -109,7 +121,10 @@ impl EngineStateInfo {
     pub fn debug_info(&self) -> String {
         let mut info = String::new();
         info.push_str(&format!("Ready State: {:?}\n", self.ready_state));
-        info.push_str(&format!("Current Position: {:?}\n", self.current_position));
+        info.push_str(&format!(
+            "Current Position: {:?}\n",
+            self.current_position
+        ));
         if let Some(analysis) = &self.analysis {
             info.push_str(&"Analysis Updates:\n".to_string());
             for update in &analysis.updates {
@@ -134,7 +149,10 @@ impl EngineStateInfo {
             if cap.min.is_some() || cap.max.is_some() {
                 let min = cap.min.unwrap_or(0);
                 let max = cap.max.unwrap_or(0);
-                info.push_str(&format!("        range: {:?}..{:?}\n", min, max));
+                info.push_str(&format!(
+                    "        range: {:?}..{:?}\n",
+                    min, max
+                ));
             }
             if !cap.var.is_empty() {
                 info.push_str(&format!("        options: {:?}\n", cap.var));
@@ -149,7 +167,10 @@ impl super::EngineState for EngineStateInfo {
     type Update = EngineStateInfoEvent;
     type Event = EngineStateInfoEvent;
 
-    fn apply_update(&mut self, update: Self::Update) -> Result<Self::Event, EngineError> {
+    fn apply_update(
+        &mut self,
+        update: Self::Update,
+    ) -> Result<Self::Event, EngineError> {
         match update {
             EngineStateInfoEvent::InfoUpdate(info) => {
                 let id_info = info.clone();

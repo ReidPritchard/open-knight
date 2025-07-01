@@ -56,9 +56,11 @@ ts_export! {
 ts_export! {
     pub struct ChessEvaluation {
         pub score: Option<f32>,
-        pub eval_type: Option<String>,
+        pub eval_type: Option<String>, // TODO: Remove this in favor of is_mate
+        pub is_mate: bool, // Whether this is a mate score
         pub depth: Option<i32>,
         pub engine: Option<String>,
+        pub principal_variation: Vec<String>,
     }
 }
 

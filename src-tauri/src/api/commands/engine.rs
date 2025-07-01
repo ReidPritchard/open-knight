@@ -1,14 +1,23 @@
+use std::time::Duration;
+
 use super::AppState;
-use crate::engine::protocol::OptionValue;
 use crate::utils::AppError;
-use log::{debug, error};
+use log::{debug, error, info};
+use ok_analysis::*;
+use ok_engine_manager::{
+    events::EngineStateInfoEvent, manager::EngineAnalysisConfig,
+    protocol::OptionValue, utils::calculate_analysis_time,
+};
 use tauri::State;
+use tokio::time::sleep;
 
 /// Gets the state of all loaded chess engines
 ///
 /// Returns a JSON string containing the state of all engines.
 #[tauri::command]
-pub async fn get_all_engine_state(state: State<'_, AppState>) -> Result<String, String> {
+pub async fn get_all_engine_state(
+    state: State<'_, AppState>
+) -> Result<String, String> {
     let engine_manager = state.engine_manager.lock().await;
     let states = engine_manager.get_all_engine_state().await;
     Ok(serde_json::to_string(&states).unwrap())
@@ -30,9 +39,7 @@ pub async fn load_engine(
     debug!("Loading engine: {}", name);
 
     let mut engine_manager = state.engine_manager.lock().await;
-    let result = engine_manager
-        .add_uci_engine(&name, &path, state.app_handle.clone())
-        .await;
+    let result = engine_manager.add_uci_engine(&name, &path).await;
     drop(engine_manager);
 
     match result {
@@ -49,7 +56,10 @@ pub async fn load_engine(
 /// Parameters:
 /// - `name`: The name of the engine to unload
 #[tauri::command]
-pub async fn unload_engine(name: String, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn unload_engine(
+    name: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     let mut engine_manager = state.engine_manager.lock().await;
     let result = engine_manager.remove_engine(&name).await;
     drop(engine_manager);
@@ -71,6 +81,7 @@ pub async fn analyze_position(
     fen: String,
     depth: Option<usize>,
     time_ms: Option<usize>,
+    multipv: Option<u32>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     debug!("Analyzing position");
@@ -82,7 +93,11 @@ pub async fn analyze_position(
         .map_err(|e| e.to_string())?;
 
     let result = engine_manager
-        .start_analysis(depth.map(|d| d as u32), time_ms.map(|t| t as u32))
+        .start_position_analysis(
+            depth.map(|d| d as u32),
+            time_ms.map(|t| t as u32),
+            Some(multipv.unwrap_or(1)),
+        )
         .await;
 
     drop(engine_manager);
@@ -102,6 +117,7 @@ pub async fn analyze_move(
     board_id: i32,
     depth: Option<usize>,
     time_ms: Option<usize>,
+    multipv: Option<u32>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     // First get the game session
@@ -113,7 +129,8 @@ pub async fn analyze_move(
 
     // Then get the move from the game session
     let current_move_id = game_session.game.move_tree.current_node_id;
-    let current_node = game_session.game.move_tree.nodes[current_move_id.unwrap()].clone();
+    let current_node =
+        game_session.game.move_tree.nodes[current_move_id.unwrap()].clone();
 
     // Get the position from the current node
     let current_position = current_node.position;
@@ -128,7 +145,11 @@ pub async fn analyze_move(
 
     // Start the analysis
     let result = engine_manager
-        .start_analysis(depth.map(|d| d as u32), time_ms.map(|t| t as u32))
+        .start_position_analysis(
+            depth.map(|d| d as u32),
+            time_ms.map(|t| t as u32),
+            Some(multipv.unwrap_or(1)),
+        )
         .await;
     drop(engine_manager);
     result.map_err(|e| e.to_string())
@@ -141,43 +162,190 @@ pub async fn analyze_move(
 
 /// Analyzes a complete chess game from a game session
 ///
-/// Parameters (TODO: Likely to change):
+/// Parameters:
 /// - `board_id`: The ID of the board to analyze
 /// - `include_variations`: Whether to include variations in the analysis
+/// - `analysis_config`: Configuration for time management and categorization
 ///
+/// Returns comprehensive analysis results with move categorizations and evaluations
 #[tauri::command]
 pub async fn analyze_game(
-    _board_id: i32,
-    _include_variations: bool,
-    _state: State<'_, AppState>,
-) -> Result<(), String> {
-    // Writing out my thoughts on how to implement this:
-    // First get the game session's move tree
+    board_id: i32,
+    engine_analysis_config: Option<EngineAnalysisConfig>,
+    meta_analysis_config: Option<MetaAnalysisConfig>,
+    state: State<'_, AppState>,
+) -> Result<GameAnalysisResult, String> {
+    let _meta_config = meta_analysis_config.unwrap_or_default();
+    let engine_config = engine_analysis_config.unwrap_or_default();
 
-    // For each position/move, we need to run the engine to get the score and
-    // best move. We need to be careful not to overload the engine with too many
-    // requests.
+    info!("Starting game analysis for board {}", board_id);
+    let _start_time = std::time::Instant::now();
 
-    // We might want to add an argument for "average time" to analyze the game
-    // for and use that to calculate how long to run the engine for each move
-    // (time / number of moves).
-    // Alternatively, we could just use a fixed time for each move.
-    // We could also add an argument for a set depth for each move.
+    // 1. Extract positions for analysis
+    let game_session_manager = state.game_session_manager.lock().await;
+    let game_session = game_session_manager
+        .get_session(board_id)
+        .ok_or(AppError::SessionError("Game session not found".to_string()))
+        .unwrap();
+    let positions =
+        game_session.extract_positions(engine_config.include_variations);
 
-    // Once we have analyzed a move, we need to keep track of the results
-    // and compare the score of the engine's best move with the score of the
-    // move played. This difference will be used to categorize the move as
-    // "brilliant", "best", "excellent", "good", "miss", "mistake", "blunder"
-    // To do this we need a way to determine "meta" data about the game's state.
-    // For example, if the move sacrifices material, we should consider that
-    // when categorizing the move. This logic should be implemented separately
-    // with the goal of being highly configurable and extensible.
+    info!("Extracted {} positions for analysis", positions.len());
 
-    // Finally we need to save all of these results to the game's positions/moves.
+    if positions.is_empty() {
+        return Err("No positions found to analyze".to_string());
+    }
 
-    // We should split this into multiple functions to make things cleaner
+    // 2. Calculate time per position
+    let (depth, time_ms) =
+        calculate_analysis_time(&engine_config.time_strategy, positions.len());
+    info!(
+        "Analysis time per position: depth={:?}, time_ms={:?}",
+        depth, time_ms
+    );
 
-    todo!("Implement analyze_game")
+    // 3. Get engine
+    let engine_manager = state.engine_manager.lock().await;
+    let engine_option = engine_manager.get_engine(&engine_config.engine_name);
+    let engine = engine_option
+        // FIXME: Handle this error
+        // .ok_or(AppError::EngineError("Engine not found".to_string()))
+        .unwrap_or_else(|| panic!("Engine not found"));
+
+    // 4. Analyze each position
+    let total_positions = positions.len();
+    let mut move_analyses = Vec::new();
+    let mut total_positions_analyzed = 0u32;
+
+    for current_position in positions {
+        // Log a progress update every 10 positions
+        if total_positions_analyzed % 10 == 0 {
+            info!(
+                "Analyzing move {}/{}",
+                total_positions_analyzed + 1,
+                total_positions
+            );
+        }
+
+        let current_fen = &current_position.fen;
+
+        // Start the analysis
+        let mut engine_manager = state.engine_manager.lock().await;
+        let _ = engine_manager
+            .quick_start_position_analysis_for(
+                &engine_config.engine_name,
+                current_fen,
+                depth,
+                time_ms,
+                None,
+            )
+            .await;
+        drop(engine_manager);
+
+        let mut current_analysis = None;
+        // Monitor the engine's updates
+        let _ = engine
+            .monitor_events(|event| match event {
+                EngineStateInfoEvent::AnalysisUpdate(update) => {
+                    info!("Analysis update received");
+                    current_analysis = Some(update);
+                    return true; // Continue monitoring
+                }
+                EngineStateInfoEvent::BestMove(best_move, best_move_score) => {
+                    // Indicates the analysis is complete
+                    info!(
+                        "Best move received {} score: {:?}",
+                        best_move, best_move_score
+                    );
+                    return false; // Stop monitoring
+                }
+                _ => {
+                    // For any other events, ignore them and continue to monitor
+                    return true;
+                }
+            })
+            .await;
+
+        // Current analysis should contain the latest engine evaluation
+        // track it
+        move_analyses.push(current_analysis);
+        total_positions_analyzed += 1;
+
+        // Brief pause to avoid overwhelming the engine
+        sleep(Duration::from_millis(100)).await;
+    }
+
+    //
+
+    // // 5. Generate summary statistics
+    // let mut summary = EvaluationSummary {
+    //     brilliant_moves: 0,
+    //     excellent_moves: 0,
+    //     good_moves: 0,
+    //     inaccuracies: 0,
+    //     mistakes: 0,
+    //     blunders: 0,
+    //     average_centipawn_loss: 0.0,
+    // };
+
+    // let mut total_centipawn_loss = 0.0;
+    // let mut evaluated_moves = 0;
+
+    // for analysis in &move_analyses {
+    //     if let Some(category) = &analysis.move_category {
+    //         match category {
+    //             MoveCategory::Brilliant => summary.brilliant_moves += 1,
+    //             MoveCategory::Best => summary.excellent_moves += 1,
+    //             MoveCategory::Excellent => summary.excellent_moves += 1,
+    //             MoveCategory::Good => summary.good_moves += 1,
+    //             MoveCategory::Inaccuracy => summary.inaccuracies += 1,
+    //             MoveCategory::Mistake => summary.mistakes += 1,
+    //             MoveCategory::Blunder => summary.blunders += 1,
+    //         }
+    //     }
+
+    //     if let Some(eval_diff) = analysis.evaluation_difference {
+    //         if eval_diff < 0.0 {
+    //             total_centipawn_loss += eval_diff.abs();
+    //             evaluated_moves += 1;
+    //         }
+    //     }
+    // }
+
+    // summary.average_centipawn_loss = if evaluated_moves > 0 {
+    //     total_centipawn_loss / evaluated_moves as f32
+    // } else {
+    //     0.0
+    // };
+
+    // let total_time_ms = start_time.elapsed().as_millis() as u64;
+
+    // info!(
+    //     "Game analysis completed: {} moves analyzed in {}ms",
+    //     move_analyses.len(),
+    //     total_time_ms
+    // );
+
+    // // Get game ID from session
+    // let game_session_manager = state.game_session_manager.lock().await;
+    // let game_session =
+    //     game_session_manager.get_session(board_id).ok_or_else(|| {
+    //         format!("Game session not found for board {}", board_id)
+    //     })?;
+    // let game_id = game_session.game.id;
+    // drop(game_session_manager);
+
+    // Ok(GameAnalysisResult {
+    //     game_id,
+    //     engine_name,
+    //     analysis_config: config,
+    //     move_analyses,
+    //     total_analysis_time_ms: total_time_ms,
+    //     positions_analyzed: total_positions_analyzed,
+    //     evaluation_summary: summary,
+    // })
+
+    todo!("Implement game analysis")
 }
 
 /// Stops any ongoing analysis
@@ -218,7 +386,10 @@ pub async fn set_engine_option(
 /// Parameters:
 /// - `fen`: The FEN string representing the position to set
 #[tauri::command]
-pub async fn set_position(fen: String, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn set_position(
+    fen: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     let mut engine_manager = state.engine_manager.lock().await;
     let result = engine_manager.set_position(Some(&fen), None).await;
     drop(engine_manager);

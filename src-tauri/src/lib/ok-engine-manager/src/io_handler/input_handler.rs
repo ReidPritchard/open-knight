@@ -4,11 +4,11 @@ use tokio::io::AsyncWriteExt;
 use tokio::process::ChildStdin;
 use tokio::sync::RwLock;
 
-use crate::engine::events::EngineStateInfoEvent;
-use crate::engine::protocol::{EngineCommand, OptionValue, ProtocolComposer};
-use crate::engine::state::engine_state::EngineReadyState;
-use crate::engine::state::EngineState;
-use crate::engine::utils::EngineError;
+use crate::events::EngineStateInfoEvent;
+use crate::protocol::{EngineCommand, OptionValue, ProtocolComposer};
+use crate::state::engine_state::EngineReadyState;
+use crate::state::EngineState;
+use crate::utils::EngineError;
 
 /// Handles sending commands to the engine
 ///
@@ -37,7 +37,10 @@ impl<S: EngineState> InputHandler<S> {
     /// Send a raw string to the engine
     ///
     /// This is an internal function for sending the formatted command
-    async fn send_raw(&mut self, cmd: &str) -> Result<(), EngineError> {
+    async fn send_raw(
+        &mut self,
+        cmd: &str,
+    ) -> Result<(), EngineError> {
         // No formatting, just send the raw string
         if let Err(e) = self.input_stream.write_all(cmd.as_bytes()).await {
             return Err(EngineError::IoFailedToWriteLine(e.to_string()));
@@ -57,7 +60,10 @@ impl<S: EngineState> InputHandler<S> {
     }
 
     /// Send a command to the engine
-    pub async fn send_command(&mut self, command: EngineCommand) -> Result<(), EngineError> {
+    pub async fn send_command(
+        &mut self,
+        command: EngineCommand,
+    ) -> Result<(), EngineError> {
         let formatted = self.protocol_composer.compose(command)?;
         self.send_raw(&formatted).await
     }
@@ -65,7 +71,10 @@ impl<S: EngineState> InputHandler<S> {
     /// Send a raw command string to the engine
     ///
     /// This will still be formatted according to the protocol
-    pub async fn send_raw_command(&mut self, command: &str) -> Result<(), EngineError> {
+    pub async fn send_raw_command(
+        &mut self,
+        command: &str,
+    ) -> Result<(), EngineError> {
         let formatted = self
             .protocol_composer
             .compose(EngineCommand::Raw(command.to_string()))?;
@@ -92,7 +101,8 @@ impl<S: EngineState> InputHandler<S> {
         S: EngineState<Update = EngineStateInfoEvent>,
     {
         let fen_owned = fen.map(String::from);
-        let moves_owned = moves.map(|m| m.iter().map(|&s| s.to_string()).collect());
+        let moves_owned =
+            moves.map(|m| m.iter().map(|&s| s.to_string()).collect());
 
         let cmd_res = self
             .send_command(EngineCommand::SetPosition {
@@ -104,8 +114,9 @@ impl<S: EngineState> InputHandler<S> {
         cmd_res?;
 
         // Update the state
-        let state_update =
-            <S as EngineState>::Update::CurrentPositionChanged(fen_owned.unwrap_or_default());
+        let state_update = <S as EngineState>::Update::CurrentPositionChanged(
+            fen_owned.unwrap_or_default(),
+        );
 
         self.state.write().await.apply_update(state_update)?;
         Ok(())
@@ -116,6 +127,7 @@ impl<S: EngineState> InputHandler<S> {
         &mut self,
         depth: Option<u32>,
         movetime: Option<u32>,
+        multipv: Option<u32>,
     ) -> Result<(), EngineError>
     where
         S: EngineState<Update = EngineStateInfoEvent>,
@@ -125,7 +137,7 @@ impl<S: EngineState> InputHandler<S> {
                 depth,
                 movetime,
                 nodes: None,
-                multipv: None,
+                multipv,
                 searchmoves: None,
             })
             .await;
@@ -134,7 +146,9 @@ impl<S: EngineState> InputHandler<S> {
             Ok(_) => {
                 // Update the state
                 let state_update =
-                    <S as EngineState>::Update::ReadyStateChanged(EngineReadyState::Analyzing);
+                    <S as EngineState>::Update::ReadyStateChanged(
+                        EngineReadyState::Analyzing,
+                    );
                 self.state.write().await.apply_update(state_update)?;
                 Ok(())
             }
@@ -154,7 +168,8 @@ impl<S: EngineState> InputHandler<S> {
     where
         S: EngineState<Update = EngineStateInfoEvent>,
     {
-        let searchmoves_owned = searchmoves.map(|m| m.iter().map(|&s| s.to_string()).collect());
+        let searchmoves_owned =
+            searchmoves.map(|m| m.iter().map(|&s| s.to_string()).collect());
 
         let cmd_res = self
             .send_command(EngineCommand::StartAnalysis {
@@ -177,7 +192,11 @@ impl<S: EngineState> InputHandler<S> {
     }
 
     /// Set an engine option
-    pub async fn set_option(&mut self, name: &str, value: OptionValue) -> Result<(), EngineError> {
+    pub async fn set_option(
+        &mut self,
+        name: &str,
+        value: OptionValue,
+    ) -> Result<(), EngineError> {
         self.send_command(EngineCommand::SetOption {
             name: name.to_string(),
             value,
@@ -196,7 +215,10 @@ impl<S: EngineState> InputHandler<S> {
     }
 
     /// Check if a specific feature is supported by the current protocol
-    pub fn supports_feature(&self, feature: &str) -> bool {
+    pub fn supports_feature(
+        &self,
+        feature: &str,
+    ) -> bool {
         self.protocol_composer.supports_feature(feature)
     }
 }

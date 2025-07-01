@@ -7,10 +7,10 @@ use tokio::select;
 use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::task::JoinHandle;
 
-use crate::engine::events::{EngineStateInfoEvent, EventBus};
-use crate::engine::protocol::{ParserOutput, ProtocolParser};
-use crate::engine::state::EngineState;
-use crate::engine::utils::EngineError;
+use crate::events::EventBus;
+use crate::protocol::{ParserOutput, ProtocolParser};
+use crate::state::EngineState;
+use crate::utils::EngineError;
 
 /// A struct for handling the output of an engine
 ///
@@ -24,7 +24,8 @@ where
     E: Send + Sync + Clone + std::fmt::Debug + 'static,
 {
     reader: Option<BufReader<ChildStdout>>,
-    parser: Option<Box<dyn ProtocolParser<State = S, Output = ParserOutput<S>>>>,
+    parser:
+        Option<Box<dyn ProtocolParser<State = S, Output = ParserOutput<S>>>>,
     state: Arc<RwLock<S>>,
     event_bus: Arc<EventBus>,
     shutdown_rx: broadcast::Receiver<()>,
@@ -68,15 +69,13 @@ where
         }
 
         // Take ownership of reader and parser from self
-        let reader = self
-            .reader
-            .take()
-            .ok_or_else(|| EngineError::InvalidState("Reader already taken".into()))?;
+        let reader = self.reader.take().ok_or_else(|| {
+            EngineError::InvalidState("Reader already taken".into())
+        })?;
 
-        let parser = self
-            .parser
-            .take()
-            .ok_or_else(|| EngineError::InvalidState("Parser already taken".into()))?;
+        let parser = self.parser.take().ok_or_else(|| {
+            EngineError::InvalidState("Parser already taken".into())
+        })?;
 
         // Clone shared components
         let state = self.state.clone();
@@ -100,7 +99,14 @@ where
 
         // Spawn the main processing task
         let handle = tokio::spawn(async move {
-            process_output::<S, S::Event>(reader, parser, state, event_sender, shutdown_rx).await;
+            process_output::<S, S::Event>(
+                reader,
+                parser,
+                state,
+                event_sender,
+                shutdown_rx,
+            )
+            .await;
         });
 
         // Store the task handle
@@ -118,7 +124,10 @@ where
     pub async fn join(&mut self) -> Result<(), EngineError> {
         if let Some(handle) = self.task_handle.take() {
             handle.await.map_err(|e| {
-                EngineError::IoFailedToJoin(format!("Failed to join output handler task: {}", e))
+                EngineError::IoFailedToJoin(format!(
+                    "Failed to join output handler task: {}",
+                    e
+                ))
             })?;
         }
         Ok(())
@@ -128,7 +137,9 @@ where
 /// Process output in a separate function that takes ownership of its parameters
 async fn process_output<State: EngineState<Event = E>, E>(
     mut reader: BufReader<ChildStdout>,
-    parser: Box<dyn ProtocolParser<State = State, Output = ParserOutput<State>>>,
+    parser: Box<
+        dyn ProtocolParser<State = State, Output = ParserOutput<State>>,
+    >,
     state: Arc<RwLock<State>>,
     event_sender: mpsc::Sender<E>,
     mut shutdown_rx: broadcast::Receiver<()>,
@@ -159,7 +170,9 @@ async fn process_output<State: EngineState<Event = E>, E>(
 }
 
 async fn handle_line<State: EngineState<Event = E>, E>(
-    parser: &Box<dyn ProtocolParser<State = State, Output = ParserOutput<State>>>,
+    parser: &Box<
+        dyn ProtocolParser<State = State, Output = ParserOutput<State>>,
+    >,
     state: &Arc<RwLock<State>>,
     event_sender: &mpsc::Sender<E>,
     line: &str,
@@ -177,7 +190,6 @@ async fn handle_line<State: EngineState<Event = E>, E>(
                     let _ = event_sender.send(event).await;
                 }
                 Err(_) => {
-                    // Error handling for generic E must be done by the caller
                     error!("Error applying update: {:?}", event);
                 }
             }
@@ -187,14 +199,9 @@ async fn handle_line<State: EngineState<Event = E>, E>(
         }
         Ok(ParserOutput::NoUpdate) => {}
         Err(_) => {
-            // Error handling for generic E must be done by the caller
             error!("Error parsing line: {:?}", line);
         }
     }
-}
-
-async fn handle_error(event_sender: &mpsc::Sender<EngineStateInfoEvent>, e: EngineError) {
-    let _ = event_sender.send(EngineStateInfoEvent::Error(e)).await;
 }
 
 unsafe impl<S, E> Send for OutputHandler<S, E>

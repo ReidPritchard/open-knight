@@ -61,35 +61,6 @@ impl GameSession {
         ))
     }
 
-    pub fn next_move(&mut self, variation: usize) -> Result<(), AppError> {
-        self.game.move_tree.next_move(Some(variation));
-        // No need to mark as dirty as we are just traversing the tree
-        // not mutating it
-        Ok(())
-    }
-
-    pub fn previous_move(&mut self) -> Result<(), AppError> {
-        self.game.move_tree.previous_move();
-        // No need to mark as dirty as we are just traversing the tree
-        // not mutating it
-        Ok(())
-    }
-
-    pub fn reset_to_position(&mut self, move_db_id: i32) -> Result<(), AppError> {
-        self.game.move_tree.move_to_move(move_db_id);
-        Ok(())
-    }
-
-    pub fn move_to_root(&mut self) -> Result<(), AppError> {
-        self.game.move_tree.move_to_root();
-        Ok(())
-    }
-
-    pub fn move_to_end(&mut self) -> Result<(), AppError> {
-        self.game.move_tree.move_to_end();
-        Ok(())
-    }
-
     pub fn get_move_history(&self) -> Vec<String> {
         // TODO: Implement get_move_history in ChessGame
         // For now, return an empty vector
@@ -119,5 +90,39 @@ impl GameSession {
         self.dirty = false;
 
         Ok(self.game.id)
+    }
+}
+
+/// "Pass-through" methods for the game session
+/// These are methods that only call methods on the game session's game
+/// and don't actually mutate or use the game session.
+impl GameSession {
+    pub fn next_move(&mut self, variation: usize) -> Result<(), AppError> {
+        self.game.move_tree.next_move(Some(variation));
+        Ok(())
+    }
+
+    pub fn previous_move(&mut self) -> Result<(), AppError> {
+        self.game.move_tree.previous_move();
+        Ok(())
+    }
+
+    pub fn reset_to_position(&mut self, move_db_id: i32) -> Result<(), AppError> {
+        self.game.move_tree.move_to_move(move_db_id);
+        Ok(())
+    }
+
+    pub fn move_to_root(&mut self) -> Result<(), AppError> {
+        self.game.move_tree.move_to_root();
+        Ok(())
+    }
+
+    pub fn move_to_end(&mut self) -> Result<(), AppError> {
+        self.game.move_tree.move_to_end();
+        Ok(())
+    }
+
+    pub fn extract_positions(&self, include_variations: bool) -> Vec<crate::models::ChessPosition> {
+        self.game.move_tree.extract_positions(include_variations)
     }
 }

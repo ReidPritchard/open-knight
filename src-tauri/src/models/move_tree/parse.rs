@@ -3,11 +3,13 @@ use std::error::Error;
 
 use itertools::izip;
 use log::{debug, info};
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, LoaderTrait, QueryFilter};
+use sea_orm::{
+    ColumnTrait, DatabaseConnection, EntityTrait, LoaderTrait, QueryFilter,
+};
 use shakmaty::Chess;
 use slotmap::{DefaultKey, SlotMap};
 
-use crate::entities::{annotation, move_time_tracking, position, r#move};
+use crate::entities::{annotation, position, r#move};
 use crate::models::{generate_uci, ChessAnnotation, ChessMove, ChessPosition};
 use ok_parse::pgn::PgnToken;
 
@@ -88,19 +90,27 @@ fn parse_pgn_tokens_recursive(
             }
             PgnToken::Move { notation } => {
                 // ply number
-                let new_move_ply = *full_move_count * 2 + if *is_white { -1 } else { 0 };
+                let new_move_ply =
+                    *full_move_count * 2 + if *is_white { -1 } else { 0 };
 
                 // post move position
-                let new_move_position_result = current_position.make_san_move(notation);
+                let new_move_position_result =
+                    current_position.make_san_move(notation);
                 if let Err(e) = new_move_position_result {
-                    eprintln!("Error making move.\nNotation: {}\nError:\n{}", notation, e);
+                    eprintln!(
+                        "Error making move.\nNotation: {}\nError:\n{}",
+                        notation, e
+                    );
                     return Err(e);
                 }
 
                 let new_move_position = new_move_position_result.unwrap();
 
                 // UCI
-                let uci = generate_uci(notation, &Chess::from(current_position.clone()))?;
+                let uci = generate_uci(
+                    notation,
+                    &Chess::from(current_position.clone()),
+                )?;
 
                 let new_move = ChessMove {
                     id: 0,
@@ -182,7 +192,9 @@ fn parse_pgn_tokens_recursive(
             }
             PgnToken::Comment { text } => {
                 // If we're at a move node (not the root), add the comment to the move
-                if let Some(ref mut game_move) = tree.nodes[current_node_id].game_move.as_mut() {
+                if let Some(ref mut game_move) =
+                    tree.nodes[current_node_id].game_move.as_mut()
+                {
                     game_move.annotations.push(ChessAnnotation {
                         id: 0,
                         comment: Some(text.clone()),
@@ -345,7 +357,9 @@ mod tests {
             },
         ];
 
-        let mut tree = pgn_tokens_to_move_tree(1, ChessPosition::default(), &tokens).unwrap();
+        let mut tree =
+            pgn_tokens_to_move_tree(1, ChessPosition::default(), &tokens)
+                .unwrap();
         assert_eq!(tree.nodes.len(), 5);
         // let serialized = serde_json::to_string(&tree).unwrap();
         // println!("{}", serialized);
@@ -411,7 +425,9 @@ mod tests {
             },
         ];
 
-        let tree = pgn_tokens_to_move_tree(1, ChessPosition::default(), &tokens).unwrap();
+        let tree =
+            pgn_tokens_to_move_tree(1, ChessPosition::default(), &tokens)
+                .unwrap();
         assert_eq!(
             tree.nodes.len(),
             4,

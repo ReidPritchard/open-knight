@@ -1,4 +1,4 @@
-use crate::engine::utils::EngineError;
+use crate::utils::EngineError;
 use std::fmt;
 
 use super::events::LifecycleEvent;
@@ -12,7 +12,10 @@ pub trait ProtocolParser: Send + Sync {
     type Output;
 
     /// Parse a line of engine output into an engine event
-    fn parse_line(&self, line: &str) -> Result<Self::Output, EngineError>;
+    fn parse_line(
+        &self,
+        line: &str,
+    ) -> Result<Self::Output, EngineError>;
 
     /// Get the name of the protocol
     fn protocol_name(&self) -> &'static str;
@@ -29,7 +32,8 @@ pub enum ParserOutput<S: EngineState> {
 }
 
 /// A generic type for a parser that implements ProtocolParser
-pub type ProtocolParserType<S> = Box<dyn ProtocolParser<State = S, Output = ParserOutput<S>>>;
+pub type ProtocolParserType<S> =
+    Box<dyn ProtocolParser<State = S, Output = ParserOutput<S>>>;
 
 /// Protocol-agnostic chess command types to be used with ProtocolComposer
 #[derive(Debug, Clone)]
@@ -71,7 +75,10 @@ pub enum OptionValue {
 }
 
 impl fmt::Display for OptionValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
             OptionValue::String(s) => write!(f, "{}", s),
             OptionValue::Integer(i) => write!(f, "{}", i),
@@ -87,13 +94,19 @@ impl fmt::Display for OptionValue {
 /// protocol-agnostic commands that get translated to the specific protocol format.
 pub trait ProtocolComposer: Send + Sync {
     /// Format a generic engine command into the specific protocol format
-    fn compose(&self, command: EngineCommand) -> Result<String, EngineError>;
+    fn compose(
+        &self,
+        command: EngineCommand,
+    ) -> Result<String, EngineError>;
 
     /// Get the protocol name (e.g., "UCI", "CECP", etc.)
     fn protocol_name(&self) -> &str;
 
     /// Check if a specific feature is supported by this protocol
-    fn supports_feature(&self, feature: &str) -> bool;
+    fn supports_feature(
+        &self,
+        feature: &str,
+    ) -> bool;
 
     /// Get the initial command to send to the engine
     ///

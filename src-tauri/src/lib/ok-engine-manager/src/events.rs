@@ -11,6 +11,18 @@ use ok_parse::uci::IdInfo;
 use super::state::EngineState;
 use super::utils::EngineError;
 
+/// Event emitter trait for engine events
+///
+/// This trait allows the EngineManager to emit events without being tied to any specific framework
+pub trait EventEmitter {
+    /// Emit an event with the given name and payload
+    fn emit_event(
+        &self,
+        event: &str,
+        payload: String,
+    );
+}
+
 /// Common interface for all engine lifecycle events
 #[derive(Debug, Clone, Serialize)]
 pub enum LifecycleEvent {
@@ -55,7 +67,10 @@ trait TypedSender: Send + Sync {
     fn is_closed(&self) -> bool;
 
     /// Send a boxed event to the channel
-    fn send_boxed(&self, event: Box<dyn Any + Send>) -> bool;
+    fn send_boxed(
+        &self,
+        event: Box<dyn Any + Send>,
+    ) -> bool;
 }
 
 /// A typed sender for a specific event type
@@ -68,7 +83,10 @@ impl<T: Clone + Send + 'static> TypedSender for EventSender<T> {
         self.sender.is_closed()
     }
 
-    fn send_boxed(&self, event: Box<dyn Any + Send>) -> bool {
+    fn send_boxed(
+        &self,
+        event: Box<dyn Any + Send>,
+    ) -> bool {
         // Try to downcast the boxed event to the expected type
         if let Ok(typed_event) = event.downcast::<T>() {
             // Use try_send to avoid blocking
@@ -82,7 +100,8 @@ impl<T: Clone + Send + 'static> TypedSender for EventSender<T> {
 
 /// Event bus for publishing and subscribing to typed events
 pub struct EventBus {
-    subscribers: Mutex<HashMap<TypeId, Vec<Box<dyn TypedSender + Send + Sync>>>>,
+    subscribers:
+        Mutex<HashMap<TypeId, Vec<Box<dyn TypedSender + Send + Sync>>>>,
 }
 
 impl Default for EventBus {
@@ -100,7 +119,10 @@ impl EventBus {
     }
 
     /// Broadcast an event to all subscribers of that event type
-    pub fn publish<T: Clone + Send + 'static>(&self, event: T) {
+    pub fn publish<T: Clone + Send + 'static>(
+        &self,
+        event: T,
+    ) {
         let type_id = TypeId::of::<T>();
         let mut subscribers = self.subscribers.lock().unwrap();
 
@@ -124,7 +146,8 @@ impl EventBus {
 
         // Create a typed sender
         let event_sender = EventSender { sender };
-        let boxed_sender: Box<dyn TypedSender + Send + Sync> = Box::new(event_sender);
+        let boxed_sender: Box<dyn TypedSender + Send + Sync> =
+            Box::new(event_sender);
 
         // Add the sender to the subscribers map
         let type_id = TypeId::of::<T>();
@@ -145,7 +168,8 @@ impl EventBus {
 
         // Create a typed sender
         let event_sender = EventSender { sender };
-        let boxed_sender: Box<dyn TypedSender + Send + Sync> = Box::new(event_sender);
+        let boxed_sender: Box<dyn TypedSender + Send + Sync> =
+            Box::new(event_sender);
 
         // Add the sender to the subscribers map
         let type_id = TypeId::of::<T>();
