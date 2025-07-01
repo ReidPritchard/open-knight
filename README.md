@@ -2,11 +2,13 @@
 
   <img src="docs/assets/logo.png" alt="logo" width="200" height="auto" />
   <h1>Open Knight</h1>
-  
+
   <p>
-    A cross-platform chess database and analysis application. ⚠️ SUPER ALPHA ⚠️
+    A cross-platform chess database and analysis application.
   </p>
-  
+
+  <sub>⚠️ EARLY ALPHA ⚠️</sub>
+
 <!-- Badges -->
 <p>
   <a href="https://github.com/reidpritchard/open-knight/graphs/contributors">
