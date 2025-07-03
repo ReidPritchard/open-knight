@@ -7,12 +7,7 @@ const host = process.env.TAURI_DEV_HOST;
 
 // https://vitejs.dev/config/
 export default defineConfig(() => ({
-	plugins: [
-		vue(),
-		UnpluginTypia({
-			cache: true,
-		}),
-	],
+	plugins: [vue(), UnpluginTypia({})],
 
 	assetsInclude: ["**/*.pgn"],
 
@@ -20,7 +15,9 @@ export default defineConfig(() => ({
 		logOverride: {
 			// Typia logs a lot of warning for a number of the json validators it generates.
 			// This is a workaround to silence them.
-			"suspicious-logical-operator": "silent" as const,
+			"suspicious-logical-operator": dev
+				? ("warning" as const)
+				: ("silent" as const),
 		},
 	},
 
@@ -44,5 +41,10 @@ export default defineConfig(() => ({
 			// 3. tell vite to ignore watching `src-tauri`
 			ignored: ["**/src-tauri/**"],
 		},
+	},
+
+	build: {
+		manifest: true,
+		// TODO: Don't bundle stories on vite build
 	},
 }));

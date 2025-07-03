@@ -8,7 +8,7 @@ use ok_engine_manager::events::EventEmitter;
 use ok_engine_manager::manager::EngineManager;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait};
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::Mutex;
 
 pub mod chess;
@@ -52,15 +52,22 @@ pub struct AppState {
 impl AppState {
     /// Creates a new AppState instance with initialized database connection and engine manager
     pub async fn new(app_handle: AppHandle) -> Result<Self, AppError> {
-        let migration_db = connect_db(Some(DatabaseConfig {
-            max_connections: Some(1),
-            min_connections: Some(1),
-            ..Default::default()
-        }))
-        .await?;
+        let database_url = crate::db::resolve_database_url(&app_handle).await;
+        let migration_config = DatabaseConfig {
+            max_connections: 1,
+            min_connections: 1,
+            url: database_url.clone(),
+        };
+        let migration_db = connect_db(migration_config).await?;
+
         run_migrations(&migration_db).await?;
 
-        let db = connect_db(None).await?;
+        let app_db_config = DatabaseConfig {
+            max_connections: 5,
+            min_connections: 1,
+            url: database_url,
+        };
+        let db = connect_db(app_db_config).await?;
 
         // Get user from database or create default
         let user = match user::Entity::find().one(&db).await.map_err(|e| {

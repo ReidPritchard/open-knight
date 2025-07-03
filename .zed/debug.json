@@ -1,0 +1,17 @@
+// Project-local debug tasks
+//
+// For more documentation on how to configure debug tasks,
+// see: https://zed.dev/docs/debugger
+[
+	{
+		"label": "Open Knight Debug",
+		"adapter": "CodeLLDB",
+		"request": "launch",
+		"program": "./src-tauri/target/debug/open-knight",
+		"build": {
+			"command": "npm",
+			"args": ["run", "tauri", "build", "--", "--debug"],
+			"allow_concurrent_runs": false
+		}
+	}
+]

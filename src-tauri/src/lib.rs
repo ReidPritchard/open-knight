@@ -12,6 +12,8 @@ pub mod models;
 pub mod session;
 pub mod utils;
 
+pub const DATABASE_FILE_NAME: &str = "chess.db";
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -33,6 +35,11 @@ pub fn run() {
                     .block_on(AppState::new(app_handle.clone()))
                     .expect("Failed to create AppState"),
             );
+            #[cfg(debug_assertions)] // only include this code on debug builds
+            {
+                let window = app.get_webview_window("main").unwrap();
+                window.open_devtools();
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

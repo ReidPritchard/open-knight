@@ -29,13 +29,19 @@ impl<S: EngineState> EngineProcessBuilder<S> {
     }
 
     /// Set the command to launch the engine
-    pub fn command(mut self, command: Command) -> Self {
+    pub fn command(
+        mut self,
+        command: Command,
+    ) -> Self {
         self.command = Some(command);
         self
     }
 
     /// Set the initial state of the engine
-    pub fn state(mut self, state: S) -> Self {
+    pub fn state(
+        mut self,
+        state: S,
+    ) -> Self {
         self.state = Some(state);
         self
     }

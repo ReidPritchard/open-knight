@@ -60,8 +60,10 @@ const currentNode = reactive({
 			{
 				score: 123,
 				eval_type: "cp",
+				is_mate: false,
 				depth: 99,
 				engine: "Stockfish",
+				principal_variation: ["e2e4", "e7e5"],
 			},
 		],
 		variant: null,

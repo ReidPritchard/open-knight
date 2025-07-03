@@ -3,12 +3,19 @@
   "identifier": "default",
   "description": "Capability for the main window",
   "windows": [
-    "main"
+    "*"
   ],
   "permissions": [
     "core:default",
-    "shell:allow-open",
-    "shell:allow-spawn",
+    "core:webview:default",
+    "core:path:default",
+    "core:event:default",
+    "core:window:default",
+    "core:app:default",
+    "core:resources:default",
+    "core:menu:default",
+    "core:tray:default",
+    "core:window:allow-set-title",
     "log:default"
   ]
 }

@@ -126,8 +126,12 @@ where
             )));
         }
 
+        let mut command = Command::new(path);
+        command.kill_on_drop(true);
+        let cmd = command;
+
         let mut engine = EngineProcess::builder()
-            .command(Command::new(path))
+            .command(cmd)
             .state(EngineStateInfo::default())
             .build();
 

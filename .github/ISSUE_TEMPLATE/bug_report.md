@@ -1,10 +1,9 @@
 ---
 name: Bug report
 about: A report detailing unexpected behavior.
-title: ''
+title: ""
 labels: bug, to-triage
-assignees: ''
-
+assignees: ""
 ---
 
 **Describe the bug**
@@ -12,6 +11,7 @@ A clear and concise description of what the bug is.
 
 **To Reproduce**
 Steps to reproduce the behavior:
+
 1. Go to '...'
 2. Click on '....'
 3. Scroll down to '....'
@@ -24,9 +24,10 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Environment (please complete the following information):**
- - OS [e.g., MacOS, Windows 11, Arch]:
- - OK Version [e.g. 0.12.2]: 
- - OK build [e.g., dev/release]: 
+
+- OS [e.g., MacOS, Windows 11, Arch]:
+- OK Version [e.g. 0.12.2]:
+- OK build [e.g., dev/release]:
 
 **Additional context**
 Add any other context about the problem here.

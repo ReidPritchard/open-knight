@@ -58,7 +58,10 @@ where
     <S as EngineState>::Event: Send + Sync + Clone + std::fmt::Debug + 'static,
 {
     /// Create a new engine process
-    pub fn new(command: Command, state: S) -> Self {
+    pub fn new(
+        command: Command,
+        state: S,
+    ) -> Self {
         let (shutdown_tx, _) = broadcast::channel(16);
         let state = Arc::new(RwLock::new(state));
 
@@ -97,12 +100,13 @@ where
         self.child = Some(child);
 
         // Setup the output handler
-        let mut output_handler = OutputHandler::<S, <S as EngineState>::Event>::new(
-            BufReader::new(stdout),
-            protocol_parser,
-            self.state.clone(),
-            self.shutdown_tx.subscribe(),
-        );
+        let mut output_handler =
+            OutputHandler::<S, <S as EngineState>::Event>::new(
+                BufReader::new(stdout),
+                protocol_parser,
+                self.state.clone(),
+                self.shutdown_tx.subscribe(),
+            );
         // Start the output handler
         match output_handler.start().await {
             Ok(()) => {
@@ -120,7 +124,8 @@ where
         // Get the initial command before moving the protocol to the input handler
         let initial_command = protocol_composer.initial_command();
 
-        let mut input_handler = InputHandler::new(stdin, protocol_composer, self.state.clone());
+        let mut input_handler =
+            InputHandler::new(stdin, protocol_composer, self.state.clone());
 
         // Send the initial command to the engine
         if let Ok(initial_command) = initial_command {
@@ -139,7 +144,10 @@ where
     }
 
     /// Stop the engine process
-    pub async fn kill(&mut self, _signal: Option<Signal>) -> Result<(), EngineError> {
+    pub async fn kill(
+        &mut self,
+        _signal: Option<Signal>,
+    ) -> Result<(), EngineError> {
         // Graceful or forced termination
         if let Some(child) = &mut self.child {
             if let Err(e) = child.kill().await {
@@ -161,7 +169,10 @@ where
         state.clone()
     }
 
-    pub async fn query_state<F, R>(&self, query: F) -> R
+    pub async fn query_state<F, R>(
+        &self,
+        query: F,
+    ) -> R
     where
         F: FnOnce(RwLockReadGuard<S>) -> R,
     {
@@ -180,14 +191,22 @@ where
         self.output_handler
             .as_ref()
             .map(|handler| handler.event_bus().as_ref())
-            .ok_or_else(|| EngineError::InvalidState("Output handler not initialized".to_string()))
+            .ok_or_else(|| {
+                EngineError::InvalidState(
+                    "Output handler not initialized".to_string(),
+                )
+            })
     }
 
     /// Get the input handler
-    pub fn input_handler(&mut self) -> Result<&mut InputHandler<S>, EngineError> {
-        self.input_handler
-            .as_mut()
-            .ok_or_else(|| EngineError::InvalidState("Input handler not initialized".to_string()))
+    pub fn input_handler(
+        &mut self
+    ) -> Result<&mut InputHandler<S>, EngineError> {
+        self.input_handler.as_mut().ok_or_else(|| {
+            EngineError::InvalidState(
+                "Input handler not initialized".to_string(),
+            )
+        })
     }
 }
 
@@ -203,7 +222,10 @@ where
     /// - `false` to stop monitoring and return successfully
     ///
     /// Returns an error if the event bus is not available or if an error event is received
-    pub async fn monitor_events<Callback>(&self, mut callback: Callback) -> Result<(), EngineError>
+    pub async fn monitor_events<Callback>(
+        &self,
+        mut callback: Callback,
+    ) -> Result<(), EngineError>
     where
         Callback: FnMut(EngineStateInfoEvent) -> bool,
     {

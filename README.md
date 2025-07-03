@@ -7,7 +7,7 @@
     A cross-platform chess database and analysis application.
   </p>
 
-  <sub>⚠️ EARLY ALPHA ⚠️</sub>
+<sub>⚠️ EARLY ALPHA ⚠️</sub>
 
 <!-- Badges -->
 <p>
