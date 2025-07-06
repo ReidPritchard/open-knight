@@ -6,12 +6,14 @@ use crate::models::ChessMove;
 use super::{ChessMoveTree, ChessTreeNode};
 
 impl ChessMoveTree {
-    pub fn add_move(&mut self, chess_move: ChessMove) -> DefaultKey {
+    pub fn add_move(
+        &mut self,
+        chess_move: ChessMove,
+    ) -> DefaultKey {
         // Get current node's position or use the one from the move
-        let position = chess_move
-            .position
-            .clone()
-            .unwrap_or_else(|| self.nodes[self.current_node_id.unwrap()].position.clone());
+        let position = chess_move.position.clone().unwrap_or_else(|| {
+            self.nodes[self.current_node_id.unwrap()].position.clone()
+        });
 
         // Create the new node
         let new_node = ChessTreeNode {
@@ -36,12 +38,16 @@ impl ChessMoveTree {
     /// Make a move in the move tree from the current node
     ///
     /// This creates a `ChessMove` and then calls `add_move`
-    pub fn make_uci_move(&mut self, uci_move_notation: &str) {
+    pub fn make_uci_move(
+        &mut self,
+        uci_move_notation: &str,
+    ) {
         // Find the current node
         let current_node = self.nodes[self.current_node_id.unwrap()].clone();
 
         // Make the move on the current node's position
-        let move_result = current_node.position.make_uci_move(uci_move_notation);
+        let move_result =
+            current_node.position.make_uci_move(uci_move_notation);
 
         if let Err(e) = move_result {
             println!("Error making move: {}", e);
@@ -57,12 +63,17 @@ impl ChessMoveTree {
         new_move.position = Some(new_position);
         // ply_number
         match current_node.game_move {
-            Some(ref game_move) => new_move.ply_number = game_move.ply_number + 1,
+            Some(ref game_move) => {
+                new_move.ply_number = game_move.ply_number + 1
+            }
             None => new_move.ply_number = 1, // Root node - first move of the game
         }
         // san
-        new_move.san =
-            San::from_move(&Chess::from(current_node.position.clone()), &chess_move).to_string();
+        new_move.san = San::from_move(
+            &Chess::from(current_node.position.clone()),
+            &chess_move,
+        )
+        .to_string();
 
         // Add the move to the move tree
         let new_node_id = self.add_move(new_move);

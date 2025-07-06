@@ -8,11 +8,50 @@
 			class="flex justify-between items-center p-3 border-b border-base-300 flex-shrink-0"
 		>
 
-			<div class="flex gap-2 items-center flex-wrap">
+			<div class="flex gap-2 items-center flex-wrap max-w-full">
+
+				<ToolBar
+					:toolbar-items="[
+						{
+							icon: isAnalyzing ? 'PhStop' : 'PhPlay',
+							label: isAnalyzing ? 'Stop' : 'Analyze Position',
+							action: () => (isAnalyzing ? stopAnalysis() : startAnalysis()),
+							hidden: currentEngine === 'New Engine',
+						},
+						{
+							icon: 'PhRepeat',
+							label: 'Continuous Analysis',
+							action: startGameAnalysis,
+							hidden: currentEngine === 'New Engine',
+						},
+						{
+							icon: 'PhDetective',
+							label: 'Game Analysis',
+							action: startGameAnalysis,
+							hidden: currentEngine === 'New Engine',
+						},
+						{
+							icon: 'PhFilePlus',
+							label: 'Load Engine',
+							action: loadEngine,
+							hidden: currentEngine !== 'New Engine',
+						},
+						{
+							icon: 'PhBackspace',
+							label: 'Unload Engine',
+							action: () => $emit('unload-engine', currentEngine),
+							hidden: currentEngine === 'New Engine',
+						},
+					]"
+				>
+
+				</ToolBar>
+
+				<!-- Engine Selector -->
 
 				<select
 					v-model="currentEngine"
-					class="select select-sm w-auto"
+					class="select select-ghost"
 					@change="
 						$emit(
 							'update:selectedEngine',
@@ -31,50 +70,83 @@
 
 				</select>
 
-				<!-- Load engine -->
-
-				<button
-					v-if="currentEngine === 'New Engine'"
-					class="btn btn-sm btn-primary"
-					@click="loadEngine"
-				>
-					 Load
-				</button>
-
-				<button
-					v-else
-					class="btn btn-sm btn-primary"
-					@click="$emit('unload-engine', currentEngine)"
-				>
-					 Unload
-				</button>
-
 				<!-- Depth input -->
 
-				<input
+				<fieldset
 					v-if="currentEngine !== 'New Engine'"
-					type="number"
-					v-model="depth"
-					class="input input-sm"
-				/>
-
-				<button
-					v-if="currentEngine !== 'New Engine'"
-					class="btn btn-sm"
-					@click="isAnalyzing ? stopAnalysis() : startAnalysis()"
-					:class="{ 'btn-primary': !isAnalyzing, 'btn-warning': isAnalyzing }"
+					class="fieldset w-full"
 				>
-					 {{ isAnalyzing ? "Stop" : "Analyze" }}
-				</button>
 
-				<button
+					<legend class="fieldset-legend w-full break-keep">
+						 Analysis Depth
+					</legend>
+
+					<label class="input input-sm">
+
+						<PhStack
+							size="16"
+							weight="bold"
+						/>
+
+						<input
+							v-if="currentEngine !== 'New Engine'"
+							v-model="depth"
+							type="number"
+							class="ml-2 w-full"
+							required
+							placeholder="Analysis Depth"
+							min="0"
+							max="50"
+							title="Analysis Depth (0-50)"
+						/>
+
+					</label>
+
+					<p class="label"> Set to 0 for infinite </p>
+
+				</fieldset>
+
+				<!-- Time input -->
+
+				<fieldset
 					v-if="currentEngine !== 'New Engine'"
-					class="btn btn-sm btn-primary"
-					@click="startGameAnalysis"
-					:disabled="isGameAnalysisInProgress"
+					class="fieldset w-full"
 				>
-					 Analyze Game
-				</button>
+
+					<legend class="fieldset-legend">
+
+						<span class="w-full break-keep"> Max Analysis Time </span>
+
+					</legend>
+
+					<label class="input input-sm">
+
+						<PhTimer
+							size="18"
+							weight="bold"
+						/>
+
+						<input
+							v-if="currentEngine !== 'New Engine'"
+							v-model="maxTime"
+							type="number"
+							class="ml-2 w-full"
+							required
+							placeholder="Max Analysis Time"
+							min="0"
+							max="3600"
+							title="Max Time (0-3600 seconds)"
+						/>
+
+						<span class="text-xs ml-2">
+							 {{ maxTime === 1 ? "second" : "seconds" }}
+						</span>
+
+					</label>
+
+					<p class="label"> Set to 0 for infinite</p>
+
+				</fieldset>
 
 			</div>
 
@@ -265,7 +337,12 @@
 </template>
 
 <script setup lang="ts">
-import { PhBinary, PhIdentificationCard } from "@phosphor-icons/vue";
+import {
+	PhBinary,
+	PhIdentificationCard,
+	PhTimer,
+	PhStack,
+} from "@phosphor-icons/vue";
 import { computed, onMounted, ref, watch } from "vue";
 import type {
 	AnalysisUpdate,
@@ -274,6 +351,8 @@ import type {
 	EngineSettings as TEngineSettings,
 } from "../../shared/types";
 import EngineSettings from "./EngineSettings.vue";
+import ToolBar from "../Layout/ToolBar/ToolBar.vue";
+import { error } from "@tauri-apps/plugin-log";
 
 const props = defineProps<{
 	boardId: number;
@@ -300,13 +379,18 @@ const emit = defineEmits<{
 	"update:selectedEngine": [engine: string];
 }>();
 
-const currentEngine = ref(props.selectedEngine);
+const allEngines = computed(() => ["New Engine", ...props.availableEngines]);
+
+const currentEngine = ref(
+	allEngines.value.includes(props.selectedEngine)
+		? props.selectedEngine
+		: "New Engine",
+);
 const newEngineName = ref<string>("");
 const newEnginePath = ref<string>("");
 const depth = ref<number>(20);
+const maxTime = ref<number>(0);
 const gameAnalysisProgress = ref({ current: 0, total: 0 });
-
-const allEngines = computed(() => ["New Engine", ...props.availableEngines]);
 
 // Local storage key for saved engines
 const SAVED_ENGINES_KEY = "open-knight-saved-engines";
@@ -330,8 +414,8 @@ function saveEngineToStorage(name: string, path: string) {
 			savedEngines.push({ name, path });
 		}
 		localStorage.setItem(SAVED_ENGINES_KEY, JSON.stringify(savedEngines));
-	} catch (error) {
-		console.error("Failed to save engine to localStorage:", error);
+	} catch (e) {
+		error(`Failed to save engine to localStorage: ${e}`);
 	}
 }
 
@@ -340,8 +424,8 @@ function getSavedEngines(): SavedEngine[] {
 	try {
 		const saved = localStorage.getItem(SAVED_ENGINES_KEY);
 		return saved ? JSON.parse(saved) : [];
-	} catch (error) {
-		console.error("Failed to load saved engines from localStorage:", error);
+	} catch (e) {
+		error(`Failed to load saved engines from localStorage: ${e}`);
 		return [];
 	}
 }

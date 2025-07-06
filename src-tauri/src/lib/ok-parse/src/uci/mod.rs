@@ -1,9 +1,12 @@
 use chumsky::prelude::*;
-use complex::{info_token_parser, option_token_parser, parse_info_params, parse_option_params};
+use complex::{
+    info_token_parser, option_token_parser, parse_info_params,
+    parse_option_params,
+};
 use serde::Serialize;
 use simple::{
-    bestmove_parser, copyprotection_parser, id_parser, readyok_parser, registration_parser,
-    uciok_parser,
+    bestmove_parser, copyprotection_parser, id_parser, readyok_parser,
+    registration_parser, uciok_parser,
 };
 
 use crate::DEBUG;
@@ -158,7 +161,10 @@ pub struct InfoParams {
 /// print each field on a new line with indent
 /// skip empty fields
 impl std::fmt::Display for InfoParams {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         let mut fields = vec![];
         if let Some(depth) = self.depth {
             fields.push(format!("Depth: {}", depth));
@@ -305,7 +311,8 @@ pub enum UciParseError {
 }
 
 /// Top-level parser for engine responses
-fn engine_response_parser() -> impl Parser<char, EngineResponse, Error = Simple<char>> {
+fn engine_response_parser(
+) -> impl Parser<char, EngineResponse, Error = Simple<char>> {
     let simple_parsers = choice((
         id_parser(),
         uciok_parser(),
@@ -316,11 +323,13 @@ fn engine_response_parser() -> impl Parser<char, EngineResponse, Error = Simple<
     ));
 
     let info_parser = info_token_parser().try_map(|s, span| {
-        parse_info_params(s).map_err(|e| Simple::custom(span, format!("{:?}", e)))
+        parse_info_params(s)
+            .map_err(|e| Simple::custom(span, format!("{:?}", e)))
     });
 
     let option_parser = option_token_parser().try_map(|s, span| {
-        parse_option_params(s).map_err(|e| Simple::custom(span, format!("{:?}", e)))
+        parse_option_params(s)
+            .map_err(|e| Simple::custom(span, format!("{:?}", e)))
     });
 
     simple_parsers
@@ -331,9 +340,12 @@ fn engine_response_parser() -> impl Parser<char, EngineResponse, Error = Simple<
 }
 
 /// Public function to parse an engine response
-pub fn parse_engine_response(line: &str) -> Result<EngineResponse, UciParseError> {
+pub fn parse_engine_response(
+    line: &str
+) -> Result<EngineResponse, UciParseError> {
     if DEBUG {
-        let (response, errors) = engine_response_parser().parse_recovery_verbose(line);
+        let (response, errors) =
+            engine_response_parser().parse_recovery_verbose(line);
         response.ok_or_else(|| UciParseError::ParseFailure {
             input: line.to_string(),
             message: errors
@@ -343,15 +355,15 @@ pub fn parse_engine_response(line: &str) -> Result<EngineResponse, UciParseError
                 .join(", "),
         })
     } else {
-        engine_response_parser()
-            .parse(line)
-            .map_err(|e| UciParseError::ParseFailure {
+        engine_response_parser().parse(line).map_err(|e| {
+            UciParseError::ParseFailure {
                 input: line.to_string(),
                 message: e
                     .iter()
                     .map(|e| e.to_string())
                     .collect::<Vec<String>>()
                     .join(", "),
-            })
+            }
+        })
     }
 }

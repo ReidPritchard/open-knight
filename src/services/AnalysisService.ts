@@ -4,6 +4,7 @@ import {
 	parseEngineSettingsPayload,
 } from "../shared/types";
 import type { useEngineAnalysisStore } from "../stores/engineAnalysis";
+import { warn } from "@tauri-apps/plugin-log";
 
 class EngineAnalysisEventService {
 	initialized = false;
@@ -32,7 +33,7 @@ class EngineAnalysisEventService {
 						}
 					}
 				} catch (error) {
-					console.error("Error parsing engine output", error);
+					warn(`Error parsing engine output: ${error}`);
 				}
 			}),
 		);

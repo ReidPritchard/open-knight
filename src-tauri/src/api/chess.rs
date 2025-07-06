@@ -12,7 +12,9 @@ ts_export! {
     }
 }
 
-pub fn get_legal_moves(fen: &str) -> Result<Vec<LegalMove>, Box<dyn std::error::Error>> {
+pub fn get_legal_moves(
+    fen: &str
+) -> Result<Vec<LegalMove>, Box<dyn std::error::Error>> {
     // Parse the FEN string into a Fen struct, then convert to Chess position
     let fen: Fen = fen.parse()?;
     let position: Chess = fen.into_position(CastlingMode::Standard)?;

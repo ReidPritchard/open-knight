@@ -168,8 +168,8 @@ export const useEngineAnalysisStore = defineStore("engineAnalysis", {
 				this.setEngineAnalyzing(engineName, false);
 			}
 		},
-		async analyzeGame(engineName: string, gameId: number) {
-			await EngineService.analyzeGame(engineName, gameId);
+		async analyzeGame(boardId: number) {
+			await EngineService.analyzeGame(boardId);
 		},
 	},
 });

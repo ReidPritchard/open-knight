@@ -1,3 +1,4 @@
+import { warn } from "@tauri-apps/plugin-log";
 import type { OperationResult } from "../shared/types";
 
 /**
@@ -329,14 +330,19 @@ export const ErrorHandler = {
 	 */
 	handle(error: ApplicationError): void {
 		// Log error for debugging
-		console.error("ApplicationError:", error.toJSON());
+		warn(
+			`Error occurred: ${error.message} (Category: ${error.category}, Code: ${error.code}, Severity: ${error.severity})`,
+		);
 
 		// Notify all listeners
 		for (const listener of errorListeners) {
 			try {
 				listener(error);
 			} catch (listenerError) {
-				console.error("Error in error listener:", listenerError);
+				// If a listener throws an error, log it but continue notifying others
+				warn(
+					`Error in error listener: ${listenerError instanceof Error ? listenerError.message : String(listenerError)}`,
+				);
 			}
 		}
 	},

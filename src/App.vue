@@ -9,6 +9,7 @@
 			@new-game="newGameClick"
 			@refresh-games="refreshGamesClick"
 			@reset-database="resetDatabaseClick"
+			@quit-app="exitAppClick"
 		/>
 
 		<!-- Main Layout with Resizable Split Panes -->
@@ -227,7 +228,7 @@
 
 <script setup lang="ts">
 import { PhBooks, PhEngine, PhTree } from "@phosphor-icons/vue";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, provide, ref, watch } from "vue";
 import ChessBoard from "./components/ChessBoard/ChessBoard.vue";
 import EngineAnalysisPanel from "./components/EngineAnalysis/EngineAnalysisPanel.vue";
 import EvaluationBar from "./components/EvaluationBar/EvaluationBar.vue";
@@ -247,6 +248,8 @@ import { useEngineAnalysisStore } from "./stores/engineAnalysis";
 import { useGamesStore } from "./stores/games";
 import { useUIStore } from "./stores/ui";
 import { resetDatabase } from "./services/ImportExportService";
+import { info } from "@tauri-apps/plugin-log";
+import { exit } from "@tauri-apps/plugin-process";
 
 const gamesStore = useGamesStore();
 const engineAnalysisStore = useEngineAnalysisStore();
@@ -260,8 +263,15 @@ async function execute<T>(promise: Promise<T>): Promise<T | undefined> {
 	error.value = null;
 	try {
 		return await promise;
-	} catch (e: any) {
-		error.value = e.message;
+	} catch (e) {
+		if (
+			typeof e === "object" &&
+			e !== null &&
+			"message" in e &&
+			typeof e.message === "string"
+		) {
+			error.value = e.message;
+		}
 	} finally {
 		isLoading.value = false;
 	}
@@ -327,7 +337,7 @@ async function handleDeleteGame(gameId: number) {
 async function handleUpdateGameProperty(payload: {
 	gameId: number;
 	field: string;
-	value: any;
+	value: string;
 }) {
 	await API.games.update(payload.gameId, payload.field, payload.value);
 	await refreshGamesClick();
@@ -337,6 +347,11 @@ async function resetDatabaseClick() {
 	await resetDatabase();
 	await refreshGamesClick();
 	await gamesStore.newGame(activeBoardId.value);
+}
+
+async function exitAppClick() {
+	info("Exiting application...");
+	exit(0);
 }
 
 // =================================================================================================
@@ -416,7 +431,7 @@ function handleRightPanelTabChange(tabId: string) {
 const availableEngines = computed(() =>
 	Array.from(engineAnalysisStore.engines.keys()),
 );
-const selectedEngine = ref("Stockfish NNUE");
+const selectedEngine = ref("");
 const analysis = computed(() =>
 	engineAnalysisStore.getLatestAnalysisUpdate(selectedEngine.value),
 );
@@ -433,21 +448,34 @@ function handleUpdateEngineSettings(payload: {
 
 async function handleLoadEngine(payload: { name: string; path: string }) {
 	await engineAnalysisStore.loadEngine(payload.name, payload.path);
+
+	// Switch to the new engine (if available)
+	if (availableEngines.value.includes(payload.name)) {
+		selectedEngine.value = payload.name;
+	}
 }
 
-async function handleStartAnalysis() {
-	const fen = gamesStore.getCurrentPosition(activeBoardId.value)?.fen;
-	if (fen) {
-		await engineAnalysisStore.analyzePosition(selectedEngine.value, fen);
-	}
+async function handleStartAnalysis(payload: {
+	fen: string;
+	depth: number;
+	engine: string;
+}) {
+	const { fen, depth, engine } = payload;
+	await engineAnalysisStore.analyzePosition(engine, fen, depth);
 }
 
 async function handleStartGameAnalysis() {
-	const gameId = boardState.value?.game.id;
-	if (gameId) {
-		await engineAnalysisStore.analyzeGame(selectedEngine.value, gameId);
+	info("Starting game analysis");
+	const boardId = activeBoardId.value;
+	if (boardId) {
+		await engineAnalysisStore.analyzeGame(boardId);
 	}
 }
+
+provide("color", "currentColor");
+provide("size", 20);
+provide("weight", "fill");
+provide("mirrored", false);
 </script>
 
 <style>

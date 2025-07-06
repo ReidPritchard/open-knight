@@ -1,6 +1,8 @@
 use ok_parse::pgn::{PgnGame, PgnToken};
 
-use crate::models::{parse::pgn_tokens_to_move_tree, structs::ChessHeader, ChessPosition};
+use crate::models::{
+    parse::pgn_tokens_to_move_tree, structs::ChessHeader, ChessPosition,
+};
 
 use super::structs::ChessGame;
 
@@ -18,12 +20,14 @@ impl From<PgnGame> for ChessGame {
             if let PgnToken::Tag { name, value } = tag {
                 match name.as_str() {
                     "Event" => {
-                        let mut tournament = chess_game.tournament.unwrap_or_default();
+                        let mut tournament =
+                            chess_game.tournament.unwrap_or_default();
                         tournament.name = value;
                         chess_game.tournament = Some(tournament);
                     }
                     "Site" => {
-                        let mut tournament = chess_game.tournament.unwrap_or_default();
+                        let mut tournament =
+                            chess_game.tournament.unwrap_or_default();
                         tournament.location = Some(value);
                         chess_game.tournament = Some(tournament);
                     }
@@ -40,17 +44,20 @@ impl From<PgnGame> for ChessGame {
                     "Black" => chess_game.black_player.name = value,
                     "Result" => chess_game.result = value,
                     "ECO" => {
-                        let mut opening = chess_game.opening.unwrap_or_default();
+                        let mut opening =
+                            chess_game.opening.unwrap_or_default();
                         opening.eco = Some(value);
                         chess_game.opening = Some(opening);
                     }
                     "Opening" => {
-                        let mut opening = chess_game.opening.unwrap_or_default();
+                        let mut opening =
+                            chess_game.opening.unwrap_or_default();
                         opening.name = Some(value);
                         chess_game.opening = Some(opening);
                     }
                     "Variation" => {
-                        let mut opening = chess_game.opening.unwrap_or_default();
+                        let mut opening =
+                            chess_game.opening.unwrap_or_default();
                         opening.variation = Some(value);
                         chess_game.opening = Some(opening);
                     }
@@ -77,8 +84,12 @@ impl From<PgnGame> for ChessGame {
             .map_or(ChessPosition::default(), |fen| {
                 ChessPosition::from_fen(Some(fen), Some(variant)).unwrap()
             });
-        chess_game.move_tree =
-            pgn_tokens_to_move_tree(chess_game.id, starting_position, &pgn_moves).unwrap();
+        chess_game.move_tree = pgn_tokens_to_move_tree(
+            chess_game.id,
+            starting_position,
+            &pgn_moves,
+        )
+        .unwrap();
 
         // Set result
         chess_game.result = pgn_result.unwrap_or("*".to_string());

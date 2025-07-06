@@ -183,7 +183,7 @@
 		>
 
 			<table
-				class="table table-sm table-pin-rows table-pin-cols"
+				class="table table-xs table-pin-rows table-pin-cols"
 				role="table"
 			>
 
@@ -501,6 +501,7 @@ import {
 	IImportExportService,
 	ImportExportServiceKey,
 } from "../../composables/useInjection";
+import { info, warn } from "@tauri-apps/plugin-log";
 
 const props = defineProps<{
 	games: ExplorerGame[];
@@ -596,7 +597,7 @@ const gameList = computed(() => {
 	let games: ExplorerGame[] = [...(props.games || [])];
 
 	if (!importExportService || !searchGames || !filterGames || !sortGames) {
-		console.warn(
+		warn(
 			"ImportExportService not provided correctly. Some features will not be available.",
 		);
 		return games;
@@ -745,7 +746,7 @@ const handleContextMenuClick = async (itemId: string) => {
 			break;
 		case "export":
 			// TODO: Implement export game
-			console.log("Export game:", gameId);
+			info(`TODO: Export game: ${gameId}`);
 			break;
 		case "delete":
 			emit("delete-game", gameId);
@@ -761,15 +762,6 @@ const handleContextMenuClick = async (itemId: string) => {
 tr[tabindex]:focus {
   outline: 2px solid hsl(var(--p));
   outline-offset: -2px;
-}
-
-/* Improve mobile responsiveness */
-@media (max-width: 640px) {
-  .table th,
-  .table td {
-    padding: 0.5rem 0.25rem;
-    font-size: 0.875rem;
-  }
 }
 </style>
 

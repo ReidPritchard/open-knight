@@ -6,7 +6,10 @@ pub struct Migration;
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
-    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn up(
+        &self,
+        manager: &SchemaManager,
+    ) -> Result<(), DbErr> {
         manager
             .create_table(
                 Table::create()
@@ -24,7 +27,12 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .unique_key(),
                     )
-                    .col(ColumnDef::new(User::Email).string().not_null().unique_key())
+                    .col(
+                        ColumnDef::new(User::Email)
+                            .string()
+                            .not_null()
+                            .unique_key(),
+                    )
                     .col(
                         ColumnDef::new(User::CreatedAt)
                             .timestamp()
@@ -131,9 +139,9 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(Opening::EcoCode)
-                            .string()
-                            .check(Expr::cust("eco_code GLOB '[A-E][0-9][0-9]'")),
+                        ColumnDef::new(Opening::EcoCode).string().check(
+                            Expr::cust("eco_code GLOB '[A-E][0-9][0-9]'"),
+                        ),
                     )
                     .col(ColumnDef::new(Opening::Name).string().not_null())
                     .col(ColumnDef::new(Opening::Variation).string())
@@ -304,7 +312,9 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Annotation::MoveId).integer().not_null())
+                    .col(
+                        ColumnDef::new(Annotation::MoveId).integer().not_null(),
+                    )
                     .col(ColumnDef::new(Annotation::UserId).integer()) // TODO: add .not_null() once user table is active
                     .col(ColumnDef::new(Annotation::Comment).text())
                     .col(ColumnDef::new(Annotation::Arrows).text())
@@ -339,7 +349,11 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Evaluation::PositionId).integer().not_null())
+                    .col(
+                        ColumnDef::new(Evaluation::PositionId)
+                            .integer()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(Evaluation::Score).double())
                     .col(
                         ColumnDef::new(Evaluation::Type)
@@ -352,7 +366,11 @@ impl MigrationTrait for Migration {
                             .integer()
                             .check(Expr::cust("depth > 0")),
                     )
-                    .col(ColumnDef::new(Evaluation::EngineName).string().not_null())
+                    .col(
+                        ColumnDef::new(Evaluation::EngineName)
+                            .string()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(Evaluation::EngineVersion)
                             .string()
@@ -402,8 +420,8 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(MoveTimeTracking::ClockType)
                             .string()
                             .check(Expr::cust(
-                                "clock_type IN ('bronstein', 'fischer', 'simple')",
-                            )),
+                            "clock_type IN ('bronstein', 'fischer', 'simple')",
+                        )),
                     )
                     .col(
                         ColumnDef::new(MoveTimeTracking::CreatedAt)
@@ -412,7 +430,10 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .from(MoveTimeTracking::Table, MoveTimeTracking::MoveId)
+                            .from(
+                                MoveTimeTracking::Table,
+                                MoveTimeTracking::MoveId,
+                            )
                             .to(Move::Table, Move::MoveId),
                     )
                     .to_owned(),
@@ -430,7 +451,12 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Tag::Name).string().not_null().unique_key())
+                    .col(
+                        ColumnDef::new(Tag::Name)
+                            .string()
+                            .not_null()
+                            .unique_key(),
+                    )
                     .col(ColumnDef::new(Tag::Description).text())
                     .to_owned(),
             )
@@ -514,7 +540,8 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute(Statement::from_string(
                 manager.get_database_backend(),
-                "CREATE INDEX idx_position_fen_hash ON Position(fen_hash);".to_owned(),
+                "CREATE INDEX idx_position_fen_hash ON Position(fen_hash);"
+                    .to_owned(),
             ))
             .await?;
 
@@ -542,7 +569,10 @@ impl MigrationTrait for Migration {
         Ok(())
     }
 
-    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn down(
+        &self,
+        manager: &SchemaManager,
+    ) -> Result<(), DbErr> {
         manager
             .drop_table(Table::drop().table(MoveTag::Table).to_owned())
             .await?;

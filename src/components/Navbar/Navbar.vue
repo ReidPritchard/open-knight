@@ -153,6 +153,21 @@
 
 						</li>
 
+						<li>
+
+							<button
+								class="btn btn-sm btn-ghost justify-start"
+								@click="quitApp"
+							>
+
+								<PhSignOut class="w-4 h-4" />
+
+								<span>Quit</span>
+
+							</button>
+
+						</li>
+
 					</ul>
 
 				</div>
@@ -174,6 +189,7 @@ import {
 	PhGear,
 	PhPlus,
 	PhTrash,
+	PhSignOut,
 } from "@phosphor-icons/vue";
 import { computed } from "vue";
 import { useGlobalStore } from "../../stores";
@@ -188,6 +204,7 @@ const emit = defineEmits<{
 	(e: "refreshGames"): void;
 	(e: "resetDatabase"): void;
 	(e: "newGame"): void;
+	(e: "quitApp"): void;
 }>();
 
 const globalStore = useGlobalStore();
@@ -210,6 +227,10 @@ const refreshGamesClick = () => {
 
 const resetDatabaseClick = () => {
 	emit("resetDatabase");
+};
+
+const quitApp = () => {
+	emit("quitApp");
 };
 
 const importModalOpen = computed({

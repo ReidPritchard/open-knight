@@ -35,7 +35,10 @@ pub async fn make_move(
 ///
 /// Returns a JSON string containing the updated game state.
 #[tauri::command]
-pub async fn undo_move(board_id: i32, state: State<'_, AppState>) -> Result<String, AppError> {
+pub async fn undo_move(
+    board_id: i32,
+    state: State<'_, AppState>,
+) -> Result<String, AppError> {
     let mut game_session_manager = state.game_session_manager.lock().await;
     match game_session_manager.undo_move(board_id) {
         Ok(_) => {
@@ -53,7 +56,10 @@ pub async fn undo_move(board_id: i32, state: State<'_, AppState>) -> Result<Stri
 ///
 /// Returns a JSON string containing the updated game state.
 #[tauri::command]
-pub async fn redo_move(board_id: i32, state: State<'_, AppState>) -> Result<String, AppError> {
+pub async fn redo_move(
+    board_id: i32,
+    state: State<'_, AppState>,
+) -> Result<String, AppError> {
     let mut game_session_manager = state.game_session_manager.lock().await;
     match game_session_manager.redo_move(board_id) {
         Ok(_) => {
@@ -94,7 +100,10 @@ pub async fn next_move(
 ///
 /// Returns a JSON string containing the updated game state.
 #[tauri::command]
-pub async fn previous_move(board_id: i32, state: State<'_, AppState>) -> Result<String, AppError> {
+pub async fn previous_move(
+    board_id: i32,
+    state: State<'_, AppState>,
+) -> Result<String, AppError> {
     let mut game_session_manager = state.game_session_manager.lock().await;
     match game_session_manager.previous_move(board_id) {
         Ok(_) => {

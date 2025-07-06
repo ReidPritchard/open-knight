@@ -16,7 +16,8 @@ use super::{EngineResponse, IdInfo, ProtectionStatus, RegistrationStatus};
  */
 
 /// Parse "uciok" response
-pub fn uciok_parser() -> impl Parser<char, EngineResponse, Error = Simple<char>> {
+pub fn uciok_parser() -> impl Parser<char, EngineResponse, Error = Simple<char>>
+{
     just("uciok")
         .padded()
         .map(|_| EngineResponse::UciOk)
@@ -24,7 +25,8 @@ pub fn uciok_parser() -> impl Parser<char, EngineResponse, Error = Simple<char>>
 }
 
 /// Parse "readyok" response
-pub fn readyok_parser() -> impl Parser<char, EngineResponse, Error = Simple<char>> {
+pub fn readyok_parser(
+) -> impl Parser<char, EngineResponse, Error = Simple<char>> {
     just("readyok")
         .padded()
         .map(|_| EngineResponse::ReadyOk)
@@ -40,12 +42,24 @@ pub fn id_parser() -> impl Parser<char, EngineResponse, Error = Simple<char>> {
                 .padded()
                 .ignore_then(
                     take_until(end())
-                        .map(|(chars, _)| chars.into_iter().collect::<String>().trim().to_string())
+                        .map(|(chars, _)| {
+                            chars
+                                .into_iter()
+                                .collect::<String>()
+                                .trim()
+                                .to_string()
+                        })
                         .map(IdInfo::Name),
                 )
                 .or(just("author").padded().ignore_then(
                     take_until(end())
-                        .map(|(chars, _)| chars.into_iter().collect::<String>().trim().to_string())
+                        .map(|(chars, _)| {
+                            chars
+                                .into_iter()
+                                .collect::<String>()
+                                .trim()
+                                .to_string()
+                        })
                         .map(IdInfo::Author),
                 )),
         )
@@ -54,17 +68,22 @@ pub fn id_parser() -> impl Parser<char, EngineResponse, Error = Simple<char>> {
 }
 
 /// Parse "bestmove" response
-pub fn bestmove_parser() -> impl Parser<char, EngineResponse, Error = Simple<char>> {
+pub fn bestmove_parser(
+) -> impl Parser<char, EngineResponse, Error = Simple<char>> {
     just("bestmove")
         .padded()
         .ignore_then(chess_move())
         .then(just("ponder").padded().ignore_then(chess_move()).or_not())
-        .map(|(best_move, ponder)| EngineResponse::BestMove { best_move, ponder })
+        .map(|(best_move, ponder)| EngineResponse::BestMove {
+            best_move,
+            ponder,
+        })
         .labelled("bestmove response")
 }
 
 /// Parse "copyprotection" response
-pub fn copyprotection_parser() -> impl Parser<char, EngineResponse, Error = Simple<char>> {
+pub fn copyprotection_parser(
+) -> impl Parser<char, EngineResponse, Error = Simple<char>> {
     just("copyprotection")
         .padded()
         .ignore_then(
@@ -79,7 +98,8 @@ pub fn copyprotection_parser() -> impl Parser<char, EngineResponse, Error = Simp
 }
 
 /// Parse "registration" response
-pub fn registration_parser() -> impl Parser<char, EngineResponse, Error = Simple<char>> {
+pub fn registration_parser(
+) -> impl Parser<char, EngineResponse, Error = Simple<char>> {
     just("registration")
         .padded()
         .ignore_then(

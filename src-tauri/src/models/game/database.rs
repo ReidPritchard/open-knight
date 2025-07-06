@@ -17,13 +17,18 @@ pub struct GameMetadata {
 }
 
 /// Saves or updates game metadata (players, tournament, opening) and returns the metadata IDs
-pub async fn save_game_metadata<C>(db: &C, game: &ChessGame) -> Result<GameMetadata, AppError>
+pub async fn save_game_metadata<C>(
+    db: &C,
+    game: &ChessGame,
+) -> Result<GameMetadata, AppError>
 where
     C: ConnectionTrait,
 {
     // Save or find players
-    let white_player_id = player_ops::save_or_find_player(db, &game.white_player).await?;
-    let black_player_id = player_ops::save_or_find_player(db, &game.black_player).await?;
+    let white_player_id =
+        player_ops::save_or_find_player(db, &game.white_player).await?;
+    let black_player_id =
+        player_ops::save_or_find_player(db, &game.black_player).await?;
 
     // Save tournament if exists
     let tournament_id = if let Some(t) = &game.tournament {
@@ -84,17 +89,21 @@ pub fn create_game_model(
 }
 
 /// Helper function to begin a transaction
-pub async fn begin_transaction(db: &DatabaseConnection) -> Result<DatabaseTransaction, AppError> {
-    db.begin()
-        .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to start transaction: {}", e)))
+pub async fn begin_transaction(
+    db: &DatabaseConnection
+) -> Result<DatabaseTransaction, AppError> {
+    db.begin().await.map_err(|e| {
+        AppError::DatabaseError(format!("Failed to start transaction: {}", e))
+    })
 }
 
 /// Helper function to commit a transaction
-pub async fn commit_transaction(txn: DatabaseTransaction) -> Result<(), AppError> {
-    txn.commit()
-        .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to commit transaction: {}", e)))
+pub async fn commit_transaction(
+    txn: DatabaseTransaction
+) -> Result<(), AppError> {
+    txn.commit().await.map_err(|e| {
+        AppError::DatabaseError(format!("Failed to commit transaction: {}", e))
+    })
 }
 
 /// Helper function to rollback a transaction (ignores errors)
@@ -103,7 +112,11 @@ pub async fn rollback_transaction(txn: DatabaseTransaction) {
 }
 
 /// Saves moves for a game, deleting existing moves first if updating
-pub async fn save_game_moves<C>(db: &C, game: &ChessGame, is_update: bool) -> Result<(), AppError>
+pub async fn save_game_moves<C>(
+    db: &C,
+    game: &ChessGame,
+    is_update: bool,
+) -> Result<(), AppError>
 where
     C: ConnectionTrait,
 {
@@ -116,7 +129,10 @@ where
             .exec(db)
             .await
             .map_err(|e| {
-                AppError::DatabaseError(format!("Failed to delete existing moves: {}", e))
+                AppError::DatabaseError(format!(
+                    "Failed to delete existing moves: {}",
+                    e
+                ))
             })?;
     }
 
@@ -134,10 +150,9 @@ where
     }
 
     // Save moves using the tree structure to preserve variations
-    updated_tree
-        .save_moves_to_db(db)
-        .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to save moves: {}", e)))?;
+    updated_tree.save_moves_to_db(db).await.map_err(|e| {
+        AppError::DatabaseError(format!("Failed to save moves: {}", e))
+    })?;
 
     Ok(())
 }

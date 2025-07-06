@@ -6,12 +6,18 @@ pub struct Migration;
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
-    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn up(
+        &self,
+        manager: &SchemaManager,
+    ) -> Result<(), DbErr> {
         // Add CASCADE constraints to foreign keys
         self.add_cascade_constraints(manager).await
     }
 
-    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn down(
+        &self,
+        manager: &SchemaManager,
+    ) -> Result<(), DbErr> {
         // Remove CASCADE constraints (revert to original foreign key behavior)
         self.remove_cascade_constraints(manager).await
     }
@@ -132,25 +138,37 @@ impl Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_game_white_player_new")
-                            .from(Alias::new("game_new"), Alias::new("white_player_id"))
+                            .from(
+                                Alias::new("game_new"),
+                                Alias::new("white_player_id"),
+                            )
                             .to(Player::Table, Player::PlayerId),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_game_black_player_new")
-                            .from(Alias::new("game_new"), Alias::new("black_player_id"))
+                            .from(
+                                Alias::new("game_new"),
+                                Alias::new("black_player_id"),
+                            )
                             .to(Player::Table, Player::PlayerId),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_game_tournament_new")
-                            .from(Alias::new("game_new"), Alias::new("tournament_id"))
+                            .from(
+                                Alias::new("game_new"),
+                                Alias::new("tournament_id"),
+                            )
                             .to(Tournament::Table, Tournament::TournamentId),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_game_opening_new")
-                            .from(Alias::new("game_new"), Alias::new("opening_id"))
+                            .from(
+                                Alias::new("game_new"),
+                                Alias::new("opening_id"),
+                            )
                             .to(Opening::Table, Opening::OpeningId),
                     )
                     .to_owned(),
@@ -169,7 +187,11 @@ impl Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Alias::new("game_id")).integer().not_null())
+                    .col(
+                        ColumnDef::new(Alias::new("game_id"))
+                            .integer()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(Alias::new("parent_move_id")).integer())
                     .col(
                         ColumnDef::new(Alias::new("variation_order"))
@@ -201,13 +223,19 @@ impl Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_move_position_new")
-                            .from(Alias::new("move_new"), Alias::new("position_id"))
+                            .from(
+                                Alias::new("move_new"),
+                                Alias::new("position_id"),
+                            )
                             .to(Position::Table, Position::PositionId),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_move_parent_new")
-                            .from(Alias::new("move_new"), Alias::new("parent_move_id"))
+                            .from(
+                                Alias::new("move_new"),
+                                Alias::new("parent_move_id"),
+                            )
                             .to(Alias::new("move_new"), Alias::new("move_id")),
                     )
                     .to_owned(),
@@ -226,7 +254,11 @@ impl Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Alias::new("move_id")).integer().not_null())
+                    .col(
+                        ColumnDef::new(Alias::new("move_id"))
+                            .integer()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(Alias::new("user_id")).integer())
                     .col(ColumnDef::new(Alias::new("comment")).text())
                     .col(ColumnDef::new(Alias::new("arrows")).text())
@@ -236,14 +268,20 @@ impl Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_annotation_move_new")
-                            .from(Alias::new("annotation_new"), Alias::new("move_id"))
+                            .from(
+                                Alias::new("annotation_new"),
+                                Alias::new("move_id"),
+                            )
                             .to(Alias::new("move_new"), Alias::new("move_id"))
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_annotation_user_new")
-                            .from(Alias::new("annotation_new"), Alias::new("user_id"))
+                            .from(
+                                Alias::new("annotation_new"),
+                                Alias::new("user_id"),
+                            )
                             .to(User::Table, User::UserId),
                     )
                     .to_owned(),
@@ -262,7 +300,11 @@ impl Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Alias::new("move_id")).integer().not_null())
+                    .col(
+                        ColumnDef::new(Alias::new("move_id"))
+                            .integer()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(Alias::new("time_spent_ms")).integer())
                     .col(ColumnDef::new(Alias::new("time_left_ms")).integer())
                     .col(ColumnDef::new(Alias::new("clock_type")).string())
@@ -271,7 +313,10 @@ impl Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_move_time_tracking_move_new")
-                            .from(Alias::new("move_time_tracking_new"), Alias::new("move_id"))
+                            .from(
+                                Alias::new("move_time_tracking_new"),
+                                Alias::new("move_id"),
+                            )
                             .to(Alias::new("move_new"), Alias::new("move_id"))
                             .on_delete(ForeignKeyAction::Cascade),
                     )
@@ -284,8 +329,16 @@ impl Migration {
             .create_table(
                 Table::create()
                     .table(Alias::new("game_tag_new"))
-                    .col(ColumnDef::new(Alias::new("game_id")).integer().not_null())
-                    .col(ColumnDef::new(Alias::new("tag_id")).integer().not_null())
+                    .col(
+                        ColumnDef::new(Alias::new("game_id"))
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Alias::new("tag_id"))
+                            .integer()
+                            .not_null(),
+                    )
                     .primary_key(
                         Index::create()
                             .name("pk_game_tag_new")
@@ -296,14 +349,20 @@ impl Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_game_tag_game_new")
-                            .from(Alias::new("game_tag_new"), Alias::new("game_id"))
+                            .from(
+                                Alias::new("game_tag_new"),
+                                Alias::new("game_id"),
+                            )
                             .to(Alias::new("game_new"), Alias::new("game_id"))
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_game_tag_tag_new")
-                            .from(Alias::new("game_tag_new"), Alias::new("tag_id"))
+                            .from(
+                                Alias::new("game_tag_new"),
+                                Alias::new("tag_id"),
+                            )
                             .to(Tag::Table, Tag::TagId),
                     )
                     .to_owned(),
@@ -315,8 +374,16 @@ impl Migration {
             .create_table(
                 Table::create()
                     .table(Alias::new("move_tag_new"))
-                    .col(ColumnDef::new(Alias::new("move_id")).integer().not_null())
-                    .col(ColumnDef::new(Alias::new("tag_id")).integer().not_null())
+                    .col(
+                        ColumnDef::new(Alias::new("move_id"))
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Alias::new("tag_id"))
+                            .integer()
+                            .not_null(),
+                    )
                     .primary_key(
                         Index::create()
                             .name("pk_move_tag_new")
@@ -327,14 +394,20 @@ impl Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_move_tag_move_new")
-                            .from(Alias::new("move_tag_new"), Alias::new("move_id"))
+                            .from(
+                                Alias::new("move_tag_new"),
+                                Alias::new("move_id"),
+                            )
                             .to(Alias::new("move_new"), Alias::new("move_id"))
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_move_tag_tag_new")
-                            .from(Alias::new("move_tag_new"), Alias::new("tag_id"))
+                            .from(
+                                Alias::new("move_tag_new"),
+                                Alias::new("tag_id"),
+                            )
                             .to(Tag::Table, Tag::TagId),
                     )
                     .to_owned(),
@@ -392,7 +465,10 @@ impl Migration {
     }
 
     /// Drop original tables (in reverse dependency order)
-    async fn drop_original_tables<'a>(&self, manager: &'a SchemaManager<'a>) -> Result<(), DbErr> {
+    async fn drop_original_tables<'a>(
+        &self,
+        manager: &'a SchemaManager<'a>,
+    ) -> Result<(), DbErr> {
         // Drop in reverse dependency order
         manager
             .drop_table(Table::drop().table(MoveTag::Table).to_owned())
@@ -444,7 +520,8 @@ impl Migration {
 
         conn.execute(Statement::from_string(
             manager.get_database_backend(),
-            "ALTER TABLE move_time_tracking_new RENAME TO move_time_tracking".to_string(),
+            "ALTER TABLE move_time_tracking_new RENAME TO move_time_tracking"
+                .to_string(),
         ))
         .await?;
 
@@ -507,25 +584,37 @@ impl Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_game_white_player_reverted")
-                            .from(Alias::new("game_reverted"), Alias::new("white_player_id"))
+                            .from(
+                                Alias::new("game_reverted"),
+                                Alias::new("white_player_id"),
+                            )
                             .to(Player::Table, Player::PlayerId),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_game_black_player_reverted")
-                            .from(Alias::new("game_reverted"), Alias::new("black_player_id"))
+                            .from(
+                                Alias::new("game_reverted"),
+                                Alias::new("black_player_id"),
+                            )
                             .to(Player::Table, Player::PlayerId),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_game_tournament_reverted")
-                            .from(Alias::new("game_reverted"), Alias::new("tournament_id"))
+                            .from(
+                                Alias::new("game_reverted"),
+                                Alias::new("tournament_id"),
+                            )
                             .to(Tournament::Table, Tournament::TournamentId),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_game_opening_reverted")
-                            .from(Alias::new("game_reverted"), Alias::new("opening_id"))
+                            .from(
+                                Alias::new("game_reverted"),
+                                Alias::new("opening_id"),
+                            )
                             .to(Opening::Table, Opening::OpeningId),
                     )
                     .to_owned(),
@@ -544,7 +633,11 @@ impl Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Alias::new("game_id")).integer().not_null())
+                    .col(
+                        ColumnDef::new(Alias::new("game_id"))
+                            .integer()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(Alias::new("parent_move_id")).integer())
                     .col(
                         ColumnDef::new(Alias::new("variation_order"))
@@ -569,20 +662,35 @@ impl Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_move_game_reverted")
-                            .from(Alias::new("move_reverted"), Alias::new("game_id"))
-                            .to(Alias::new("game_reverted"), Alias::new("game_id")),
+                            .from(
+                                Alias::new("move_reverted"),
+                                Alias::new("game_id"),
+                            )
+                            .to(
+                                Alias::new("game_reverted"),
+                                Alias::new("game_id"),
+                            ),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_move_position_reverted")
-                            .from(Alias::new("move_reverted"), Alias::new("position_id"))
+                            .from(
+                                Alias::new("move_reverted"),
+                                Alias::new("position_id"),
+                            )
                             .to(Position::Table, Position::PositionId),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_move_parent_reverted")
-                            .from(Alias::new("move_reverted"), Alias::new("parent_move_id"))
-                            .to(Alias::new("move_reverted"), Alias::new("move_id")),
+                            .from(
+                                Alias::new("move_reverted"),
+                                Alias::new("parent_move_id"),
+                            )
+                            .to(
+                                Alias::new("move_reverted"),
+                                Alias::new("move_id"),
+                            ),
                     )
                     .to_owned(),
             )
@@ -618,7 +726,10 @@ impl Migration {
     }
 
     /// Drop CASCADE tables (for down migration)
-    async fn drop_cascade_tables<'a>(&self, manager: &'a SchemaManager<'a>) -> Result<(), DbErr> {
+    async fn drop_cascade_tables<'a>(
+        &self,
+        manager: &'a SchemaManager<'a>,
+    ) -> Result<(), DbErr> {
         // Drop current tables with CASCADE constraints
         manager
             .drop_table(Table::drop().table(MoveTag::Table).to_owned())

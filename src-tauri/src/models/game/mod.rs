@@ -23,7 +23,10 @@ pub use structs::{ChessGame, ChessOpening, ChessPlayer, ChessTournament};
 
 impl ChessGame {
     /// Creates a new chess game with default starting position
-    pub async fn new(variant: &str, db: &DatabaseConnection) -> Result<Self, AppError> {
+    pub async fn new(
+        variant: &str,
+        db: &DatabaseConnection,
+    ) -> Result<Self, AppError> {
         if variant != "standard" {
             // Display warning message
             warn!(
@@ -33,8 +36,10 @@ impl ChessGame {
         }
 
         // Create default players
-        let white_player_id = player_ops::create_default_player(db, "White Player").await?;
-        let black_player_id = player_ops::create_default_player(db, "Black Player").await?;
+        let white_player_id =
+            player_ops::create_default_player(db, "White Player").await?;
+        let black_player_id =
+            player_ops::create_default_player(db, "Black Player").await?;
 
         let starting_position = ChessPosition::default();
         let current_date = {
@@ -89,7 +94,12 @@ impl ChessGame {
         let insert_result = game::Entity::insert(db_game_model)
             .exec(db)
             .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to create new game: {}", e)))?;
+            .map_err(|e| {
+                AppError::DatabaseError(format!(
+                    "Failed to create new game: {}",
+                    e
+                ))
+            })?;
 
         game.id = insert_result.last_insert_id;
         Ok(game)
@@ -116,14 +126,22 @@ impl ChessGame {
     }
 
     /// Loads a chess game from the database by ID
-    pub async fn load(db: &DatabaseConnection, game_id: i32) -> Result<Self, AppError> {
+    pub async fn load(
+        db: &DatabaseConnection,
+        game_id: i32,
+    ) -> Result<Self, AppError> {
         // Load the game
         let game = game::Entity::find_by_id(game_id)
             .one(db)
             .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to query game: {}", e)))?
+            .map_err(|e| {
+                AppError::DatabaseError(format!("Failed to query game: {}", e))
+            })?
             .ok_or_else(|| {
-                AppError::DatabaseError(format!("Game with ID {} not found", game_id))
+                AppError::DatabaseError(format!(
+                    "Game with ID {} not found",
+                    game_id
+                ))
             })?;
 
         // Load headers
@@ -131,7 +149,12 @@ impl ChessGame {
             .filter(game_header::Column::GameId.eq(game_id))
             .all(db)
             .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to load headers: {}", e)))?
+            .map_err(|e| {
+                AppError::DatabaseError(format!(
+                    "Failed to load headers: {}",
+                    e
+                ))
+            })?
             .into_iter()
             .map(|h| h.into())
             .collect();
@@ -140,7 +163,12 @@ impl ChessGame {
         let white_player = player::Entity::find_by_id(game.white_player_id)
             .one(db)
             .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to query white player: {}", e)))?
+            .map_err(|e| {
+                AppError::DatabaseError(format!(
+                    "Failed to query white player: {}",
+                    e
+                ))
+            })?
             .ok_or_else(|| {
                 AppError::DatabaseError(format!(
                     "White player with ID {} not found",
@@ -151,7 +179,12 @@ impl ChessGame {
         let black_player = player::Entity::find_by_id(game.black_player_id)
             .one(db)
             .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to query black player: {}", e)))?
+            .map_err(|e| {
+                AppError::DatabaseError(format!(
+                    "Failed to query black player: {}",
+                    e
+                ))
+            })?
             .ok_or_else(|| {
                 AppError::DatabaseError(format!(
                     "Black player with ID {} not found",
@@ -178,7 +211,8 @@ impl ChessGame {
         // FIXME: Not really needed, just made it easier to fix my local database
         // that was using timestamp instead of date.
         let date = {
-            let date = game.date_played.unwrap_or_else(|| "????.??.?".to_string());
+            let date =
+                game.date_played.unwrap_or_else(|| "????.??.?".to_string());
             let date = date.replace("-", ".");
             let parts = date
                 .split(".")
@@ -224,43 +258,69 @@ impl ChessGame {
     }
 
     /// Loads the move tree for this game from the database
-    pub async fn load_moves(&mut self, db: &DatabaseConnection) -> Result<(), AppError> {
+    pub async fn load_moves(
+        &mut self,
+        db: &DatabaseConnection,
+    ) -> Result<(), AppError> {
         let starting_position = ChessPosition::from_fen(self.fen.clone(), None)
-            .map_err(|e| AppError::ChessError(format!("Invalid FEN in game: {}", e)))?;
+            .map_err(|e| {
+                AppError::ChessError(format!("Invalid FEN in game: {}", e))
+            })?;
 
         let move_tree = load_moves_from_db(db, self.id, starting_position)
             .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to load moves: {}", e)))?;
+            .map_err(|e| {
+                AppError::DatabaseError(format!("Failed to load moves: {}", e))
+            })?;
 
         self.move_tree = move_tree;
         Ok(())
     }
 
     /// Loads the tags for this game from the database
-    pub async fn load_tags(&mut self, db: &DatabaseConnection) -> Result<(), AppError> {
+    pub async fn load_tags(
+        &mut self,
+        db: &DatabaseConnection,
+    ) -> Result<(), AppError> {
         let tags = game_tag::Entity::find()
             .filter(game_tag::Column::GameId.eq(self.id))
             .find_also_related(tag::Entity)
             .all(db)
             .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to load tags: {}", e)))?;
+            .map_err(|e| {
+                AppError::DatabaseError(format!("Failed to load tags: {}", e))
+            })?;
 
         self.tags = tags
             .into_iter()
             .filter_map(|(_, tag)| tag)
-            .map(|t| format!("[{} \"{}\"]", t.name, t.description.unwrap_or_default()))
+            .map(|t| {
+                format!(
+                    "[{} \"{}\"]",
+                    t.name,
+                    t.description.unwrap_or_default()
+                )
+            })
             .collect();
 
         Ok(())
     }
 
     /// Loads the game headers for this game from the database
-    pub async fn load_headers(&mut self, db: &DatabaseConnection) -> Result<(), AppError> {
+    pub async fn load_headers(
+        &mut self,
+        db: &DatabaseConnection,
+    ) -> Result<(), AppError> {
         let headers = game_header::Entity::find()
             .filter(game_header::Column::GameId.eq(self.id))
             .all(db)
             .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to load headers: {}", e)))?;
+            .map_err(|e| {
+                AppError::DatabaseError(format!(
+                    "Failed to load headers: {}",
+                    e
+                ))
+            })?;
 
         self.headers = headers.into_iter().map(|h| h.into()).collect();
 
@@ -268,13 +328,18 @@ impl ChessGame {
     }
 
     /// Saves multiple chess games from PGN format to the database
-    pub async fn save_from_pgn(db: &DatabaseConnection, pgn: &str) -> Result<Vec<Self>, AppError> {
+    pub async fn save_from_pgn(
+        db: &DatabaseConnection,
+        pgn: &str,
+    ) -> Result<Vec<Self>, AppError> {
         let chess_games: Vec<Self> = parse_pgn_games(pgn)
             .map(|games| games.into_iter().map(|g| g.into()).collect())
             .map_err(|e| AppError::ParseError(e.into_iter().next().unwrap()))?;
 
         if chess_games.is_empty() {
-            return Err(AppError::GeneralError("No games found in PGN".to_string()));
+            return Err(AppError::GeneralError(
+                "No games found in PGN".to_string(),
+            ));
         }
 
         info!(
@@ -332,7 +397,8 @@ impl ChessGame {
                     "  → Processed {} games, allowing cleanup...",
                     game_index + 1
                 );
-                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                tokio::time::sleep(tokio::time::Duration::from_millis(100))
+                    .await;
             }
         }
 
@@ -472,7 +538,10 @@ impl ChessGame {
     }
 
     /// Makes a move in the game from the current position
-    pub async fn make_uci_move(&mut self, uci_move_notation: &str) -> Result<(), AppError> {
+    pub async fn make_uci_move(
+        &mut self,
+        uci_move_notation: &str,
+    ) -> Result<(), AppError> {
         if uci_move_notation.trim().is_empty() {
             return Err(AppError::ChessError(
                 "Move notation cannot be empty".to_string(),
@@ -484,22 +553,33 @@ impl ChessGame {
     }
 
     /// Deletes a game from the database
-    pub async fn delete(db: &DatabaseConnection, game_id: i32) -> Result<(), AppError> {
+    pub async fn delete(
+        db: &DatabaseConnection,
+        game_id: i32,
+    ) -> Result<(), AppError> {
         game::Entity::delete_by_id(game_id)
             .exec(db)
             .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to delete game: {}", e)))?;
+            .map_err(|e| {
+                AppError::DatabaseError(format!("Failed to delete game: {}", e))
+            })?;
 
         Ok(())
     }
 
     /// Saves the game to the database
-    pub async fn save(self, db: &DatabaseConnection) -> Result<Self, AppError> {
+    pub async fn save(
+        self,
+        db: &DatabaseConnection,
+    ) -> Result<Self, AppError> {
         Self::save_single_game(db, &self).await
     }
 
     /// Updates the game in the database
-    pub async fn update(self, db: &DatabaseConnection) -> Result<Self, AppError> {
+    pub async fn update(
+        self,
+        db: &DatabaseConnection,
+    ) -> Result<Self, AppError> {
         // Validate that the game has a valid ID
         if self.id <= 0 {
             return Err(AppError::ChessError(
@@ -518,11 +598,17 @@ impl ChessGame {
             game.black_player.id = metadata.black_player_id;
 
             // Update the game record
-            let game_model = database::create_game_model(&game, &metadata, Some(game.id));
+            let game_model =
+                database::create_game_model(&game, &metadata, Some(game.id));
             game::Entity::update(game_model)
                 .exec(&txn)
                 .await
-                .map_err(|e| AppError::DatabaseError(format!("Failed to update game: {}", e)))?;
+                .map_err(|e| {
+                    AppError::DatabaseError(format!(
+                        "Failed to update game: {}",
+                        e
+                    ))
+                })?;
 
             // Save moves (delete existing ones first)
             database::save_game_moves(&txn, &game, true).await?;

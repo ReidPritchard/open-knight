@@ -36,8 +36,9 @@ pub async fn get_entity_by_id(
     id: i32,
     state: State<'_, AppState>,
 ) -> Result<String, AppError> {
-    let entity = crate::api::database::get_entity_by_id(entity, id, None, &state.db)
-        .await
-        .unwrap();
+    let entity =
+        crate::api::database::get_entity_by_id(entity, id, None, &state.db)
+            .await
+            .unwrap();
     Ok(serde_json::to_string(&entity).unwrap())
 }

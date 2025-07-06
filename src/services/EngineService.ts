@@ -1,3 +1,4 @@
+import { debug, info } from "@tauri-apps/plugin-log";
 import { API } from "../shared/api";
 import type {
 	AnalysisUpdate,
@@ -112,17 +113,14 @@ export async function stopAnalysis(
 /**
  * Start game analysis
  */
-export async function analyzeGame(
-	engineName: string,
-	gameId: number,
-): Promise<OperationResult> {
+export async function analyzeGame(boardId: number): Promise<OperationResult> {
 	return await withErrorHandling(
-		() => API.analysis.analyzeGame(engineName, gameId),
+		() => API.analysis.analyzeGame(boardId),
 		ErrorCategory.CHESS_ENGINE,
 		"ENGINE_ANALYSIS_ERROR",
-		`Failed to analyze game ${gameId} with ${engineName}`,
+		`Failed to analyze game ${boardId}`,
 		{
-			metadata: { engineName, gameId },
+			metadata: { boardId },
 		},
 	);
 }
@@ -184,7 +182,7 @@ export function calculateBoardEvaluation(
 				type: lastUpdate.score?.type ?? "centipawns",
 			};
 			if (evaluation.value !== undefined) {
-				console.log("Evaluation", evaluation);
+				info(`Evaluation: ${evaluation}`);
 				return evaluation as Score;
 			}
 		}
@@ -228,7 +226,9 @@ export function addAnalysisUpdate(
 	engineState: EngineState,
 	update: AnalysisUpdate,
 ): void {
-	console.log("Analysis update", update);
+	debug(
+		`Adding analysis update for engine ${engineState.name}: ${JSON.stringify(update)}`,
+	);
 	engineState.analysisUpdates.push({
 		...update,
 		timestamp: Date.now(),

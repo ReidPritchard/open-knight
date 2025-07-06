@@ -24,7 +24,8 @@ pub fn variation_parser() -> impl Parser<char, PgnToken, Error = Simple<char>> {
 /// Validate a PGN game structure
 pub fn validate_game(game: &PgnGame) -> Result<(), PgnParseError> {
     // Check for required tags
-    let required_tags = ["Event", "Site", "Date", "Round", "White", "Black", "Result"];
+    let required_tags =
+        ["Event", "Site", "Date", "Round", "White", "Black", "Result"];
 
     for tag_name in &required_tags {
         if game.get_tag(tag_name).is_none() {

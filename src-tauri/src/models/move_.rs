@@ -70,7 +70,10 @@ fn hash_fen(fen: &str) -> String {
     hasher.finish().to_string()
 }
 
-pub fn generate_uci(san: &str, pos: &Chess) -> Result<String, Box<dyn Error>> {
+pub fn generate_uci(
+    san: &str,
+    pos: &Chess,
+) -> Result<String, Box<dyn Error>> {
     let uci = san
         .parse::<San>()
         .unwrap()
@@ -102,7 +105,10 @@ impl Default for ChessPosition {
     /// Creates a new position with the starting position of a standard chess game
     fn default() -> Self {
         Self::from_fen(
-            Some("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string()),
+            Some(
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+                    .to_string(),
+            ),
             None,
         )
         .unwrap()
@@ -110,8 +116,12 @@ impl Default for ChessPosition {
 }
 
 impl ChessPosition {
-    pub fn from_fen(fen: Option<String>, variant: Option<String>) -> Result<Self, Box<dyn Error>> {
-        let default_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    pub fn from_fen(
+        fen: Option<String>,
+        variant: Option<String>,
+    ) -> Result<Self, Box<dyn Error>> {
+        let default_fen =
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
         let default_variant = "Standard";
 
         let fen_str = fen.unwrap_or(default_fen.to_string());
@@ -125,7 +135,10 @@ impl ChessPosition {
         })
     }
 
-    pub fn make_san_move(&self, move_san: &str) -> Result<Self, Box<dyn Error>> {
+    pub fn make_san_move(
+        &self,
+        move_san: &str,
+    ) -> Result<Self, Box<dyn Error>> {
         let pos = Chess::from(self.clone());
         let parsed_move = San::from_ascii(move_san.as_bytes())?;
         let chess_move = parsed_move.to_move(&pos)?;
@@ -140,7 +153,10 @@ impl ChessPosition {
     }
 
     /// Make a move from a UCI notation string
-    pub fn make_uci_move(&self, uci: &str) -> Result<(Self, Move), Box<dyn Error>> {
+    pub fn make_uci_move(
+        &self,
+        uci: &str,
+    ) -> Result<(Self, Move), Box<dyn Error>> {
         let pos = Chess::from(self.clone());
         let parsed_move = UciMove::from_ascii(uci.as_bytes())?;
         let chess_move = parsed_move.to_move(&pos)?;
@@ -159,7 +175,10 @@ impl ChessPosition {
 }
 
 impl ChessMove {
-    pub async fn load_position(&mut self, db: &DatabaseConnection) -> Result<(), Box<dyn Error>> {
+    pub async fn load_position(
+        &mut self,
+        db: &DatabaseConnection,
+    ) -> Result<(), Box<dyn Error>> {
         use sea_orm::EntityTrait;
 
         let move_data = r#move::Entity::find_by_id(self.id)
@@ -209,7 +228,10 @@ impl ChessMove {
         Ok(())
     }
 
-    pub async fn load_time_info(&mut self, db: &DatabaseConnection) -> Result<(), Box<dyn Error>> {
+    pub async fn load_time_info(
+        &mut self,
+        db: &DatabaseConnection,
+    ) -> Result<(), Box<dyn Error>> {
         use sea_orm::ColumnTrait;
         use sea_orm::EntityTrait;
         use sea_orm::QueryFilter;
@@ -254,7 +276,8 @@ impl ChessMove {
                     .one(db)
                     .await?;
 
-                let position_id = if let Some(existing_pos) = existing_position {
+                let position_id = if let Some(existing_pos) = existing_position
+                {
                     existing_pos.position_id
                 } else {
                     // Save new position if it doesn't exist
@@ -264,7 +287,8 @@ impl ChessMove {
                         created_at: Set(Some(chrono::Utc::now())),
                         ..Default::default()
                     };
-                    let result = position::Entity::insert(pos_model).exec(db).await?;
+                    let result =
+                        position::Entity::insert(pos_model).exec(db).await?;
                     result.last_insert_id
                 };
 

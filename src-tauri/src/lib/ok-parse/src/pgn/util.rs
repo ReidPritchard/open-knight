@@ -56,27 +56,28 @@ pub fn move_sequence() -> impl Parser<char, Vec<String>, Error = Simple<char>> {
 
 /// Parse bracketed content (for tags)
 pub fn bracketed<T>(
-    inner: impl Parser<char, T, Error = Simple<char>>,
+    inner: impl Parser<char, T, Error = Simple<char>>
 ) -> impl Parser<char, T, Error = Simple<char>> {
     just('[').ignore_then(inner).then_ignore(just(']')).padded()
 }
 
 /// Parse parenthesized content (for variations)
 pub fn parenthesized<T>(
-    inner: impl Parser<char, T, Error = Simple<char>>,
+    inner: impl Parser<char, T, Error = Simple<char>>
 ) -> impl Parser<char, T, Error = Simple<char>> {
     just('(').ignore_then(inner).then_ignore(just(')')).padded()
 }
 
 /// Parse content in curly braces (for comments)
 pub fn braced<T>(
-    inner: impl Parser<char, T, Error = Simple<char>>,
+    inner: impl Parser<char, T, Error = Simple<char>>
 ) -> impl Parser<char, T, Error = Simple<char>> {
     just('{').ignore_then(inner).then_ignore(just('}')).padded()
 }
 
 /// Skip whitespace and comments
-pub fn skip_whitespace_and_comments() -> impl Parser<char, (), Error = Simple<char>> {
+pub fn skip_whitespace_and_comments(
+) -> impl Parser<char, (), Error = Simple<char>> {
     choice((
         filter(|c: &char| c.is_whitespace()).to(()),
         just(';')
@@ -134,7 +135,7 @@ pub fn is_valid_square(square: &str) -> bool {
 
 /// Parse a semicolon-separated list of values
 pub fn semicolon_separated<T>(
-    item: impl Parser<char, T, Error = Simple<char>>,
+    item: impl Parser<char, T, Error = Simple<char>>
 ) -> impl Parser<char, Vec<T>, Error = Simple<char>> {
     item.separated_by(just(';').padded()).collect()
 }

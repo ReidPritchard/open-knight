@@ -1,7 +1,8 @@
 use chumsky::prelude::*;
 
 use super::{
-    Bound, EngineResponse, InfoParams, OptionDefinition, OptionType, Score, UciParseError,
+    Bound, EngineResponse, InfoParams, OptionDefinition, OptionType, Score,
+    UciParseError,
 };
 
 /**
@@ -19,20 +20,29 @@ use super::{
 pub fn info_token_parser() -> impl Parser<char, String, Error = Simple<char>> {
     just("info")
         .padded()
-        .ignore_then(take_until(end()).map(|(chars, _)| chars.into_iter().collect::<String>()))
+        .ignore_then(
+            take_until(end())
+                .map(|(chars, _)| chars.into_iter().collect::<String>()),
+        )
         .labelled("info response")
 }
 
 /// Parser for the "option" command that captures the token and the rest of the line
-pub fn option_token_parser() -> impl Parser<char, String, Error = Simple<char>> {
+pub fn option_token_parser() -> impl Parser<char, String, Error = Simple<char>>
+{
     just("option")
         .padded()
-        .ignore_then(take_until(end()).map(|(chars, _)| chars.into_iter().collect::<String>()))
+        .ignore_then(
+            take_until(end())
+                .map(|(chars, _)| chars.into_iter().collect::<String>()),
+        )
         .labelled("option response")
 }
 
 /// Parse the parameters of an "info" command from a string
-pub fn parse_info_params(input: String) -> Result<EngineResponse, UciParseError> {
+pub fn parse_info_params(
+    input: String
+) -> Result<EngineResponse, UciParseError> {
     let tokens: Vec<&str> = input.split_whitespace().collect();
     let mut params = InfoParams::default();
     let mut i = 0;
@@ -178,7 +188,8 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, UciParseError>
                                     }
                                 }
 
-                                params.score = Some(Score::Centipawns { value, bound });
+                                params.score =
+                                    Some(Score::Centipawns { value, bound });
                             }
                             Err(_) => {
                                 return Err(UciParseError::InvalidValue {
@@ -440,17 +451,23 @@ pub fn parse_info_params(input: String) -> Result<EngineResponse, UciParseError>
 }
 
 /// Parse the parameters of an "option" command from a string
-pub fn parse_option_params(input: String) -> Result<EngineResponse, UciParseError> {
+pub fn parse_option_params(
+    input: String
+) -> Result<EngineResponse, UciParseError> {
     let tokens: Vec<&str> = input.split_whitespace().collect();
 
     // Find positions of key tokens
     let name_pos = tokens.iter().position(|&t| t == "name");
     let type_pos = tokens.iter().position(|&t| t == "type");
 
-    if name_pos.is_none() || type_pos.is_none() || name_pos.unwrap() >= type_pos.unwrap() {
+    if name_pos.is_none()
+        || type_pos.is_none()
+        || name_pos.unwrap() >= type_pos.unwrap()
+    {
         return Err(UciParseError::ParseFailure {
             input,
-            message: "Invalid option format, expected 'name' before 'type'".to_string(),
+            message: "Invalid option format, expected 'name' before 'type'"
+                .to_string(),
         });
     }
 

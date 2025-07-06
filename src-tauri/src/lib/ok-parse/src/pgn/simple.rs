@@ -39,7 +39,8 @@ pub fn tag_parser() -> impl Parser<char, PgnToken, Error = Simple<char>> {
 }
 
 /// Parse a move number (e.g., "1." or "1..." for half moves)
-pub fn move_number_parser() -> impl Parser<char, PgnToken, Error = Simple<char>> {
+pub fn move_number_parser() -> impl Parser<char, PgnToken, Error = Simple<char>>
+{
     text::int(10)
         .then_ignore(just('.').repeated().at_least(1))
         .map(|num: String| PgnToken::MoveNumber {
@@ -54,7 +55,8 @@ pub fn move_number_parser() -> impl Parser<char, PgnToken, Error = Simple<char>>
 /// does not validate any of the move's components
 ///
 /// Does not include move suffix notation or annotation glyphs
-pub fn chess_move_parser() -> impl Parser<char, PgnToken, Error = Simple<char>> {
+pub fn chess_move_parser() -> impl Parser<char, PgnToken, Error = Simple<char>>
+{
     filter(|&c: &char| c.is_alphanumeric() || "+#=x-".contains(c))
         .repeated()
         .at_least(1)
@@ -64,7 +66,8 @@ pub fn chess_move_parser() -> impl Parser<char, PgnToken, Error = Simple<char>> 
 }
 
 /// Parse a game result
-pub fn game_result_parser() -> impl Parser<char, PgnToken, Error = Simple<char>> {
+pub fn game_result_parser() -> impl Parser<char, PgnToken, Error = Simple<char>>
+{
     choice((just("1-0"), just("0-1"), just("1/2-1/2"), just("*")))
         .map(|s: &str| PgnToken::Result {
             result: s.to_string(),
@@ -91,7 +94,8 @@ pub fn nag_parser() -> impl Parser<char, PgnToken, Error = Simple<char>> {
         .labelled("nag")
 }
 /// Parse move suffix notation like "?", "!", "??", "!!", "?!", "!?"
-pub fn move_suffix_parser() -> impl Parser<char, PgnToken, Error = Simple<char>> {
+pub fn move_suffix_parser() -> impl Parser<char, PgnToken, Error = Simple<char>>
+{
     choice((
         just("??"),
         just("!!"),

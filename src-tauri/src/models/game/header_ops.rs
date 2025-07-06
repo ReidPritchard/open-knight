@@ -50,13 +50,18 @@ where
         .filter(game_header::Column::GameId.eq(header.game_id))
         .one(db)
         .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to find header: {}", e)))?;
+        .map_err(|e| {
+            AppError::DatabaseError(format!("Failed to find header: {}", e))
+        })?;
 
     Ok(result)
 }
 
 /// Inserts or updates a header in the database
-pub async fn save_header<C>(db: &C, header: &ChessHeader) -> Result<ChessHeader, AppError>
+pub async fn save_header<C>(
+    db: &C,
+    header: &ChessHeader,
+) -> Result<ChessHeader, AppError>
 where
     C: ConnectionTrait,
 {
@@ -69,19 +74,17 @@ where
         let mut header_model: game_header::ActiveModel = existing_header.into();
         header_model.header_value = Set(local_header.value);
         header_model.updated_at = Set(chrono::Utc::now());
-        let result = header_model
-            .update(db)
-            .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to update header: {}", e)))?;
+        let result = header_model.update(db).await.map_err(|e| {
+            AppError::DatabaseError(format!("Failed to update header: {}", e))
+        })?;
 
         Ok(result.into())
     } else {
         // Insert the new header entry
         let header_model: game_header::ActiveModel = local_header.into();
-        let result = header_model
-            .insert(db)
-            .await
-            .map_err(|e| AppError::DatabaseError(format!("Failed to insert header: {}", e)))?;
+        let result = header_model.insert(db).await.map_err(|e| {
+            AppError::DatabaseError(format!("Failed to insert header: {}", e))
+        })?;
 
         Ok(result.into())
     }

@@ -7,8 +7,12 @@ use super::ChessTreeNode;
 
 impl ChessMoveTree {
     /// Navigate to the next move
-    pub fn next_move(&mut self, variation_index: Option<usize>) -> bool {
-        let current = &self.nodes[self.current_node_id.expect("Current node is not set")];
+    pub fn next_move(
+        &mut self,
+        variation_index: Option<usize>,
+    ) -> bool {
+        let current =
+            &self.nodes[self.current_node_id.expect("Current node is not set")];
 
         if current.children_ids.is_empty() {
             return false;
@@ -25,7 +29,8 @@ impl ChessMoveTree {
 
     /// Navigate to the previous move
     pub fn previous_move(&mut self) -> bool {
-        let current = &self.nodes[self.current_node_id.expect("Current node is not set")];
+        let current =
+            &self.nodes[self.current_node_id.expect("Current node is not set")];
 
         if let Some(parent_id) = current.parent_id {
             self.current_node_id = Some(parent_id);
@@ -41,7 +46,10 @@ impl ChessMoveTree {
     }
 
     /// Move to a specific move by its database ID
-    pub fn move_to_move(&mut self, move_db_id: i32) {
+    pub fn move_to_move(
+        &mut self,
+        move_db_id: i32,
+    ) {
         let target_move = self.find_move(move_db_id);
         // Ignore the move node, we only need it's key to change the current node
         if let Some((key, _)) = target_move {
@@ -69,7 +77,12 @@ impl ChessMoveTree {
             let mut pgn = String::new();
             let mut move_number = 1;
             let mut is_white = true;
-            self.write_pgn_moves_recursive(root_id, &mut pgn, &mut move_number, &mut is_white);
+            self.write_pgn_moves_recursive(
+                root_id,
+                &mut pgn,
+                &mut move_number,
+                &mut is_white,
+            );
             pgn
         } else {
             String::new()
@@ -129,7 +142,9 @@ impl ChessMoveTree {
 
                     // Process variation's children
                     if !variation_node.children_ids.is_empty() {
-                        if let Some(&child_id) = variation_node.children_ids.first() {
+                        if let Some(&child_id) =
+                            variation_node.children_ids.first()
+                        {
                             self.write_pgn_moves_recursive(
                                 child_id,
                                 pgn,
@@ -139,7 +154,9 @@ impl ChessMoveTree {
                         }
 
                         // Handle sub-variations
-                        for &sub_var_id in variation_node.children_ids.iter().skip(1) {
+                        for &sub_var_id in
+                            variation_node.children_ids.iter().skip(1)
+                        {
                             pgn.push('(');
                             let mut sub_var_move_num = var_move_num;
                             let mut sub_var_is_white = var_is_white_turn;
@@ -159,19 +176,33 @@ impl ChessMoveTree {
 
             // First child is the main line
             if let Some(&main_line_id) = node.children_ids.first() {
-                self.write_pgn_moves_recursive(main_line_id, pgn, move_number, is_white);
+                self.write_pgn_moves_recursive(
+                    main_line_id,
+                    pgn,
+                    move_number,
+                    is_white,
+                );
             }
         }
     }
 
-    pub fn depth_first_move_traversal(&self) -> impl Iterator<Item = ChessMove> + '_ {
+    pub fn depth_first_move_traversal(
+        &self
+    ) -> impl Iterator<Item = ChessMove> + '_ {
         // Using a collectible approach for simplicity
         let mut moves = Vec::new();
-        self.collect_moves_depth_first(self.root_id.expect("Root node is not set"), &mut moves);
+        self.collect_moves_depth_first(
+            self.root_id.expect("Root node is not set"),
+            &mut moves,
+        );
         moves.into_iter()
     }
 
-    fn collect_moves_depth_first(&self, node_id: DefaultKey, moves: &mut Vec<ChessMove>) {
+    fn collect_moves_depth_first(
+        &self,
+        node_id: DefaultKey,
+        moves: &mut Vec<ChessMove>,
+    ) {
         let node = &self.nodes[node_id];
 
         // Skip root node (which has no move)
@@ -211,9 +242,12 @@ impl ChessMoveTree {
     ///
     /// * `(node, key)` - The node and the key of the node if found, otherwise None
     ///
-    pub fn find_move(&self, id: i32) -> Option<(DefaultKey, &ChessTreeNode)> {
-        self.nodes
-            .iter()
-            .find(|(_, node)| node.game_move.as_ref().is_some_and(|m| m.id == id))
+    pub fn find_move(
+        &self,
+        id: i32,
+    ) -> Option<(DefaultKey, &ChessTreeNode)> {
+        self.nodes.iter().find(|(_, node)| {
+            node.game_move.as_ref().is_some_and(|m| m.id == id)
+        })
     }
 }

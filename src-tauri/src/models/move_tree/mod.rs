@@ -48,7 +48,10 @@ impl Default for ChessMoveTree {
 
 impl ChessMoveTree {
     /// Create a new move tree with a root node at the given position
-    pub fn new(game_id: i32, root_position: ChessPosition) -> Self {
+    pub fn new(
+        game_id: i32,
+        root_position: ChessPosition,
+    ) -> Self {
         let mut tree = ChessMoveTree {
             game_id: game_id,
             ..Default::default()
@@ -85,10 +88,12 @@ impl ChessMoveTree {
 
         if let Some(root_id) = self.root_id {
             // Map from tree node IDs to database move IDs
-            let mut node_to_move_id: HashMap<slotmap::DefaultKey, i32> = HashMap::new();
+            let mut node_to_move_id: HashMap<slotmap::DefaultKey, i32> =
+                HashMap::new();
 
             // Queue for iterative processing: (node_id, parent_move_id)
-            let mut queue: VecDeque<(slotmap::DefaultKey, Option<i32>)> = VecDeque::new();
+            let mut queue: VecDeque<(slotmap::DefaultKey, Option<i32>)> =
+                VecDeque::new();
 
             // Start with the root node
             queue.push_back((root_id, None));
@@ -102,7 +107,10 @@ impl ChessMoveTree {
             while let Some((node_id, parent_move_id)) = queue.pop_front() {
                 // Safety check
                 if !self.nodes.contains_key(node_id) {
-                    warn!("    ✗ Warning: Node {:?} not found in tree", node_id);
+                    warn!(
+                        "    ✗ Warning: Node {:?} not found in tree",
+                        node_id
+                    );
                     continue;
                 }
 
@@ -120,36 +128,43 @@ impl ChessMoveTree {
                 // If this node has a move (not the root), save it
                 if let Some(ref chess_move) = node.game_move {
                     // Save position first if it exists
-                    let position_id = if let Some(position) = &chess_move.position {
-                        let fen = &position.fen;
-                        let fen_hash = Self::hash_fen(fen);
+                    let position_id =
+                        if let Some(position) = &chess_move.position {
+                            let fen = &position.fen;
+                            let fen_hash = Self::hash_fen(fen);
 
-                        // Check if position already exists
-                        use sea_orm::ColumnTrait;
-                        use sea_orm::QueryFilter;
-                        let existing_position = position::Entity::find()
-                            .filter(position::Column::FenHash.eq(&fen_hash))
-                            .one(db)
-                            .await?;
+                            // Check if position already exists
+                            use sea_orm::ColumnTrait;
+                            use sea_orm::QueryFilter;
+                            let existing_position = position::Entity::find()
+                                .filter(position::Column::FenHash.eq(&fen_hash))
+                                .one(db)
+                                .await?;
 
-                        let position_id = if let Some(existing_pos) = existing_position {
-                            existing_pos.position_id
-                        } else {
-                            // Save new position if it doesn't exist
-                            let pos_model = position::ActiveModel {
+                            let position_id =
+                                if let Some(existing_pos) = existing_position {
+                                    existing_pos.position_id
+                                } else {
+                                    // Save new position if it doesn't exist
+                                    let pos_model = position::ActiveModel {
                                 fen: Set(fen.clone()),
                                 fen_hash: Set(fen_hash),
-                                created_at: Set(Some(sea_orm::sqlx::types::chrono::Utc::now())),
+                                created_at: Set(Some(
+                                    sea_orm::sqlx::types::chrono::Utc::now(),
+                                )),
                                 ..Default::default()
                             };
-                            let result = position::Entity::insert(pos_model).exec(db).await?;
-                            result.last_insert_id
-                        };
+                                    let result =
+                                        position::Entity::insert(pos_model)
+                                            .exec(db)
+                                            .await?;
+                                    result.last_insert_id
+                                };
 
-                        Some(position_id)
-                    } else {
-                        None
-                    };
+                            Some(position_id)
+                        } else {
+                            None
+                        };
 
                     // FIXME: check if this is a variation move (if the parent node has multiple children ids)
                     // if so, we need to increment the variation number
@@ -168,20 +183,24 @@ impl ChessMoveTree {
                         position_id: Set(position_id.unwrap_or(0)),
                         parent_move_id: Set(parent_move_id),
                         variation_order: Set(variation_order),
-                        created_at: Set(Some(sea_orm::sqlx::types::chrono::Utc::now())),
+                        created_at: Set(Some(
+                            sea_orm::sqlx::types::chrono::Utc::now(),
+                        )),
                         ..Default::default()
                     };
 
-                    let result = match r#move::Entity::insert(move_model).exec(db).await {
-                        Ok(res) => res,
-                        Err(e) => {
-                            error!(
-                                "    ✗ Error saving move at ply {}: {}",
-                                chess_move.ply_number, e
-                            );
-                            return Err(Box::new(e));
-                        }
-                    };
+                    let result =
+                        match r#move::Entity::insert(move_model).exec(db).await
+                        {
+                            Ok(res) => res,
+                            Err(e) => {
+                                error!(
+                                    "    ✗ Error saving move at ply {}: {}",
+                                    chess_move.ply_number, e
+                                );
+                                return Err(Box::new(e));
+                            }
+                        };
 
                     let current_move_id = result.last_insert_id;
 
@@ -199,11 +218,17 @@ impl ChessMoveTree {
                                 comment: Set(annotation.comment.clone()),
                                 arrows: Set(annotation.arrows.clone()),
                                 highlights: Set(annotation.highlights.clone()),
-                                created_at: Set(Some(sea_orm::sqlx::types::chrono::Utc::now())),
+                                created_at: Set(Some(
+                                    sea_orm::sqlx::types::chrono::Utc::now(),
+                                )),
                                 ..Default::default()
                             };
 
-                            if let Err(e) = annotation::Entity::insert(anno_model).exec(db).await {
+                            if let Err(e) =
+                                annotation::Entity::insert(anno_model)
+                                    .exec(db)
+                                    .await
+                            {
                                 warn!("    ✗ Warning: Failed to save annotation: {}", e);
                                 // Continue processing, annotations are not critical
                             }

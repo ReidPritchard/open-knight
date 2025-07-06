@@ -3,6 +3,7 @@
 	<div
 		class="border-b border-base-200 last:border-b-0"
 		:class="sectionSizeClasses"
+		@contextmenu.prevent="showContextMenu"
 	>
 
 		<!-- Section Header -->
@@ -112,12 +113,25 @@
 
 	</div>
 
+	<!-- Context Menu -->
+
+	<ContextMenu
+		:visible="contextMenu.visible"
+		:x="contextMenu.x"
+		:y="contextMenu.y"
+		:items="contextMenuItems"
+		@item-click="handleContextMenuClick"
+		@close="hideContextMenu"
+	/>
+
 </template>
 
 <script setup lang="ts">
-import { PhCaretDown } from "@phosphor-icons/vue";
+import { PhCaretDown, PhFilePlus, PhTrash } from "@phosphor-icons/vue";
 import { computed, ref } from "vue";
 import type { Component } from "vue";
+import { MenuItem, ContextMenu } from "../ContextMenu";
+import { debug } from "@tauri-apps/plugin-log";
 
 interface Props {
 	title: string;
@@ -252,6 +266,54 @@ defineExpose({
 	},
 	isCollapsed: () => isCollapsed.value,
 });
+
+// Context menu state
+const contextMenu = ref({
+	visible: false,
+	x: 0,
+	y: 0,
+});
+
+// Context menu items
+const contextMenuItems = computed((): MenuItem[] => [
+	{
+		id: "move",
+		label: `Move ${props.title}`,
+		icon: PhFilePlus,
+	},
+	{
+		id: "divider",
+		label: "",
+		type: "divider",
+	},
+	{
+		id: "hide",
+		label: `Hide ${props.title}`,
+		icon: PhTrash,
+	},
+]);
+
+const showContextMenu = (event: MouseEvent) => {
+	const { clientX: x, clientY: y } = event;
+	contextMenu.value.visible = true;
+	contextMenu.value.x = x;
+	contextMenu.value.y = y;
+};
+
+const hideContextMenu = () => {
+	contextMenu.value.visible = false;
+};
+
+const handleContextMenuClick = (itemId: string) => {
+	if (itemId === "move") {
+		// Handle move action
+		debug("Stacked Section Context Menu Move");
+	} else if (itemId === "hide") {
+		// Handle hide action
+		debug("Stacked Section Context Menu Hide");
+	}
+	hideContextMenu();
+};
 </script>
 
 <style scoped>

@@ -43,11 +43,13 @@ pub async fn load_game_into_session(
     params.load_tags = Some(true);
     params.load_headers = Some(true);
 
-    let game = crate::api::database::get_full_game(game_id, params, &state.db).await;
+    let game =
+        crate::api::database::get_full_game(game_id, params, &state.db).await;
 
     match game {
         Ok(Some(game)) => {
-            let mut game_session_manager = state.game_session_manager.lock().await;
+            let mut game_session_manager =
+                state.game_session_manager.lock().await;
             game_session_manager.add_game(game.clone(), board_id);
             Ok(serde_json::to_string(&game).unwrap())
         }
@@ -64,7 +66,10 @@ pub async fn load_game_into_session(
 ///
 /// Returns a JSON string containing the current game state.
 #[tauri::command]
-pub async fn get_session(board_id: i32, state: State<'_, AppState>) -> Result<String, AppError> {
+pub async fn get_session(
+    board_id: i32,
+    state: State<'_, AppState>,
+) -> Result<String, AppError> {
     let game_session_manager = state.game_session_manager.lock().await;
     match game_session_manager.get_session(board_id) {
         Some(session) => Ok(serde_json::to_string(&session.game).unwrap()),
@@ -79,7 +84,9 @@ pub async fn get_session(board_id: i32, state: State<'_, AppState>) -> Result<St
 ///
 /// Returns a JSON string containing all active sessions with their board IDs.
 #[tauri::command]
-pub async fn get_all_sessions(state: State<'_, AppState>) -> Result<String, AppError> {
+pub async fn get_all_sessions(
+    state: State<'_, AppState>
+) -> Result<String, AppError> {
     let game_session_manager = state.game_session_manager.lock().await;
     let sessions = game_session_manager.get_all_sessions();
     Ok(serde_json::to_string(&sessions).unwrap())
@@ -90,7 +97,10 @@ pub async fn get_all_sessions(state: State<'_, AppState>) -> Result<String, AppE
 /// Parameters:
 /// - `board_id`: The ID of the board to close the session on
 #[tauri::command]
-pub async fn close_session(board_id: i32, state: State<'_, AppState>) -> Result<(), AppError> {
+pub async fn close_session(
+    board_id: i32,
+    state: State<'_, AppState>,
+) -> Result<(), AppError> {
     let mut game_session_manager = state.game_session_manager.lock().await;
     game_session_manager.close_session(board_id);
     Ok(())
@@ -98,7 +108,9 @@ pub async fn close_session(board_id: i32, state: State<'_, AppState>) -> Result<
 
 /// Closes all active game sessions
 #[tauri::command]
-pub async fn close_all_sessions(state: State<'_, AppState>) -> Result<(), AppError> {
+pub async fn close_all_sessions(
+    state: State<'_, AppState>
+) -> Result<(), AppError> {
     let mut game_session_manager = state.game_session_manager.lock().await;
     game_session_manager.close_all_sessions();
     Ok(())

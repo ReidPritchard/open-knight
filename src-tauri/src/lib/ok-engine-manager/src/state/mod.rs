@@ -8,5 +8,8 @@ pub trait EngineState: Send + Sync + 'static + Clone {
     type Event: Send + Sync + Clone + std::fmt::Debug;
 
     /// Apply an update to the engine state
-    fn apply_update(&mut self, update: Self::Update) -> Result<Self::Event, EngineError>;
+    fn apply_update(
+        &mut self,
+        update: Self::Update,
+    ) -> Result<Self::Event, EngineError>;
 }

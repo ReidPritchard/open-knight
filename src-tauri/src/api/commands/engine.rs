@@ -272,10 +272,15 @@ pub async fn analyze_game(
         total_positions_analyzed += 1;
 
         // Brief pause to avoid overwhelming the engine
-        sleep(Duration::from_millis(100)).await;
+        sleep(Duration::from_millis(200)).await;
     }
 
-    //
+    // All positions analyzed
+    info!("Total positions analyzed: {}", total_positions_analyzed);
+    // log all positions analyzed
+    for position in &move_analyses {
+        info!("\tPosition: {:?}", position);
+    }
 
     // // 5. Generate summary statistics
     // let mut summary = EvaluationSummary {

@@ -23,18 +23,16 @@ pub fn number() -> impl Parser<char, u64, Error = Simple<char>> {
 
 /// Parse a signed number
 pub fn signed_number() -> impl Parser<char, i32, Error = Simple<char>> {
-    just('-')
-        .or_not()
-        .then(text::int(10))
-        .padded()
-        .map(|(sign, s): (Option<char>, String)| {
+    just('-').or_not().then(text::int(10)).padded().map(
+        |(sign, s): (Option<char>, String)| {
             let n = s.parse::<i32>().unwrap();
             if sign.is_some() {
                 -n
             } else {
                 n
             }
-        })
+        },
+    )
 }
 
 /// Parse a chess move (e.g., "e2e4")

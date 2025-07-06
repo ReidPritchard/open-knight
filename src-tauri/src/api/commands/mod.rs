@@ -8,7 +8,7 @@ use ok_engine_manager::events::EventEmitter;
 use ok_engine_manager::manager::EngineManager;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait};
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 
 pub mod chess;

@@ -6,7 +6,10 @@ use sea_orm::ActiveValue::Set;
 use sea_orm::ConnectionTrait;
 
 /// Saves a tournament to the database and returns its ID
-pub async fn save_tournament<C>(db: &C, tournament: &ChessTournament) -> Result<i32, AppError>
+pub async fn save_tournament<C>(
+    db: &C,
+    tournament: &ChessTournament,
+) -> Result<i32, AppError>
 where
     C: ConnectionTrait,
 {
@@ -23,13 +26,18 @@ where
     let result = tournament::Entity::insert(tournament_model)
         .exec(db)
         .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to save tournament: {}", e)))?;
+        .map_err(|e| {
+            AppError::DatabaseError(format!("Failed to save tournament: {}", e))
+        })?;
 
     Ok(result.last_insert_id)
 }
 
 /// Saves an opening to the database and returns its ID
-pub async fn save_opening<C>(db: &C, opening: &ChessOpening) -> Result<i32, AppError>
+pub async fn save_opening<C>(
+    db: &C,
+    opening: &ChessOpening,
+) -> Result<i32, AppError>
 where
     C: ConnectionTrait,
 {
@@ -46,7 +54,9 @@ where
     let result = opening::Entity::insert(opening_model)
         .exec(db)
         .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to save opening: {}", e)))?;
+        .map_err(|e| {
+            AppError::DatabaseError(format!("Failed to save opening: {}", e))
+        })?;
 
     Ok(result.last_insert_id)
 }
@@ -59,9 +69,17 @@ pub async fn load_tournament(
     let tournament = tournament::Entity::find_by_id(tournament_id)
         .one(db)
         .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to query tournament: {}", e)))?
+        .map_err(|e| {
+            AppError::DatabaseError(format!(
+                "Failed to query tournament: {}",
+                e
+            ))
+        })?
         .ok_or_else(|| {
-            AppError::DatabaseError(format!("Tournament with ID {} not found", tournament_id))
+            AppError::DatabaseError(format!(
+                "Tournament with ID {} not found",
+                tournament_id
+            ))
         })?;
 
     Ok(ChessTournament {
@@ -83,9 +101,14 @@ pub async fn load_opening(
     let opening = opening::Entity::find_by_id(opening_id)
         .one(db)
         .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to query opening: {}", e)))?
+        .map_err(|e| {
+            AppError::DatabaseError(format!("Failed to query opening: {}", e))
+        })?
         .ok_or_else(|| {
-            AppError::DatabaseError(format!("Opening with ID {} not found", opening_id))
+            AppError::DatabaseError(format!(
+                "Opening with ID {} not found",
+                opening_id
+            ))
         })?;
 
     Ok(ChessOpening {

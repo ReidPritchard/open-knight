@@ -231,10 +231,13 @@ export const API = {
 				`analyze position with ${engineName}`,
 			),
 
-		analyzeGame: (engineName: string, gameId: number) =>
+		analyzeGame: (boardId: number) =>
 			wrapAPICall<void>(
-				() => invoke<void>("analyze_game", { engineName, gameId }),
-				`analyze game ${gameId} with ${engineName}`,
+				() =>
+					invoke<void>("analyze_game", {
+						gameId: boardId,
+					}),
+				`analyze game ${boardId}`,
 			),
 
 		stopAnalysis: (engineName: string) =>

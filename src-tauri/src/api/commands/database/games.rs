@@ -59,7 +59,10 @@ pub async fn get_game_by_id(
 /// Parameters:
 /// - `game_id`: The ID of the game to delete
 #[tauri::command]
-pub async fn delete_game(game_id: i32, state: State<'_, AppState>) -> Result<(), AppError> {
+pub async fn delete_game(
+    game_id: i32,
+    state: State<'_, AppState>,
+) -> Result<(), AppError> {
     // TODO: Implement a 'soft' delete (by setting a deleted flag or timestamp)
     // to allow for temporary recovery of deleted games
     models::ChessGame::delete(&state.db, game_id).await?;
@@ -92,76 +95,83 @@ pub async fn update_game_property(
     let game_record = game::Entity::find_by_id(game_id)
         .one(&state.db)
         .await
-        .map_err(|e| AppError::DatabaseError(format!("Failed to query game: {}", e)))?
-        .ok_or_else(|| AppError::DatabaseError(format!("Game with ID {} not found", game_id)))?;
+        .map_err(|e| {
+            AppError::DatabaseError(format!("Failed to query game: {}", e))
+        })?
+        .ok_or_else(|| {
+            AppError::DatabaseError(format!(
+                "Game with ID {} not found",
+                game_id
+            ))
+        })?;
 
     match property {
         "date" => {
             info!("Updating date for game {} to {}", game_id, value);
-            
+
             // Create an ActiveModel for the update
             let mut game_active: game::ActiveModel = game_record.into();
             game_active.date_played = Set(Some(value.to_string()));
-            
+
             // Update the record
             game_active.update(&state.db).await
                 .map_err(|e| AppError::DatabaseError(format!("Failed to update game date: {}", e)))?;
-                
+
             info!("Game date updated successfully!");
         }
         "result" => {
             info!("Updating result for game {} to {}", game_id, value);
-            
+
             // Create an ActiveModel for the update
             let mut game_active: game::ActiveModel = game_record.into();
             game_active.result = Set(Some(value.to_string()));
-            
+
             // Update the record
             game_active.update(&state.db).await
                 .map_err(|e| AppError::DatabaseError(format!("Failed to update game result: {}", e)))?;
-                
+
             info!("Game result updated successfully!");
         }
         "white_player_name" => {
             info!("Updating white player name for game {} to {}", game_id, value);
-            
+
             // Get the white player record
             let white_player = player::Entity::find_by_id(game_record.white_player_id)
                 .one(&state.db)
                 .await
                 .map_err(|e| AppError::DatabaseError(format!("Failed to query white player: {}", e)))?
                 .ok_or_else(|| AppError::DatabaseError("White player not found".to_string()))?;
-            
+
             // Create an ActiveModel for the update
             let mut player_active: player::ActiveModel = white_player.into();
             player_active.name = Set(value.to_string());
             player_active.updated_at = Set(Some(chrono::Utc::now()));
-            
+
             // Update the record
             player_active.update(&state.db).await
                 .map_err(|e| AppError::DatabaseError(format!("Failed to update white player name: {}", e)))?;
-                
+
             info!("White player name updated successfully!");
         }
         "black_player_name" => {
             info!("Updating black player name for game {} to {}", game_id, value);
-            
+
             // Get the black player record
             let black_player = player::Entity::find_by_id(game_record.black_player_id)
                 .one(&state.db)
                 .await
                 .map_err(|e| AppError::DatabaseError(format!("Failed to query black player: {}", e)))?
                 .ok_or_else(|| AppError::DatabaseError("Black player not found".to_string()))?;
-            
+
             // Create an ActiveModel for the update
             let mut player_active: player::ActiveModel = black_player.into();
             player_active.name = Set(value.to_string());
             player_active.updated_at = Set(Some(chrono::Utc::now()));
-            
+
             // Update the record
             player_active.update(&state.db).await
                 .map_err(|e| AppError::DatabaseError(format!("Failed to update black player name: {}", e)))?;
-                
+
             info!("Black player name updated successfully!");
         }
         _ => {

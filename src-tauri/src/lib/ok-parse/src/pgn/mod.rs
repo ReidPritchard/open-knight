@@ -47,12 +47,17 @@ pub enum PgnToken {
 }
 
 impl std::fmt::Display for PgnToken {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         match self {
             PgnToken::MoveNumber { number } => write!(f, "{}.", number),
             PgnToken::Move { notation } => write!(f, "{} ", notation),
             PgnToken::Result { result } => write!(f, "{}", result),
-            PgnToken::Tag { name, value } => write!(f, "[{} \"{}\"]", name, value),
+            PgnToken::Tag { name, value } => {
+                write!(f, "[{} \"{}\"]", name, value)
+            }
             PgnToken::Comment { text } => write!(f, "{{{}}}", text),
             PgnToken::Variation { moves } => write!(
                 f,
@@ -102,7 +107,10 @@ impl PgnGame {
     }
 
     /// Get the value of a specific tag
-    pub fn get_tag(&self, tag_name: &str) -> Option<&str> {
+    pub fn get_tag(
+        &self,
+        tag_name: &str,
+    ) -> Option<&str> {
         self.tags.iter().find_map(|token| {
             if let PgnToken::Tag { name, value } = token {
                 if name == tag_name {
@@ -206,7 +214,9 @@ fn pgn_string_to_tokens(pgn: &str) -> Result<Vec<PgnToken>, PgnParseError> {
 ///
 /// # Returns
 /// * `Result<Vec<PgnGame>, PgnParseError>` - A vector of parsed PGN games or an error
-fn pgn_tokens_to_games(tokens: Vec<PgnToken>) -> Result<Vec<PgnGame>, Vec<PgnParseError>> {
+fn pgn_tokens_to_games(
+    tokens: Vec<PgnToken>
+) -> Result<Vec<PgnGame>, Vec<PgnParseError>> {
     let mut games = Vec::new();
     let mut current_game = Vec::new();
     let mut parse_errors = Vec::new();

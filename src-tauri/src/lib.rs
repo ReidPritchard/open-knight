@@ -17,6 +17,7 @@ pub const DATABASE_FILE_NAME: &str = "chess.db";
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .target(Target::new(TargetKind::Stdout))
@@ -27,6 +28,7 @@ pub fn run() {
                 .level_for("tao", LevelFilter::Off)
                 .build(),
         )
+        .plugin(tauri_plugin_prevent_default::init())
         .setup(|app| {
             let app_handle = app.handle();
             app.manage(

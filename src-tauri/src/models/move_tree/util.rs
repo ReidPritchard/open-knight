@@ -7,7 +7,10 @@ impl ChessMoveTree {
     /// - `include_variations`: Whether to include variations in the extraction
     ///
     /// Returns a vector of ChessPosition objects
-    pub fn extract_positions(&self, include_variations: bool) -> Vec<ChessPosition> {
+    pub fn extract_positions(
+        &self,
+        include_variations: bool,
+    ) -> Vec<ChessPosition> {
         let mut positions: Vec<ChessPosition> = Vec::new();
 
         let tree_nodes = if include_variations {

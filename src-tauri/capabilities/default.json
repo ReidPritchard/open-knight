@@ -16,6 +16,8 @@
     "core:menu:default",
     "core:tray:default",
     "core:window:allow-set-title",
-    "log:default"
+    "log:default",
+    "process:default",
+    "process:default"
   ]
 }

@@ -1,7 +1,10 @@
 use crate::entities::*;
 use crate::models::{ChessGame, ChessMove, ChessPosition};
 use sea_orm::QueryFilter;
-use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QuerySelect, Select};
+use sea_orm::{
+    ColumnTrait, Condition, DatabaseConnection, EntityTrait, QuerySelect,
+    Select,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use ts_rs::TS;
@@ -150,7 +153,7 @@ impl ColumnMapper for tag::Entity {
 }
 
 fn apply_filters<E: EntityTrait + ColumnMapper>(
-    filter: Option<&HashMap<String, String>>,
+    filter: Option<&HashMap<String, String>>
 ) -> Condition {
     let mut condition = Condition::all();
 
@@ -170,7 +173,8 @@ fn select_fields<E: EntityTrait + ColumnMapper>(
     fields: Option<&Vec<String>>,
 ) -> Select<E> {
     if let Some(fields) = fields {
-        let columns: Vec<_> = fields.iter().filter_map(|f| E::get_column(f)).collect();
+        let columns: Vec<_> =
+            fields.iter().filter_map(|f| E::get_column(f)).collect();
 
         if !columns.is_empty() {
             return query.select_only().columns(columns);
@@ -189,7 +193,8 @@ pub async fn query_entities(
 
     let result = match entity {
         "games" => {
-            let condition = apply_filters::<game::Entity>(params.filter.as_ref());
+            let condition =
+                apply_filters::<game::Entity>(params.filter.as_ref());
             select_fields(game::Entity::find(), params.fields.as_ref())
                 .filter(condition)
                 .limit(limit)
@@ -199,7 +204,8 @@ pub async fn query_entities(
                 .await?
         }
         "players" => {
-            let condition = apply_filters::<player::Entity>(params.filter.as_ref());
+            let condition =
+                apply_filters::<player::Entity>(params.filter.as_ref());
             select_fields(player::Entity::find(), params.fields.as_ref())
                 .filter(condition)
                 .limit(limit)
@@ -209,7 +215,8 @@ pub async fn query_entities(
                 .await?
         }
         "tournaments" => {
-            let condition = apply_filters::<tournament::Entity>(params.filter.as_ref());
+            let condition =
+                apply_filters::<tournament::Entity>(params.filter.as_ref());
             select_fields(tournament::Entity::find(), params.fields.as_ref())
                 .filter(condition)
                 .limit(limit)
@@ -219,7 +226,8 @@ pub async fn query_entities(
                 .await?
         }
         "moves" => {
-            let condition = apply_filters::<r#move::Entity>(params.filter.as_ref());
+            let condition =
+                apply_filters::<r#move::Entity>(params.filter.as_ref());
             select_fields(r#move::Entity::find(), params.fields.as_ref())
                 .filter(condition)
                 .limit(limit)
@@ -229,7 +237,8 @@ pub async fn query_entities(
                 .await?
         }
         "openings" => {
-            let condition = apply_filters::<opening::Entity>(params.filter.as_ref());
+            let condition =
+                apply_filters::<opening::Entity>(params.filter.as_ref());
             select_fields(opening::Entity::find(), params.fields.as_ref())
                 .filter(condition)
                 .limit(limit)
@@ -239,7 +248,8 @@ pub async fn query_entities(
                 .await?
         }
         "tags" => {
-            let condition = apply_filters::<tag::Entity>(params.filter.as_ref());
+            let condition =
+                apply_filters::<tag::Entity>(params.filter.as_ref());
             select_fields(tag::Entity::find(), params.fields.as_ref())
                 .filter(condition)
                 .limit(limit)

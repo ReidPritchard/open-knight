@@ -30,7 +30,10 @@ impl GameSession {
                 || self.last_saved_at.elapsed() > Duration::from_secs(30))
     }
 
-    pub async fn persist(&mut self, db: &DatabaseConnection) -> Result<(), AppError> {
+    pub async fn persist(
+        &mut self,
+        db: &DatabaseConnection,
+    ) -> Result<(), AppError> {
         self.save_to_database(db, true).await?;
         self.last_saved_at = Instant::now();
         self.move_count_since_save = 0;
@@ -38,7 +41,10 @@ impl GameSession {
         Ok(())
     }
 
-    pub async fn make_move(&mut self, move_notation: &str) -> Result<(), AppError> {
+    pub async fn make_move(
+        &mut self,
+        move_notation: &str,
+    ) -> Result<(), AppError> {
         self.game.make_uci_move(move_notation).await?;
         self.dirty = true;
         self.move_count_since_save += 1;
@@ -97,7 +103,10 @@ impl GameSession {
 /// These are methods that only call methods on the game session's game
 /// and don't actually mutate or use the game session.
 impl GameSession {
-    pub fn next_move(&mut self, variation: usize) -> Result<(), AppError> {
+    pub fn next_move(
+        &mut self,
+        variation: usize,
+    ) -> Result<(), AppError> {
         self.game.move_tree.next_move(Some(variation));
         Ok(())
     }
@@ -107,7 +116,10 @@ impl GameSession {
         Ok(())
     }
 
-    pub fn reset_to_position(&mut self, move_db_id: i32) -> Result<(), AppError> {
+    pub fn reset_to_position(
+        &mut self,
+        move_db_id: i32,
+    ) -> Result<(), AppError> {
         self.game.move_tree.move_to_move(move_db_id);
         Ok(())
     }
@@ -122,7 +134,10 @@ impl GameSession {
         Ok(())
     }
 
-    pub fn extract_positions(&self, include_variations: bool) -> Vec<crate::models::ChessPosition> {
+    pub fn extract_positions(
+        &self,
+        include_variations: bool,
+    ) -> Vec<crate::models::ChessPosition> {
         self.game.move_tree.extract_positions(include_variations)
     }
 }

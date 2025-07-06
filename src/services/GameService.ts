@@ -1,3 +1,4 @@
+import { debug, info } from "@tauri-apps/plugin-log";
 import { API } from "../shared/api";
 import type {
 	ChessGame,
@@ -100,7 +101,7 @@ export async function createGameSession(
 	const result = await withErrorHandling(
 		async () => {
 			const game = await API.games.create(boardId, type);
-			console.log("New game session:", game);
+			info("Created new game session");
 			return { id: game.id, game };
 		},
 		ErrorCategory.CHESS_GAME,
@@ -142,7 +143,7 @@ export async function closeGameSession(
 	const result = await withErrorHandling(
 		async () => {
 			await API.board.close(boardId);
-			console.log("Closed game session:", boardId);
+			info(`Closed game session: boardId#${boardId}`);
 		},
 		ErrorCategory.GENERAL,
 		"UNEXPECTED",
@@ -165,7 +166,7 @@ export async function makeMove(
 		async () => {
 			// Check if move already exists in the tree
 			if (moveExistsInTree(currentGame, moveNotation)) {
-				console.log("Move already exists, navigating to next move");
+				info(`Move already exists in tree: ${moveNotation}`);
 				const nextMoveResult = await navigateToNextMove(boardId);
 				if (!nextMoveResult.success || !nextMoveResult.data) {
 					throw new Error(
@@ -175,9 +176,9 @@ export async function makeMove(
 				return nextMoveResult.data;
 			}
 
-			console.log("Move is new, adding to move tree");
+			debug(`Making move: ${moveNotation} on boardId#${boardId}`);
 			const updatedGame = await API.board.move(boardId, moveNotation);
-			console.log("Move made successfully:", updatedGame);
+			debug(`Move made successfully: ${moveNotation} on boardId#${boardId}`);
 			return updatedGame;
 		},
 		ErrorCategory.CHESS_GAME,
@@ -198,7 +199,6 @@ export async function navigateToPreviousMove(
 	const result = await withErrorHandling(
 		async () => {
 			const updatedGame = await API.board.previous(boardId);
-			console.log("Moved to previous position:", updatedGame);
 			return updatedGame;
 		},
 		ErrorCategory.CHESS_GAME,
@@ -219,7 +219,6 @@ export async function navigateToNextMove(
 	const result = await withErrorHandling(
 		async () => {
 			const updatedGame = await API.board.next(boardId);
-			console.log("Moved to next position:", updatedGame);
 			return updatedGame;
 		},
 		ErrorCategory.CHESS_GAME,
@@ -263,7 +262,7 @@ export async function navigateToStart(
 		async () => {
 			await API.board.toStart(boardId);
 			const updatedGame = await API.board.getState(boardId);
-			console.log("Navigated to start:", updatedGame);
+			debug(`Navigated to start of game on boardId#${boardId}`);
 			return updatedGame;
 		},
 		ErrorCategory.CHESS_GAME,

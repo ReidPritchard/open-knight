@@ -20,7 +20,10 @@ enum Game {
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
-    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn up(
+        &self,
+        manager: &SchemaManager,
+    ) -> Result<(), DbErr> {
         // Create a new table for game headers
         manager
             .create_table(
@@ -59,7 +62,10 @@ impl MigrationTrait for Migration {
         Ok(())
     }
 
-    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn down(
+        &self,
+        manager: &SchemaManager,
+    ) -> Result<(), DbErr> {
         // Drop the game headers table
         manager
             .drop_table(Table::drop().table(GameHeader::Table).to_owned())

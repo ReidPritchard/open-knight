@@ -121,9 +121,11 @@ where
         // TODO: Improve check if the exact engine is already loaded
         // If it is, return an error
         if self.engines.contains_key(name) {
-            return Err(Box::new(EngineError::EngineAlreadyRunning(
-                name.to_string(),
-            )));
+            // return Err(Box::new(EngineError::EngineAlreadyRunning(
+            //     name.to_string(),
+            // )));
+            // Don't return an error, just don't try to load it
+            return Ok(());
         }
 
         let mut command = Command::new(path);
