@@ -1,5 +1,5 @@
 use crate::models::ChessMoveTree;
-use crate::ts_export;
+use ok_utils::ts_export;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 

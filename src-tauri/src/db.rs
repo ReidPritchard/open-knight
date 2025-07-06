@@ -68,7 +68,9 @@ pub async fn resolve_database_url(app_handle: &AppHandle) -> String {
         .expect("Failed to get the App Data directory");
 
     // Create the app directory if it doesn't exist
-    fs::create_dir_all(&app_dir).await;
+    fs::create_dir_all(&app_dir).await.unwrap_or_else(|e| {
+        error!("Failed to create app data directory: {}", e);
+    });
 
     // Construct the full path to the database file
     let database_file_path = app_dir.join(DATABASE_FILE_NAME);

@@ -1,4 +1,4 @@
-use crate::ts_export;
+use ok_utils::ts_export;
 
 use serde::{Deserialize, Serialize};
 use slotmap::{DefaultKey, SlotMap};
@@ -53,7 +53,7 @@ impl ChessMoveTree {
         root_position: ChessPosition,
     ) -> Self {
         let mut tree = ChessMoveTree {
-            game_id: game_id,
+            game_id,
             ..Default::default()
         };
 

@@ -217,7 +217,7 @@ impl ChessGame {
             let parts = date
                 .split(".")
                 .map(|part| {
-                    if part == "" || part == "?" {
+                    if part.is_empty() || part == "?" {
                         "??"
                     } else {
                         part

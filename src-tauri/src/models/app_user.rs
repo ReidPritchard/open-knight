@@ -1,7 +1,8 @@
+use ok_utils::ts_export;
 use sea_orm::ActiveValue::Set;
 use serde::{Deserialize, Serialize};
 
-use crate::{entities::user, ts_export};
+use crate::entities::user;
 use ts_rs::TS;
 
 ts_export! {

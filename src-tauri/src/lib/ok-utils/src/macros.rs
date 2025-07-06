@@ -1,7 +1,6 @@
 /// Wrapper macro for ts-rs that uses a consistent export path
 /// Mimics the behavior of a constant path which rs-ts does not support
 ///
-///
 #[macro_export]
 macro_rules! ts_export {
     ($struct:item) => {

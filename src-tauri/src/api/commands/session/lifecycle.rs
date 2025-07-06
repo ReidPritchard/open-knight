@@ -1,7 +1,7 @@
-use crate::api::commands::AppState;
 use crate::api::database::QueryParams;
 use crate::models;
 use crate::utils::AppError;
+use crate::AppState;
 use tauri::State;
 
 /// Creates a new game session with a fresh game

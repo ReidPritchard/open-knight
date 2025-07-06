@@ -1,7 +1,7 @@
-use crate::api::commands::AppState;
 use crate::db::reset_database;
 use crate::models;
 use crate::utils::AppError;
+use crate::AppState;
 use tauri::State;
 
 /// Resets the database to its initial empty state

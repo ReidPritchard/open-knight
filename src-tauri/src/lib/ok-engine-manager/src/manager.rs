@@ -1,15 +1,16 @@
 use log::{error, info};
+use ok_utils::ts_export;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::process::Command;
+use ts_rs::TS;
 
 use ok_parse::uci::OptionDefinition;
 
 use crate::events::EventEmitter;
 
 use super::events::{EngineStateInfoEvent, EventBus};
-use super::utils::EngineError;
 use super::{
     process::EngineProcess,
     protocol::{
@@ -19,23 +20,24 @@ use super::{
     state::engine_state::{EngineReadyState, EngineStateInfo},
 };
 
-/// Time management strategies for analysis
-///
-/// For a single position analysis, total and fixed result in the same behavior.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum TimeStrategy {
-    /// Total time budget distributed across all moves
-    TotalBudget {
-        total_seconds: u64,
-    },
-    // Fixed time per move
-    FixedPerMove {
-        seconds_per_move: u64,
-    },
-    /// Fixed depth per move
-    FixedDepth {
-        depth: u32,
-    },
+ts_export! {
+    /// Time management strategies for analysis
+    ///
+    /// For a single position analysis, total and fixed result in the same behavior.
+    pub enum TimeStrategy {
+        /// Total time budget distributed across all moves
+        TotalBudget {
+            total_seconds: u64,
+        },
+        // Fixed time per move
+        FixedPerMove {
+            seconds_per_move: u64,
+        },
+        /// Fixed depth per move
+        FixedDepth {
+            depth: u32,
+        },
+    }
 }
 
 impl Default for TimeStrategy {

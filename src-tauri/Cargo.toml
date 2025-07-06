@@ -14,17 +14,44 @@ tauri-build = { version = "2.0.0", features = [] }
 
 [dependencies]
 tauri = { version = "2.0.0", features = ["devtools"] }
-ok-parse = { path = "./src/lib/ok-parse" }
-ok-analysis = { path = "./src/lib/ok-analysis" }
-ok-engine-manager = { path = "./src/lib/ok-engine-manager" }
 tauri-plugin-shell = "2.3.0"
 tauri-plugin-prevent-default = "2.1"
 tauri-plugin-log = "2.6.0"
 tauri-plugin-process = "2"
-log = "0.4.27"
+ok-parse = { workspace = true }
+ok-analysis = { workspace = true }
+ok-engine-manager = { workspace = true }
+ok-utils = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+shakmaty = { workspace = true }
+ts-rs = { workspace = true }
+sea-orm = { workspace = true }
+sea-orm-migration = { workspace = true }
+rustls = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+slotmap = { workspace = true }
+itertools = { workspace = true }
+
+[workspace]
+members = ["./src/lib/*"]
+
+[workspace.dependencies]
+ok-parse = { path = "./src/lib/ok-parse" }
+ok-analysis = { path = "./src/lib/ok-analysis" }
+ok-engine-manager = { path = "./src/lib/ok-engine-manager" }
+ok-utils = { path = "./src/lib/ok-utils" }
+chumsky = "0.9.0"
+thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+log = "0.4.27"
+pretty_env_logger = "0.5.0"
 shakmaty = "0.27.2"
+tokio = { version = "1", features = ["full"] }
 ts-rs = { version = "~11.0.0", features = ["serde-compat"] }
 sea-orm = { version = "1.1.12", features = [
     "sqlx-sqlite",
@@ -37,22 +64,6 @@ sea-orm-migration = { version = "1.1.12", features = [
     "runtime-tokio-rustls",
 ] }
 rustls = { version = ">0.22.0" }
-tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"
-thiserror = "2"
 slotmap = { version = "1.0", features = ["serde"] }
 itertools = "0.14.0"
-
-[workspace]
-members = ["./src/lib/*"]
-
-[workspace.dependencies]
-ok-parse = { path = "./src/lib/ok-parse" }
-chumsky = "0.9.0"
-thiserror = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-log = "0.4.27"
-pretty_env_logger = "0.5.0"
-shakmaty = "0.27.2"
-tokio = { version = "1", features = ["full"] }

@@ -6,6 +6,7 @@ authors = ["Reid Pritchard"]
 edition = "2021"
 
 [dependencies]
+ok-utils = { workspace = true }
 ok-parse = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
@@ -14,3 +15,4 @@ log = { workspace = true }
 pretty_env_logger = { workspace = true }
 shakmaty = { workspace = true }
 tokio = { workspace = true }
+ts-rs = { workspace = true }

@@ -1,0 +1,12 @@
+[package]
+name = "ok-utils"
+version = "0.1.0"
+description = "Utility library for Open Knight, providing common functionality across the application"
+authors = ["Reid Pritchard"]
+edition = "2021"
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true }
+log = { workspace = true }
+pretty_env_logger = { workspace = true }

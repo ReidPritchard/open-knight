@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use super::AppState;
 use crate::utils::AppError;
+use crate::AppState;
 use log::{debug, error, info};
 use ok_analysis::*;
 use ok_engine_manager::{
@@ -249,7 +249,7 @@ pub async fn analyze_game(
                 EngineStateInfoEvent::AnalysisUpdate(update) => {
                     info!("Analysis update received");
                     current_analysis = Some(update);
-                    return true; // Continue monitoring
+                    true // Continue monitoring
                 }
                 EngineStateInfoEvent::BestMove(best_move, best_move_score) => {
                     // Indicates the analysis is complete
@@ -257,11 +257,11 @@ pub async fn analyze_game(
                         "Best move received {} score: {:?}",
                         best_move, best_move_score
                     );
-                    return false; // Stop monitoring
+                    false // Stop monitoring
                 }
                 _ => {
                     // For any other events, ignore them and continue to monitor
-                    return true;
+                    true
                 }
             })
             .await;

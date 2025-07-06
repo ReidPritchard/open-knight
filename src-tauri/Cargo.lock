@@ -2944,12 +2944,14 @@ version = "0.1.0"
 dependencies = [
  "log",
  "ok-parse",
+ "ok-utils",
  "pretty_env_logger",
  "serde",
  "serde_json",
  "shakmaty",
  "thiserror 2.0.12",
  "tokio",
+ "ts-rs",
 ]
 
 [[package]]
@@ -2957,6 +2959,16 @@ name = "ok-parse"
 version = "0.1.0"
 dependencies = [
  "chumsky",
+ "log",
+ "pretty_env_logger",
+ "serde",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "ok-utils"
+version = "0.1.0"
+dependencies = [
  "log",
  "pretty_env_logger",
  "serde",
@@ -2997,6 +3009,7 @@ dependencies = [
  "ok-analysis",
  "ok-engine-manager",
  "ok-parse",
+ "ok-utils",
  "rustls",
  "sea-orm",
  "sea-orm-migration",

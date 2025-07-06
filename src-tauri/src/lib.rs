@@ -1,15 +1,15 @@
-use api::AppState;
 use log::LevelFilter;
+use state::AppState;
 use tauri::Manager;
 use tauri_plugin_log::{Target, TargetKind};
 
 pub mod api;
 pub mod db;
 pub mod entities;
-pub mod macros;
 pub mod migrations;
 pub mod models;
 pub mod session;
+pub mod state;
 pub mod utils;
 
 pub const DATABASE_FILE_NAME: &str = "chess.db";

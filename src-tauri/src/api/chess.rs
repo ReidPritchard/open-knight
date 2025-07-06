@@ -3,7 +3,7 @@ use shakmaty::san::San;
 use shakmaty::{fen::Fen, CastlingMode, Chess, Position};
 use ts_rs::TS;
 
-use crate::ts_export;
+use ok_utils::ts_export;
 
 ts_export! {
     pub struct LegalMove {

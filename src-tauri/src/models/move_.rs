@@ -1,5 +1,5 @@
 use crate::entities::{annotation, move_time_tracking, position, r#move};
-use crate::ts_export;
+use ok_utils::ts_export;
 
 use sea_orm::prelude::*;
 use sea_orm::sqlx::types::chrono;

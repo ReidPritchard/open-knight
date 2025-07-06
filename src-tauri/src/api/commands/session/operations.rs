@@ -1,5 +1,5 @@
-use crate::api::commands::AppState;
 use crate::utils::AppError;
+use crate::AppState;
 use tauri::State;
 
 /// Makes a move in a game session

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use ts_rs::TS;
 
-use crate::ts_export;
+use ok_utils::ts_export;
 
 ts_export! {
     pub struct QueryParams {

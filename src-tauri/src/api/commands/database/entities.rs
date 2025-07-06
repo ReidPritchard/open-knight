@@ -1,6 +1,6 @@
-use crate::api::commands::AppState;
 use crate::api::database::QueryParams;
 use crate::utils::AppError;
+use crate::AppState;
 use tauri::State;
 
 /// Queries entities of a specific type from the database
