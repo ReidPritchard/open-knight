@@ -12,27 +12,25 @@ mod navigation;
 pub mod parse;
 pub mod util;
 
-ts_export! {
-    pub struct ChessMoveTree {
-        pub game_id: i32,
-        #[ts(type = "{ value: ChessTreeNode | null, version: number }[]")]
-        pub nodes: SlotMap<DefaultKey, ChessTreeNode>,
-        #[ts(type = "{ idx: number, version: number }", optional)]
-        pub root_id: Option<DefaultKey>,
-        #[ts(type = "{ idx: number, version: number }", optional)]
-        pub current_node_id: Option<DefaultKey>,
-    }
+#[ts_export]
+pub struct ChessMoveTree {
+    pub game_id: i32,
+    #[ts(type = "{ value: ChessTreeNode | null, version: number }[]")]
+    pub nodes: SlotMap<DefaultKey, ChessTreeNode>,
+    #[ts(type = "{ idx: number, version: number }", optional)]
+    pub root_id: Option<DefaultKey>,
+    #[ts(type = "{ idx: number, version: number }", optional)]
+    pub current_node_id: Option<DefaultKey>,
 }
 
-ts_export! {
-    pub struct ChessTreeNode {
-        pub position: ChessPosition,
-        pub game_move: Option<ChessMove>, // Root node will have None
-        #[ts(type = "{ idx: number, version: number } | null")]
-        pub parent_id: Option<DefaultKey>,
-        #[ts(type = "{ idx: number, version: number }[]")]
-        pub children_ids: Vec<DefaultKey>,
-    }
+#[ts_export]
+pub struct ChessTreeNode {
+    pub position: ChessPosition,
+    pub game_move: Option<ChessMove>, // Root node will have None
+    #[ts(type = "{ idx: number, version: number } | null")]
+    pub parent_id: Option<DefaultKey>,
+    #[ts(type = "{ idx: number, version: number }[]")]
+    pub children_ids: Vec<DefaultKey>,
 }
 
 impl Default for ChessMoveTree {

@@ -14,54 +14,49 @@ use std::error::Error;
 use std::hash::{DefaultHasher, Hasher};
 use ts_rs::TS;
 
-ts_export! {
-    pub struct ChessMove {
-        pub id: i32,
-        pub game_id: i32,
-        pub ply_number: i32,
-        pub san: String,
-        pub uci: String,
-        pub position: Option<ChessPosition>, // The resulting position after the move is played
-        pub annotations: Vec<ChessAnnotation>,
-        pub time_info: Option<ChessMoveTime>,
-        pub parent_move_id: Option<i32>,
-    }
+#[ts_export]
+pub struct ChessMove {
+    pub id: i32,
+    pub game_id: i32,
+    pub ply_number: i32,
+    pub san: String,
+    pub uci: String,
+    pub position: Option<ChessPosition>, // The resulting position after the move is played
+    pub annotations: Vec<ChessAnnotation>,
+    pub time_info: Option<ChessMoveTime>,
+    pub parent_move_id: Option<i32>,
 }
 
-ts_export! {
-    pub struct ChessPosition {
-        pub id: i32,
-        pub fen: String,
-        pub evaluations: Vec<ChessEvaluation>,
-        pub variant: Option<String>, // TODO: Handle Chess960
-    }
+#[ts_export]
+pub struct ChessPosition {
+    pub id: i32,
+    pub fen: String,
+    pub evaluations: Vec<ChessEvaluation>,
+    pub variant: Option<String>, // TODO: Handle Chess960
 }
 
-ts_export! {
-    pub struct ChessAnnotation {
-        pub id: i32,
-        pub comment: Option<String>,
-        pub arrows: Option<String>,
-        pub highlights: Option<String>,
-    }
+#[ts_export]
+pub struct ChessAnnotation {
+    pub id: i32,
+    pub comment: Option<String>,
+    pub arrows: Option<String>,
+    pub highlights: Option<String>,
 }
 
-ts_export! {
-    pub struct ChessMoveTime {
-        pub time_spent_ms: Option<i32>,
-        pub time_left_ms: Option<i32>,
-    }
+#[ts_export]
+pub struct ChessMoveTime {
+    pub time_spent_ms: Option<i32>,
+    pub time_left_ms: Option<i32>,
 }
 
-ts_export! {
-    pub struct ChessEvaluation {
-        pub score: Option<f32>,
-        pub eval_type: Option<String>, // TODO: Remove this in favor of is_mate
-        pub is_mate: bool, // Whether this is a mate score
-        pub depth: Option<i32>,
-        pub engine: Option<String>,
-        pub principal_variation: Vec<String>,
-    }
+#[ts_export]
+pub struct ChessEvaluation {
+    pub score: Option<f32>,
+    pub eval_type: Option<String>, // TODO: Remove this in favor of is_mate
+    pub is_mate: bool,             // Whether this is a mate score
+    pub depth: Option<i32>,
+    pub engine: Option<String>,
+    pub principal_variation: Vec<String>,
 }
 
 fn hash_fen(fen: &str) -> String {

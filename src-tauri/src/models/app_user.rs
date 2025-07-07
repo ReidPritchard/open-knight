@@ -1,19 +1,15 @@
+use crate::entities::user;
 use ok_utils::ts_export;
 use sea_orm::ActiveValue::Set;
-use serde::{Deserialize, Serialize};
 
-use crate::entities::user;
-use ts_rs::TS;
-
-ts_export! {
-    /// A user of the application. Wraps the user db entity.
-    #[derive(Default)]
-    pub struct AppUser {
-        pub user_id: Option<i32>,
-        pub username: String,
-        pub email: String,
-        pub created_at: Option<String>,
-    }
+/// A user of the application. Wraps the user db entity.
+#[ts_export]
+#[derive(Default)]
+pub struct AppUser {
+    pub user_id: Option<i32>,
+    pub username: String,
+    pub email: String,
+    pub created_at: Option<String>,
 }
 
 /// Convert from an AppUser to a user::Model

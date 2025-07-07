@@ -5,8 +5,16 @@ description = "Utility library for Open Knight, providing common functionality a
 authors = ["Reid Pritchard"]
 edition = "2021"
 
+[lib]
+proc-macro = true
+
 [dependencies]
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0", features = ["full"] }
 thiserror = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 log = { workspace = true }
 pretty_env_logger = { workspace = true }
+ts-rs = { workspace = true }

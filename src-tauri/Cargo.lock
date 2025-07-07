@@ -2971,8 +2971,13 @@ version = "0.1.0"
 dependencies = [
  "log",
  "pretty_env_logger",
+ "proc-macro2",
+ "quote",
  "serde",
+ "serde_json",
+ "syn 2.0.104",
  "thiserror 2.0.12",
+ "ts-rs",
 ]
 
 [[package]]

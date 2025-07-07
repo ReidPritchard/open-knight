@@ -1,28 +1,24 @@
 use crate::entities::*;
 use crate::models::{ChessGame, ChessMove, ChessPosition};
+use ok_utils::ts_export;
 use sea_orm::QueryFilter;
 use sea_orm::{
     ColumnTrait, Condition, DatabaseConnection, EntityTrait, QuerySelect,
     Select,
 };
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use ts_rs::TS;
 
-use ok_utils::ts_export;
-
-ts_export! {
-    pub struct QueryParams {
-        #[ts(type = "number")]
-        pub limit: Option<u64>,
-        #[ts(type = "number")]
-        pub offset: Option<u64>,
-        pub fields: Option<Vec<String>>,
-        pub filter: Option<HashMap<String, String>>,
-        pub load_moves: Option<bool>,
-        pub load_tags: Option<bool>,
-        pub load_headers: Option<bool>,
-    }
+#[ts_export]
+pub struct QueryParams {
+    #[ts(type = "number")]
+    pub limit: Option<u64>,
+    #[ts(type = "number")]
+    pub offset: Option<u64>,
+    pub fields: Option<Vec<String>>,
+    pub filter: Option<HashMap<String, String>>,
+    pub load_moves: Option<bool>,
+    pub load_tags: Option<bool>,
+    pub load_headers: Option<bool>,
 }
 
 impl Default for QueryParams {
@@ -39,12 +35,11 @@ impl Default for QueryParams {
     }
 }
 
-ts_export! {
-    pub struct QueryResult {
-        #[ts(type = "string[]")]
-        pub data: Vec<serde_json::Value>,
-        pub total: usize,
-    }
+#[ts_export]
+pub struct QueryResult {
+    #[ts(type = "string[]")]
+    pub data: Vec<serde_json::Value>,
+    pub total: usize,
 }
 
 /// Trait for mapping string field names to entity columns

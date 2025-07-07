@@ -1,15 +1,11 @@
-use serde::{Deserialize, Serialize};
+use ok_utils::ts_export;
 use shakmaty::san::San;
 use shakmaty::{fen::Fen, CastlingMode, Chess, Position};
-use ts_rs::TS;
 
-use ok_utils::ts_export;
-
-ts_export! {
-    pub struct LegalMove {
-        pub san: String,
-        pub uci: String,
-    }
+#[ts_export]
+pub struct LegalMove {
+    pub san: String,
+    pub uci: String,
 }
 
 pub fn get_legal_moves(
